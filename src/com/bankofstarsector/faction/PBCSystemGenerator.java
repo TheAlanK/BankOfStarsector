@@ -4,7 +4,10 @@ import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.*;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.ids.*;
+import com.fs.starfarer.api.impl.campaign.procgen.NebulaEditor;
 import com.fs.starfarer.api.impl.campaign.procgen.StarSystemGenerator;
+import com.fs.starfarer.api.impl.campaign.terrain.HyperspaceTerrainPlugin;
+import com.fs.starfarer.api.util.Misc;
 
 import org.apache.log4j.Logger;
 
@@ -35,6 +38,7 @@ public class PBCSystemGenerator {
         system.addTag(Tags.THEME_CORE_POPULATED);
         system.setProcgen(false);
         system.setType(StarSystemGenerator.StarSystemType.SINGLE);
+        system.setBackgroundTextureFilename("graphics/backgrounds/background1.jpg");
 
         // Star
         PlanetAPI star = system.initStar("aurum_star", "star_yellow", 800f, 400f);
@@ -92,6 +96,14 @@ public class PBCSystemGenerator {
             }
         }
 
+        // Clear hyperspace nebula around the system (like vanilla core worlds)
+        HyperspaceTerrainPlugin plugin = (HyperspaceTerrainPlugin) Misc.getHyperspaceTerrain().getPlugin();
+        NebulaEditor editor = new NebulaEditor(plugin);
+        float minRadius = plugin.getTileSize() * 2f;
+        float radius = system.getMaxRadiusInHyperspace();
+        editor.clearArc(system.getLocation().x, system.getLocation().y, 0, radius + minRadius * 0.5f, 0, 360f);
+        editor.clearArc(system.getLocation().x, system.getLocation().y, 0, radius + minRadius, 0, 360f, 0.25f);
+
         log.info("Bank of Starsector: Aurum system generated (core world, pre-explored).");
     }
 
@@ -114,8 +126,7 @@ public class PBCSystemGenerator {
         // =====================================================================
         SectorEntityToken bullion = sector.getEntityById("pbc_bullion");
         if (bullion != null) {
-            MarketAPI m = addMarket(bullion, "pbc_bullion_market", FACTION_ID, 7);
-            m.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
+            MarketAPI m = createMarket(bullion, "pbc_bullion_market", FACTION_ID, 7);
 
             // Planet conditions
             m.addCondition(Conditions.POPULATION_7);
@@ -141,6 +152,7 @@ public class PBCSystemGenerator {
             m.addSubmarket(Submarkets.SUBMARKET_OPEN);
             m.addSubmarket(Submarkets.GENERIC_MILITARY);
 
+            finalizeMarket(m);
             log.info("Bullion market created (size 7).");
         } else {
             log.error("pbc_bullion planet not found!");
@@ -152,8 +164,7 @@ public class PBCSystemGenerator {
         // =====================================================================
         SectorEntityToken vault = sector.getEntityById("pbc_vault");
         if (vault != null) {
-            MarketAPI m = addMarket(vault, "pbc_vault_market", FACTION_ID, 5);
-            m.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
+            MarketAPI m = createMarket(vault, "pbc_vault_market", FACTION_ID, 5);
 
             // Planet conditions
             m.addCondition(Conditions.POPULATION_5);
@@ -174,6 +185,7 @@ public class PBCSystemGenerator {
             m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
             m.addSubmarket(Submarkets.SUBMARKET_OPEN);
 
+            finalizeMarket(m);
             log.info("Vault market created (size 5).");
         } else {
             log.error("pbc_vault planet not found!");
@@ -185,8 +197,7 @@ public class PBCSystemGenerator {
         // =====================================================================
         SectorEntityToken ledgerStation = sector.getEntityById("pbc_ledger_station");
         if (ledgerStation != null) {
-            MarketAPI m = addMarket(ledgerStation, "pbc_ledger_market", FACTION_ID, 4);
-            m.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
+            MarketAPI m = createMarket(ledgerStation, "pbc_ledger_market", FACTION_ID, 4);
 
             // Station conditions
             m.addCondition(Conditions.POPULATION_4);
@@ -203,25 +214,43 @@ public class PBCSystemGenerator {
             m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
             m.addSubmarket(Submarkets.SUBMARKET_OPEN);
 
+            finalizeMarket(m);
             log.info("Ledger Station market created (size 4).");
         } else {
             log.error("pbc_ledger_station entity not found!");
         }
 
-        log.info("Bank of Starsector: All markets generated successfully.");
+        // Mark the entire system as explored and all planets surveyed
+        // This is the critical step - setEnteredByPlayer alone is not enough,
+        // Misc.setAllPlanetsSurveyed also marks all conditions as surveyed
+        system.setEnteredByPlayer(true);
+        Misc.setAllPlanetsSurveyed(system, true);
+
+        log.info("Bank of Starsector: All markets generated and system marked explored.");
     }
 
-    private static MarketAPI addMarket(SectorEntityToken entity, String marketId, String factionId, int size) {
-        SectorAPI sector = Global.getSector();
+    /**
+     * Creates a market but does NOT register it with the economy yet.
+     * Call finalizeMarket() after adding all conditions and industries.
+     */
+    private static MarketAPI createMarket(SectorEntityToken entity, String marketId, String factionId, int size) {
         MarketAPI market = Global.getFactory().createMarket(marketId, entity.getName(), size);
         market.setFactionId(factionId);
         market.setPrimaryEntity(entity);
         market.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
-        market.getTariff().modifyFlat("default_tariff", 0.3f);
+        market.getTariff().modifyFlat("generator", 0.3f);
         market.setEconGroup(market.getId());
+        market.getLocationInHyperspace().set(entity.getLocationInHyperspace());
         entity.setMarket(market);
         entity.setFaction(factionId);
-        sector.getEconomy().addMarket(market, true);
         return market;
+    }
+
+    /**
+     * Registers a fully-configured market with the global economy.
+     * Must be called AFTER all conditions, industries, and submarkets are added.
+     */
+    private static void finalizeMarket(MarketAPI market) {
+        Global.getSector().getEconomy().addMarket(market, true);
     }
 }
