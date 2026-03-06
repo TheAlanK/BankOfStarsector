@@ -30,11 +30,10 @@ public class PBCSystemGenerator {
         StarSystemAPI system = sector.createStarSystem("Aurum");
         system.getLocation().set(-4000, 6000);
 
-        // Mark as a core world system - fully explored, like Corvus or Askonia
+        // Mark as a core world system
         system.addTag(Tags.THEME_CORE);
         system.addTag(Tags.THEME_CORE_POPULATED);
         system.setProcgen(false);
-        system.setEnteredByPlayer(true);
         system.setType(StarSystemGenerator.StarSystemType.SINGLE);
 
         // Star
@@ -108,6 +107,11 @@ public class PBCSystemGenerator {
             log.error("Aurum system not found during market generation!");
             return;
         }
+
+        // Mark system as explored AFTER economy load (doing it in onNewGame
+        // gets reset by sector generation). This makes it show as explored
+        // on the hyperspace map like other core worlds.
+        system.setEnteredByPlayer(true);
 
         // =====================================================================
         // Bullion market - HQ, population 7
