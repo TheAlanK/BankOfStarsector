@@ -33,8 +33,6 @@ public class PBCSystemGenerator {
 
         // Planet 1: Bullion - HQ world
         PlanetAPI bullion = system.addPlanet("pbc_bullion", star, "Bullion", "terran", 30, 150, 3500, 250);
-        bullion.getSpec().setTexture(Global.getSettings().getSpriteName("planets", "terran"));
-        bullion.applySpecChanges();
         bullion.setCustomDescriptionId("pbc_bullion");
 
         MarketAPI bullionMarket = addMarket(bullion, "pbc_bullion_market", FACTION_ID, 7);
