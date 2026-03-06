@@ -108,11 +108,6 @@ public class PBCSystemGenerator {
             return;
         }
 
-        // Mark system as explored AFTER economy load (doing it in onNewGame
-        // gets reset by sector generation). This makes it show as explored
-        // on the hyperspace map like other core worlds.
-        system.setEnteredByPlayer(true);
-
         // =====================================================================
         // Bullion market - HQ, population 7
         // Banking capital, administrative center, high-tech services

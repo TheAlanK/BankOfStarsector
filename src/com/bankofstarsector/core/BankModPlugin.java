@@ -5,8 +5,11 @@ import com.fs.starfarer.api.Global;
 import com.bankofstarsector.compat.NexerelinCompat;
 import com.bankofstarsector.compat.NexusUICompat;
 import com.bankofstarsector.faction.PBCFactionSetup;
+import com.bankofstarsector.faction.PBCPostInitScript;
 import com.bankofstarsector.faction.PBCSystemGenerator;
 import com.bankofstarsector.intel.BankingIntelPlugin;
+
+import com.fs.starfarer.api.campaign.StarSystemAPI;
 
 import org.apache.log4j.Logger;
 
@@ -38,7 +41,21 @@ public class BankModPlugin extends BaseModPlugin {
         PBCSystemGenerator.generateMarkets();
         PBCFactionSetup.setup();
         BankData.get(); // force creation of persistent bank data
+
+        // Register one-shot script to mark system explored on first frame
+        Global.getSector().addScript(new PBCPostInitScript());
+
         log.info("Bank of Starsector: Markets and faction setup complete.");
+    }
+
+    @Override
+    public void onNewGameAfterTimePass() {
+        // Latest lifecycle hook - mark Aurum as explored after all generation
+        StarSystemAPI system = Global.getSector().getStarSystem("Aurum");
+        if (system != null) {
+            system.setEnteredByPlayer(true);
+            log.info("Bank of Starsector: Aurum marked explored (afterTimePass).");
+        }
     }
 
     @Override
