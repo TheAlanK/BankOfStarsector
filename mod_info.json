@@ -9,8 +9,6 @@
     "modPlugin": "com.bankofstarsector.core.BankModPlugin",
     "jars": ["jars/BankOfStarsector.jar"],
     "dependencies": [
-        {"id": "lw_lazylib", "name": "LazyLib"},
-        {"id": "nexerelin", "name": "Nexerelin", "optional": true},
-        {"id": "nexus_ui", "name": "NexusUI", "optional": true}
+        {"id": "lw_lazylib", "name": "LazyLib"}
     ]
 }
