@@ -20,18 +20,25 @@ jobs:
       - name: Check for code changes
         id: changes
         run: |
-          PREV_TAG=$(git tag --sort=-creatordate | head -n 2 | tail -n 1)
-          if [ -z "$PREV_TAG" ]; then
+          CURRENT_TAG=${GITHUB_REF#refs/tags/}
+          TAG_COUNT=$(git tag --sort=-creatordate | wc -l)
+          if [ "$TAG_COUNT" -le 1 ]; then
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "First release — no previous tag to compare"
           else
-            CODE_CHANGES=$(git diff --name-only "$PREV_TAG"..HEAD -- . ':!*.md' ':!.github/ISSUE_TEMPLATE/*' ':!.github/pull_request_template.md' ':!CODE_OF_CONDUCT.md' ':!CONTRIBUTING.md' ':!SECURITY.md' ':!LICENSE' | wc -l)
-            if [ "$CODE_CHANGES" -eq 0 ]; then
-              echo "skip=true" >> $GITHUB_OUTPUT
-              echo "Only documentation changes since $PREV_TAG — skipping release"
-            else
+            PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${CURRENT_TAG}$" | head -n 1)
+            if [ -z "$PREV_TAG" ]; then
               echo "skip=false" >> $GITHUB_OUTPUT
-              echo "$CODE_CHANGES code file(s) changed since $PREV_TAG"
+              echo "No valid previous tag found — treating as first release"
+            else
+              CODE_CHANGES=$(git diff --name-only "$PREV_TAG"..HEAD -- . ':!*.md' ':!.github/ISSUE_TEMPLATE/*' ':!.github/pull_request_template.md' ':!CODE_OF_CONDUCT.md' ':!CONTRIBUTING.md' ':!SECURITY.md' ':!LICENSE' | wc -l)
+              if [ "$CODE_CHANGES" -eq 0 ]; then
+                echo "skip=true" >> $GITHUB_OUTPUT
+                echo "Only documentation changes since $PREV_TAG — skipping release"
+              else
+                echo "skip=false" >> $GITHUB_OUTPUT
+                echo "$CODE_CHANGES code file(s) changed since $PREV_TAG"
+              fi
             fi
           fi
 
