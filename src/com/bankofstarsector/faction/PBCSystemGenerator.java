@@ -4,6 +4,7 @@ import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.*;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.ids.*;
+import com.fs.starfarer.api.impl.campaign.procgen.StarSystemGenerator;
 
 import org.apache.log4j.Logger;
 
@@ -28,6 +29,13 @@ public class PBCSystemGenerator {
 
         StarSystemAPI system = sector.createStarSystem("Aurum");
         system.getLocation().set(-4000, 6000);
+
+        // Mark as a core world system - this makes it show on the map like
+        // Corvus, Askonia, etc. instead of an unexplored procgen system
+        system.addTag(Tags.THEME_CORE);
+        system.addTag(Tags.THEME_CORE_POPULATED);
+        system.setProcgen(false);
+        system.setType(StarSystemGenerator.StarSystemType.SINGLE);
 
         // Star
         PlanetAPI star = system.initStar("aurum_star", "star_yellow", 800f, 400f);
@@ -71,7 +79,7 @@ public class PBCSystemGenerator {
         // Generate hyperspace jump points
         system.autogenerateHyperspaceJumpPoints(true, true);
 
-        log.info("Bank of Starsector: Aurum system structure generated.");
+        log.info("Bank of Starsector: Aurum system structure generated (core world).");
     }
 
     /**
@@ -87,70 +95,107 @@ public class PBCSystemGenerator {
             return;
         }
 
+        // =====================================================================
         // Bullion market - HQ, population 7
+        // Banking capital, administrative center, high-tech services
+        // =====================================================================
         SectorEntityToken bullion = sector.getEntityById("pbc_bullion");
         if (bullion != null) {
             MarketAPI m = addMarket(bullion, "pbc_bullion_market", FACTION_ID, 7);
+            m.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
+
+            // Planet conditions
             m.addCondition(Conditions.POPULATION_7);
             m.addCondition(Conditions.HABITABLE);
             m.addCondition(Conditions.MILD_CLIMATE);
             m.addCondition(Conditions.FARMLAND_ADEQUATE);
             m.addCondition(Conditions.ORE_MODERATE);
+            m.addCondition(Conditions.RARE_ORE_SPARSE);
             m.addCondition(Conditions.ORGANICS_COMMON);
+
+            // Industries (banking HQ is a commerce/services hub)
             m.addIndustry(Industries.POPULATION);
             m.addIndustry(Industries.MEGAPORT);
+            m.addIndustry(Industries.LIGHTINDUSTRY);
             m.addIndustry(Industries.ORBITALWORKS);
-            m.addIndustry(Industries.MILITARYBASE);
-            m.addIndustry(Industries.STARFORTRESS);
             m.addIndustry(Industries.WAYSTATION);
+            m.addIndustry(Industries.STARFORTRESS);
+            m.addIndustry(Industries.MILITARYBASE);
+
+            // Submarkets
             m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
             m.addSubmarket(Submarkets.SUBMARKET_BLACK);
             m.addSubmarket(Submarkets.SUBMARKET_OPEN);
             m.addSubmarket(Submarkets.GENERIC_MILITARY);
+
             log.info("Bullion market created (size 7).");
         } else {
             log.error("pbc_bullion planet not found!");
         }
 
-        // Vault market - secure world, population 5
+        // =====================================================================
+        // Vault market - secure repository, population 5
+        // Mining and refining operations, high security
+        // =====================================================================
         SectorEntityToken vault = sector.getEntityById("pbc_vault");
         if (vault != null) {
             MarketAPI m = addMarket(vault, "pbc_vault_market", FACTION_ID, 5);
+            m.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
+
+            // Planet conditions
             m.addCondition(Conditions.POPULATION_5);
             m.addCondition(Conditions.NO_ATMOSPHERE);
+            m.addCondition(Conditions.COLD);
             m.addCondition(Conditions.ORE_ABUNDANT);
             m.addCondition(Conditions.RARE_ORE_MODERATE);
+
+            // Industries
             m.addIndustry(Industries.POPULATION);
             m.addIndustry(Industries.SPACEPORT);
             m.addIndustry(Industries.MINING);
             m.addIndustry(Industries.REFINING);
             m.addIndustry(Industries.PATROLHQ);
             m.addIndustry(Industries.BATTLESTATION);
+
+            // Submarkets
             m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
             m.addSubmarket(Submarkets.SUBMARKET_OPEN);
+
             log.info("Vault market created (size 5).");
         } else {
             log.error("pbc_vault planet not found!");
         }
 
-        // Ledger Station market - gas giant ops, population 4
+        // =====================================================================
+        // Ledger Station market - gas giant operations, population 4
+        // Fuel production and light manufacturing
+        // =====================================================================
         SectorEntityToken ledgerStation = sector.getEntityById("pbc_ledger_station");
         if (ledgerStation != null) {
             MarketAPI m = addMarket(ledgerStation, "pbc_ledger_market", FACTION_ID, 4);
+            m.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
+
+            // Station conditions
             m.addCondition(Conditions.POPULATION_4);
+            m.addCondition(Conditions.VOLATILES_ABUNDANT);
+
+            // Industries
             m.addIndustry(Industries.POPULATION);
             m.addIndustry(Industries.SPACEPORT);
             m.addIndustry(Industries.FUELPROD);
             m.addIndustry(Industries.LIGHTINDUSTRY);
             m.addIndustry(Industries.ORBITALSTATION);
+
+            // Submarkets
             m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
             m.addSubmarket(Submarkets.SUBMARKET_OPEN);
+
             log.info("Ledger Station market created (size 4).");
         } else {
             log.error("pbc_ledger_station entity not found!");
         }
 
-        log.info("Bank of Starsector: All markets generated.");
+        log.info("Bank of Starsector: All markets generated successfully.");
     }
 
     private static MarketAPI addMarket(SectorEntityToken entity, String marketId, String factionId, int size) {
@@ -158,6 +203,7 @@ public class PBCSystemGenerator {
         MarketAPI market = Global.getFactory().createMarket(marketId, entity.getName(), size);
         market.setFactionId(factionId);
         market.setPrimaryEntity(entity);
+        market.setSurveyLevel(MarketAPI.SurveyLevel.FULL);
         market.getTariff().modifyFlat("default_tariff", 0.3f);
         market.setEconGroup(market.getId());
         entity.setMarket(market);
