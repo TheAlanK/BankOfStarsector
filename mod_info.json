@@ -1,0 +1,16 @@
+{
+    "id": "bank_of_starsector",
+    "name": "Bank of Starsector",
+    "author": "TheAlanK",
+    "version": "0.1.0-beta",
+    "description": "Adds the Persean Banking Confederation faction with a full banking system: loans, investments, credit scores, debt collection, and bankruptcy mechanics.",
+    "gameVersion": "0.98a-RC8",
+    "totalConversion": false,
+    "modPlugin": "com.bankofstarsector.core.BankModPlugin",
+    "jars": ["jars/BankOfStarsector.jar"],
+    "dependencies": [
+        {"id": "lw_lazylib", "name": "LazyLib"},
+        {"id": "nexerelin", "name": "Nexerelin", "optional": true},
+        {"id": "nexus_ui", "name": "NexusUI", "optional": true}
+    ]
+}

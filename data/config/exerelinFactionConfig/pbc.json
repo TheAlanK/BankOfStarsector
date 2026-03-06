@@ -1,0 +1,102 @@
+{
+    "playableFaction": true,
+    "corvusCompatible": true,
+    "ngcTooltip": "Trust in the Confederation. Your credits are safe with us.",
+    "rebelFleetSuffix": "Rogue Bankers",
+    "defenceFleetName": "Auditor",
+    "responseFleetName": "Enforcer",
+    "invasionFleetName": "Foreclosure",
+    "asteroidMiningFleetName": "Prospector",
+    "gasMiningFleetName": "Extractor",
+    "noSyncRelations": false,
+    "noRandomizeRelations": true,
+    "freeMarket": false,
+    "marketSpawnWeight": 0.5,
+    "invasionFleetSizeMod": -0.1,
+    "responseFleetSizeMod": 0.15,
+    "invasionPointMult": 0.5,
+    "vengeanceFleetSizeMult": 1.5,
+    "colonyExpeditionChance": 0,
+    "specialForcesMaxFleets": 1,
+    "startRelationships": {
+        "hegemony": 0.3,
+        "persean": 0.35,
+        "tritachyon": 0.25,
+        "diktat": 0.2,
+        "luddic_church": 0.1,
+        "luddic_path": -0.3,
+        "pirates": -0.5,
+        "independent": 0.15,
+        "player": 0.0
+    },
+    "minRelationships": {
+        "hegemony": 0.0,
+        "persean": 0.0,
+        "tritachyon": -0.1,
+        "diktat": -0.1,
+        "luddic_church": -0.2,
+        "independent": -0.2
+    },
+    "maxRelationships": {
+        "luddic_path": 0.0,
+        "pirates": -0.2
+    },
+    "diplomacyPositiveChance": {
+        "hegemony": 1.5,
+        "persean": 1.5,
+        "tritachyon": 1.5,
+        "diktat": 1.3,
+        "luddic_church": 1.2,
+        "independent": 1.3
+    },
+    "diplomacyNegativeChance": {
+        "hegemony": 0.3,
+        "persean": 0.3,
+        "tritachyon": 0.4,
+        "diktat": 0.5,
+        "luddic_church": 0.6,
+        "luddic_path": 2.0,
+        "pirates": 2.0
+    },
+    "diplomacyTraits": ["pacifist", "neutralist", "stalwart", "monopolist"],
+    "alignments": {
+        "corporate": 1,
+        "technocratic": 0.5,
+        "hierarchical": 0.5,
+        "diplomatic": 1,
+        "ideological": -0.5,
+        "militarist": -0.5
+    },
+    "defenceStations": [
+        {"ids":["orbitalstation", "battlestation", "starfortress"]},
+        {"ids":["orbitalstation_mid", "battlestation_mid", "starfortress_mid"], "weight": 0.5}
+    ],
+    "startShipsSolo": [
+        ["hammerhead_Balanced"],
+        ["enforcer_Assault"]
+    ],
+    "startShipsCombatSmall": [
+        ["hammerhead_Balanced", "lasher_CS", "lasher_CS"],
+        ["enforcer_Assault", "wolf_hegemony_Attack", "hound_hegemony_Standard"]
+    ],
+    "startShipsCombatLarge": [
+        ["eagle_Assault", "hammerhead_Balanced", "hammerhead_Balanced", "lasher_CS", "lasher_CS", "kite_hegemony_Strike"],
+        ["dominator_Assault", "enforcer_Assault", "enforcer_Assault", "lasher_CS", "hound_hegemony_Standard", "hound_hegemony_Standard"]
+    ],
+    "startShipsTradeSmall": [
+        ["shepherd_Frontier", "mercury_Standard"]
+    ],
+    "startShipsTradeLarge": [
+        ["colossus_Standard", "mercury_Standard", "mercury_Standard", "kite_hegemony_Strike", "kite_hegemony_Strike"]
+    ],
+    "industrySeeds": [
+        {"id": "orbitalworks", "mult": 0.1},
+        {"id": "fuelprod", "mult": 0.1},
+        {"id": "lightindustry", "mult": 0.15},
+        {"id": "commerce", "mult": 0.2}
+    ],
+    "bonusSeeds": [
+        {"id": "nanoforge_pristine", "count": 1},
+        {"id": "synchrotron", "count": 1}
+    ]
+}
