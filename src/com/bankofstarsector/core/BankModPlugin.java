@@ -15,7 +15,7 @@ public class BankModPlugin extends BaseModPlugin {
     private static final Logger log = Global.getLogger(BankModPlugin.class);
 
     public static final String MOD_ID = "bank_of_starsector";
-    public static final String VERSION = "0.1.0-beta";
+    public static final String VERSION = "0.1.1-beta";
 
     @Override
     public void onApplicationLoad() throws Exception {
@@ -26,10 +26,19 @@ public class BankModPlugin extends BaseModPlugin {
 
     @Override
     public void onNewGame() {
-        log.info("Bank of Starsector: New game initialization.");
-        PBCSystemGenerator.generate();
+        log.info("Bank of Starsector: New game - generating star system...");
+        // Phase 1: Create system structure (planets, entities) BEFORE economy loads
+        PBCSystemGenerator.generateSystem();
+    }
+
+    @Override
+    public void onNewGameAfterEconomyLoad() {
+        log.info("Bank of Starsector: Economy loaded - generating markets...");
+        // Phase 2: Create markets AFTER economy is ready
+        PBCSystemGenerator.generateMarkets();
         PBCFactionSetup.setup();
-        BankData.get(); // force creation
+        BankData.get(); // force creation of persistent bank data
+        log.info("Bank of Starsector: Markets and faction setup complete.");
     }
 
     @Override

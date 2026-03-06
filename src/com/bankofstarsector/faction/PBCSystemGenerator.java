@@ -4,7 +4,6 @@ import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.*;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.ids.*;
-import com.fs.starfarer.api.impl.campaign.procgen.StarSystemGenerator;
 
 import org.apache.log4j.Logger;
 
@@ -15,10 +14,13 @@ public class PBCSystemGenerator {
     private static final Logger log = Logger.getLogger(PBCSystemGenerator.class);
     public static final String FACTION_ID = "pbc";
 
-    public static void generate() {
+    /**
+     * Phase 1: Create star system, planets, and orbital entities.
+     * Called during onNewGame() BEFORE economy is loaded.
+     */
+    public static void generateSystem() {
         SectorAPI sector = Global.getSector();
 
-        // Check if system already exists
         if (sector.getStarSystem("Aurum") != null) {
             log.info("Aurum system already exists, skipping generation.");
             return;
@@ -31,45 +33,13 @@ public class PBCSystemGenerator {
         PlanetAPI star = system.initStar("aurum_star", "star_yellow", 800f, 400f);
         system.setLightColor(new Color(255, 245, 200));
 
-        // Planet 1: Bullion - HQ world
+        // Planet 1: Bullion - HQ world (terran)
         PlanetAPI bullion = system.addPlanet("pbc_bullion", star, "Bullion", "terran", 30, 150, 3500, 250);
         bullion.setCustomDescriptionId("pbc_bullion");
-
-        MarketAPI bullionMarket = addMarket(bullion, "pbc_bullion_market", FACTION_ID, 7);
-        bullionMarket.addCondition(Conditions.POPULATION_7);
-        bullionMarket.addCondition(Conditions.HABITABLE);
-        bullionMarket.addCondition(Conditions.MILD_CLIMATE);
-        bullionMarket.addCondition(Conditions.FARMLAND_ADEQUATE);
-        bullionMarket.addCondition(Conditions.ORE_MODERATE);
-        bullionMarket.addCondition(Conditions.ORGANICS_COMMON);
-        bullionMarket.addIndustry(Industries.POPULATION);
-        bullionMarket.addIndustry(Industries.MEGAPORT);
-        bullionMarket.addIndustry(Industries.ORBITALWORKS);
-        bullionMarket.addIndustry(Industries.MILITARYBASE);
-        bullionMarket.addIndustry(Industries.STARFORTRESS);
-        bullionMarket.addIndustry(Industries.WAYSTATION);
-        bullionMarket.addSubmarket(Submarkets.SUBMARKET_STORAGE);
-        bullionMarket.addSubmarket(Submarkets.SUBMARKET_BLACK);
-        bullionMarket.addSubmarket(Submarkets.SUBMARKET_OPEN);
-        bullionMarket.addSubmarket(Submarkets.GENERIC_MILITARY);
 
         // Planet 2: Vault - Barren secure world
         PlanetAPI vault = system.addPlanet("pbc_vault", star, "Vault", "barren", 150, 80, 5500, 350);
         vault.setCustomDescriptionId("pbc_vault");
-
-        MarketAPI vaultMarket = addMarket(vault, "pbc_vault_market", FACTION_ID, 5);
-        vaultMarket.addCondition(Conditions.POPULATION_5);
-        vaultMarket.addCondition(Conditions.NO_ATMOSPHERE);
-        vaultMarket.addCondition(Conditions.ORE_ABUNDANT);
-        vaultMarket.addCondition(Conditions.RARE_ORE_MODERATE);
-        vaultMarket.addIndustry(Industries.POPULATION);
-        vaultMarket.addIndustry(Industries.SPACEPORT);
-        vaultMarket.addIndustry(Industries.MINING);
-        vaultMarket.addIndustry(Industries.REFINING);
-        vaultMarket.addIndustry(Industries.PATROLHQ);
-        vaultMarket.addIndustry(Industries.BATTLESTATION);
-        vaultMarket.addSubmarket(Submarkets.SUBMARKET_STORAGE);
-        vaultMarket.addSubmarket(Submarkets.SUBMARKET_OPEN);
 
         // Planet 3: Ledger - Gas giant
         PlanetAPI ledger = system.addPlanet("pbc_ledger", star, "Ledger", "gas_giant", 270, 300, 8000, 500);
@@ -80,19 +50,8 @@ public class PBCSystemGenerator {
             "Ledger Station", "station_mining00", FACTION_ID);
         ledgerStation.setCircularOrbitPointingDown(ledger, 0, 500, 40);
 
-        MarketAPI ledgerMarket = addMarket(ledgerStation, "pbc_ledger_market", FACTION_ID, 4);
-        ledgerMarket.addCondition(Conditions.POPULATION_4);
-        ledgerMarket.addIndustry(Industries.POPULATION);
-        ledgerMarket.addIndustry(Industries.SPACEPORT);
-        ledgerMarket.addIndustry(Industries.FUELPROD);
-        ledgerMarket.addIndustry(Industries.LIGHTINDUSTRY);
-        ledgerMarket.addIndustry(Industries.ORBITALSTATION);
-        ledgerMarket.addSubmarket(Submarkets.SUBMARKET_STORAGE);
-        ledgerMarket.addSubmarket(Submarkets.SUBMARKET_OPEN);
-
-        // System features
+        // Ring band decoration
         system.addRingBand(star, "misc", "rings_dust0", 256f, 3, Color.WHITE, 256f, 2000, 120f, null, null);
-        system.autogenerateHyperspaceJumpPoints(true, true);
 
         // Comm relay
         SectorEntityToken relay = system.addCustomEntity("pbc_relay", "Aurum Relay",
@@ -109,7 +68,89 @@ public class PBCSystemGenerator {
             "sensor_array", FACTION_ID);
         sensor.setCircularOrbitPointingDown(star, 270, 6500, 420);
 
-        log.info("Bank of Starsector: Aurum system generated.");
+        // Generate hyperspace jump points
+        system.autogenerateHyperspaceJumpPoints(true, true);
+
+        log.info("Bank of Starsector: Aurum system structure generated.");
+    }
+
+    /**
+     * Phase 2: Create markets and attach to planets/stations.
+     * Called during onNewGameAfterEconomyLoad() AFTER economy is ready.
+     */
+    public static void generateMarkets() {
+        SectorAPI sector = Global.getSector();
+        StarSystemAPI system = sector.getStarSystem("Aurum");
+
+        if (system == null) {
+            log.error("Aurum system not found during market generation!");
+            return;
+        }
+
+        // Bullion market - HQ, population 7
+        SectorEntityToken bullion = sector.getEntityById("pbc_bullion");
+        if (bullion != null) {
+            MarketAPI m = addMarket(bullion, "pbc_bullion_market", FACTION_ID, 7);
+            m.addCondition(Conditions.POPULATION_7);
+            m.addCondition(Conditions.HABITABLE);
+            m.addCondition(Conditions.MILD_CLIMATE);
+            m.addCondition(Conditions.FARMLAND_ADEQUATE);
+            m.addCondition(Conditions.ORE_MODERATE);
+            m.addCondition(Conditions.ORGANICS_COMMON);
+            m.addIndustry(Industries.POPULATION);
+            m.addIndustry(Industries.MEGAPORT);
+            m.addIndustry(Industries.ORBITALWORKS);
+            m.addIndustry(Industries.MILITARYBASE);
+            m.addIndustry(Industries.STARFORTRESS);
+            m.addIndustry(Industries.WAYSTATION);
+            m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
+            m.addSubmarket(Submarkets.SUBMARKET_BLACK);
+            m.addSubmarket(Submarkets.SUBMARKET_OPEN);
+            m.addSubmarket(Submarkets.GENERIC_MILITARY);
+            log.info("Bullion market created (size 7).");
+        } else {
+            log.error("pbc_bullion planet not found!");
+        }
+
+        // Vault market - secure world, population 5
+        SectorEntityToken vault = sector.getEntityById("pbc_vault");
+        if (vault != null) {
+            MarketAPI m = addMarket(vault, "pbc_vault_market", FACTION_ID, 5);
+            m.addCondition(Conditions.POPULATION_5);
+            m.addCondition(Conditions.NO_ATMOSPHERE);
+            m.addCondition(Conditions.ORE_ABUNDANT);
+            m.addCondition(Conditions.RARE_ORE_MODERATE);
+            m.addIndustry(Industries.POPULATION);
+            m.addIndustry(Industries.SPACEPORT);
+            m.addIndustry(Industries.MINING);
+            m.addIndustry(Industries.REFINING);
+            m.addIndustry(Industries.PATROLHQ);
+            m.addIndustry(Industries.BATTLESTATION);
+            m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
+            m.addSubmarket(Submarkets.SUBMARKET_OPEN);
+            log.info("Vault market created (size 5).");
+        } else {
+            log.error("pbc_vault planet not found!");
+        }
+
+        // Ledger Station market - gas giant ops, population 4
+        SectorEntityToken ledgerStation = sector.getEntityById("pbc_ledger_station");
+        if (ledgerStation != null) {
+            MarketAPI m = addMarket(ledgerStation, "pbc_ledger_market", FACTION_ID, 4);
+            m.addCondition(Conditions.POPULATION_4);
+            m.addIndustry(Industries.POPULATION);
+            m.addIndustry(Industries.SPACEPORT);
+            m.addIndustry(Industries.FUELPROD);
+            m.addIndustry(Industries.LIGHTINDUSTRY);
+            m.addIndustry(Industries.ORBITALSTATION);
+            m.addSubmarket(Submarkets.SUBMARKET_STORAGE);
+            m.addSubmarket(Submarkets.SUBMARKET_OPEN);
+            log.info("Ledger Station market created (size 4).");
+        } else {
+            log.error("pbc_ledger_station entity not found!");
+        }
+
+        log.info("Bank of Starsector: All markets generated.");
     }
 
     private static MarketAPI addMarket(SectorEntityToken entity, String marketId, String factionId, int size) {
