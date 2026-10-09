@@ -1,12 +1,12 @@
 package com.bankofstarsector.banking;
 
+import com.bankofstarsector.core.BankData;
+
 import java.io.Serializable;
 
 public class BankAccount implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    private static int nextId = 1;
 
     public String accountId;
 
@@ -14,10 +14,18 @@ public class BankAccount implements Serializable {
     public LoanType loanType;
     public float principal;
     public float remainingBalance;
+    /** Rate charged right now (base rate, possibly raised while overdue). */
     public float monthlyRate;
+    /** Rate agreed when the loan was signed. */
+    public float baseMonthlyRate;
     public int termMonths;
     public int monthsElapsed;
     public int daysOverdue;
+    /** Installments billed but not yet paid (includes the current bill). */
+    public float amountPastDue;
+    /** Installment billed at the last month end; it only becomes late if still unpaid a month later. */
+    public float currentBill;
+    public int missedPayments;
     public LoanStatus status;
 
     // Investment fields
@@ -35,15 +43,17 @@ public class BankAccount implements Serializable {
 
     public static BankAccount createLoan(LoanType type, float amount, float effectiveRate, long timestamp) {
         BankAccount account = new BankAccount();
-        account.accountId = "LOAN-" + (nextId++);
+        account.accountId = BankData.get().nextAccountId("LOAN");
         account.isLoan = true;
         account.loanType = type;
         account.principal = amount;
         account.remainingBalance = amount;
         account.monthlyRate = effectiveRate;
+        account.baseMonthlyRate = effectiveRate;
         account.termMonths = type.termMonths;
         account.monthsElapsed = 0;
         account.daysOverdue = 0;
+        account.amountPastDue = 0f;
         account.status = LoanStatus.ACTIVE;
         account.createdTimestamp = timestamp;
         return account;
@@ -51,7 +61,7 @@ public class BankAccount implements Serializable {
 
     public static BankAccount createInvestment(InvestmentType type, float amount, long timestamp) {
         BankAccount account = new BankAccount();
-        account.accountId = "INV-" + (nextId++);
+        account.accountId = BankData.get().nextAccountId("INV");
         account.isLoan = false;
         account.investmentType = type;
         account.investedAmount = amount;
@@ -62,11 +72,27 @@ public class BankAccount implements Serializable {
         return account;
     }
 
+    /** Fixes fields added after 0.1.x so old saves keep working. */
+    public void migrate() {
+        if (isLoan && baseMonthlyRate <= 0f) baseMonthlyRate = monthlyRate;
+    }
+
+    /** Arrears older than the current bill - the part that is actually late. */
+    public float getLateAmount() {
+        return Math.max(0f, amountPastDue - currentBill);
+    }
+
+    public boolean isOpenLoan() {
+        return isLoan && (status == LoanStatus.ACTIVE || status == LoanStatus.OVERDUE || status == LoanStatus.DEFAULTED);
+    }
+
+    /** Scheduled installment: interest on the balance plus an even share of principal. */
     public float getMonthlyPayment() {
-        if (!isLoan || status == LoanStatus.PAID_OFF) return 0f;
+        if (!isOpenLoan()) return 0f;
+        if (monthsElapsed >= termMonths) return remainingBalance; // term over: balloon payment
         float interestPayment = remainingBalance * monthlyRate;
         float principalPayment = principal / termMonths;
-        return interestPayment + principalPayment;
+        return Math.min(remainingBalance, interestPayment + principalPayment);
     }
 
     public boolean isLocked() {
@@ -78,7 +104,7 @@ public class BankAccount implements Serializable {
             switch (status) {
                 case ACTIVE: return "Current";
                 case OVERDUE: return "OVERDUE (" + daysOverdue + " days)";
-                case DEFAULTED: return "DEFAULTED";
+                case DEFAULTED: return "DEFAULTED (" + daysOverdue + " days)";
                 case PAID_OFF: return "Paid Off";
                 case SEIZED: return "SEIZED";
                 default: return status.name();

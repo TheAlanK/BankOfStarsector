@@ -22,6 +22,11 @@ public class BankData implements Serializable {
     private BankruptcyManager bankruptcyManager;
     private List<TransactionRecord> transactionHistory;
 
+    /** Account id counter; persisted so ids stay unique across save/load. */
+    private int nextAccountNumber;
+    private boolean autopayEnabled = true;
+    private long lastDayTimestamp;
+
     private BankData() {
         loanManager = new LoanManager();
         investmentManager = new InvestmentManager();
@@ -31,6 +36,7 @@ public class BankData implements Serializable {
         assetSeizureManager = new AssetSeizureManager();
         bankruptcyManager = new BankruptcyManager();
         transactionHistory = new ArrayList<TransactionRecord>();
+        nextAccountNumber = 1;
     }
 
     public static BankData get() {
@@ -54,6 +60,29 @@ public class BankData implements Serializable {
         if (assetSeizureManager == null) assetSeizureManager = new AssetSeizureManager();
         if (bankruptcyManager == null) bankruptcyManager = new BankruptcyManager();
         if (transactionHistory == null) transactionHistory = new ArrayList<TransactionRecord>();
+        if (nextAccountNumber <= 0) {
+            // 0.1.x saves used a static counter that reset on every load; resume past the highest id.
+            int max = 0;
+            for (BankAccount a : loanManager.getLoans()) max = Math.max(max, idNumber(a.accountId));
+            for (BankAccount a : investmentManager.getInvestments()) max = Math.max(max, idNumber(a.accountId));
+            nextAccountNumber = max + 1;
+            autopayEnabled = true;
+        }
+        for (BankAccount a : loanManager.getLoans()) a.migrate();
+    }
+
+    private static int idNumber(String id) {
+        if (id == null) return 0;
+        int dash = id.lastIndexOf('-');
+        try {
+            return Integer.parseInt(id.substring(dash + 1));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    public String nextAccountId(String prefix) {
+        return prefix + "-" + (nextAccountNumber++);
     }
 
     public LoanManager getLoanManager() { return loanManager; }
@@ -63,6 +92,12 @@ public class BankData implements Serializable {
     public CollectionManager getCollectionManager() { return collectionManager; }
     public AssetSeizureManager getAssetSeizureManager() { return assetSeizureManager; }
     public BankruptcyManager getBankruptcyManager() { return bankruptcyManager; }
+
+    public boolean isAutopayEnabled() { return autopayEnabled; }
+    public void setAutopayEnabled(boolean enabled) { autopayEnabled = enabled; }
+
+    public long getLastDayTimestamp() { return lastDayTimestamp; }
+    public void setLastDayTimestamp(long ts) { lastDayTimestamp = ts; }
 
     public List<TransactionRecord> getTransactionHistory() { return transactionHistory; }
 

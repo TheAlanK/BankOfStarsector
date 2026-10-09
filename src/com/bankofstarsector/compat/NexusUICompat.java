@@ -3,40 +3,34 @@ package com.bankofstarsector.compat;
 import com.fs.starfarer.api.Global;
 import org.apache.log4j.Logger;
 
-import java.lang.reflect.Method;
-
+/**
+ * NexusUI integration without reflection (see {@link NexerelinCompat} for why).
+ * {@link NexusUIBridge} references NexusUI types and is only loaded when NexusUI is enabled.
+ */
 public class NexusUICompat {
 
     private static final Logger log = Logger.getLogger(NexusUICompat.class);
     private static Boolean available = null;
+    private static boolean registered = false;
 
     public static boolean isAvailable() {
         if (available == null) {
-            try {
-                Class.forName("com.nexusui.overlay.NexusFrame");
-                available = Global.getSettings().getModManager().isModEnabled("nexus_ui");
-            } catch (ClassNotFoundException e) {
-                available = false;
-            }
+            available = Global.getSettings().getModManager().isModEnabled("nexus_ui");
         }
         return available;
     }
 
-    public static void registerBankingPage() {
-        if (!isAvailable()) return;
+    /** Registers the banking page once per application run; returns whether it is registered. */
+    public static boolean registerBankingPage() {
+        if (!isAvailable()) return false;
+        if (registered) return true;
         try {
-            // Create factory instance
-            Object factory = new com.bankofstarsector.ui.BankingNexusPageFactory();
-
-            // Register via NexusFrame.registerPageFactory(factory)
-            Class<?> nexusFrame = Class.forName("com.nexusui.overlay.NexusFrame");
-            Method registerFactory = nexusFrame.getMethod("registerPageFactory",
-                Class.forName("com.nexusui.api.NexusPageFactory"));
-            registerFactory.invoke(null, factory);
-
+            NexusUIBridge.register();
+            registered = true;
             log.info("BOS: Banking page registered with NexusUI.");
-        } catch (Exception e) {
-            log.warn("BOS: Failed to register NexusUI page: " + e.getMessage());
+        } catch (Throwable t) {
+            log.warn("BOS: Failed to register NexusUI page: " + t);
         }
+        return registered;
     }
 }

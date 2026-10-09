@@ -3,21 +3,15 @@ package com.bankofstarsector.core;
 import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.CampaignClockAPI;
-import com.bankofstarsector.banking.*;
-import com.bankofstarsector.collection.*;
 
-import org.apache.log4j.Logger;
-
+/**
+ * Daily banking tick. Month-end processing lives in {@link BankEconomyListener}
+ * so it lines up with the vanilla monthly report.
+ */
 public class BankCampaignScript implements EveryFrameScript {
 
-    private static final Logger log = Logger.getLogger(BankCampaignScript.class);
-
-    private int lastDay = -1;
-    private int lastMonth = -1;
-    private boolean done = false;
-
     @Override
-    public boolean isDone() { return done; }
+    public boolean isDone() { return false; }
 
     @Override
     public boolean runWhilePaused() { return false; }
@@ -25,75 +19,24 @@ public class BankCampaignScript implements EveryFrameScript {
     @Override
     public void advance(float amount) {
         CampaignClockAPI clock = Global.getSector().getClock();
-        int currentDay = clock.getDay();
-        int currentMonth = clock.getMonth();
-
-        // Daily tick
-        if (currentDay != lastDay) {
-            lastDay = currentDay;
-            onDailyTick();
+        BankData data = BankData.get();
+        if (data.getLastDayTimestamp() == 0L) {
+            data.setLastDayTimestamp(clock.getTimestamp());
+            return;
         }
-
-        // Monthly tick
-        if (currentMonth != lastMonth) {
-            if (lastMonth != -1) {
-                onMonthlyTick();
-            }
-            lastMonth = currentMonth;
+        // Timestamp-based so reloading a save never replays or skips a day.
+        int days = (int) clock.getElapsedDaysSince(data.getLastDayTimestamp());
+        if (days < 1) return;
+        data.setLastDayTimestamp(clock.getTimestamp());
+        for (int i = 0; i < Math.min(days, 10); i++) {
+            onDailyTick(data);
         }
     }
 
-    private void onDailyTick() {
-        BankData data = BankData.get();
-
-        // Advance overdue tracking on loans
+    private void onDailyTick(BankData data) {
         data.getLoanManager().advanceDay();
-
-        // Advance collection events
         data.getCollectionManager().advanceDay(data);
-
-        // Advance bankruptcy recovery
         data.getBankruptcyManager().advanceDay();
-
-        // Advance asset seizures
         data.getAssetSeizureManager().advanceDay(data);
-    }
-
-    private void onMonthlyTick() {
-        BankData data = BankData.get();
-        InterestEngine engine = data.getInterestEngine();
-
-        // Process loan interest
-        data.getLoanManager().advanceMonth(engine);
-        log.info("BOS: Monthly loan interest processed.");
-
-        // Process investment returns
-        data.getInvestmentManager().advanceMonth(engine);
-        log.info("BOS: Monthly investment returns processed.");
-
-        // Update credit score
-        boolean allCurrent = true;
-        for (BankAccount loan : data.getLoanManager().getActiveLoans()) {
-            if (loan.status != LoanStatus.ACTIVE) {
-                allCurrent = false;
-                break;
-            }
-        }
-        data.getCreditScoreManager().advanceMonth(
-            data.getInvestmentManager().getTotalValue(),
-            data.getLoanManager().getActiveLoanCount(),
-            allCurrent
-        );
-        log.info("BOS: Credit score updated: " + data.getCreditScoreManager().getScore());
-
-        // Check collection escalation
-        data.getCollectionManager().checkEscalation(data);
-
-        // Check bankruptcy conditions
-        data.getBankruptcyManager().advanceMonth(data);
-
-        // Cleanup old records
-        data.getLoanManager().cleanupPaidLoans();
-        data.getInvestmentManager().cleanupEmptyInvestments();
     }
 }

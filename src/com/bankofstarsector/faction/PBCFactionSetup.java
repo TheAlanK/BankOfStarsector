@@ -40,18 +40,9 @@ public class PBCFactionSetup {
         FactionAPI pbc = Global.getSector().getFaction(FACTION_ID);
         if (pbc == null) return;
 
-        try {
-            Class<?> sectorManager = Class.forName("exerelin.campaign.SectorManager");
-            java.lang.reflect.Method corvusMode = sectorManager.getMethod("getCorvusMode");
-            Boolean isCorvus = (Boolean) corvusMode.invoke(null);
-
-            if (isCorvus != null && isCorvus) {
-                log.info("PBC: Corvus mode detected, applying Nex relationships.");
-                // Relationships are already set in pbc.json startRelationships
-                // Just ensure min relationships hold
-            }
-        } catch (Exception e) {
-            log.info("PBC: Nexerelin class reflection issue (non-critical): " + e.getMessage());
+        // Reflection is blocked by Starsector's script class loader; use the direct bridge.
+        if (com.bankofstarsector.compat.NexerelinCompat.isCorvusMode()) {
+            log.info("PBC: Corvus mode detected; relationships come from pbc.json startRelationships.");
         }
     }
 
