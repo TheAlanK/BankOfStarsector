@@ -41,9 +41,14 @@ public class CreditScoreManager implements Serializable {
     }
 
     public float getRateModifier() {
-        if (creditScore >= 750) return -0.15f;
-        if (creditScore >= 650) return 0f;
-        if (creditScore >= 500) return 0.20f;
+        return rateModifierFor(creditScore);
+    }
+
+    /** The bracket modifier shown in the terminal is the one actually applied to new loans. */
+    public static float rateModifierFor(int score) {
+        if (score >= 750) return -0.15f;
+        if (score >= 650) return 0f;
+        if (score >= 500) return 0.20f;
         return 0.50f;
     }
 
@@ -59,6 +64,16 @@ public class CreditScoreManager implements Serializable {
     public void onLoanPayoff() {
         loansPayedOffThisMonth++;
         adjustScore(BankSettings.SCORE_LOAN_PAYOFF);
+    }
+
+    public void onPaymentMissed() {
+        latePaymentsThisMonth++;
+        adjustScore(BankSettings.SCORE_MISSED_PAYMENT);
+    }
+
+    /** Bankruptcy recovery: the bank slowly rebuilds trust while you stay clean. */
+    public void onRecoveryMonth() {
+        adjustScore(BankSettings.BANKRUPTCY_SCORE_RECOVERY_PER_MONTH);
     }
 
     public void onDefault() {

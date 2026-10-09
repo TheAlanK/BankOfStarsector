@@ -1,1 +1,21 @@
 id,trigger,conditions,script,text,options,notes
+#,,,,,,
+# PBC Collection Fleet,,,,,,
+bos_collectionHail,BOSCollectionHail,,BOSCollection hail,,,Opened by CollectionFleetScript when the fleet reaches the player
+bos_collectionCommLink,OpenCommLink,$entity.bos_collection_fleet score:1000,BOSCollection hail,,,Player opens a comm link with a collection fleet
+bos_collectionPayPastDue,DialogOptionSelected,$option == bos_payPastDue,BOSCollection payPastDue,,,
+bos_collectionPayAll,DialogOptionSelected,$option == bos_payAll,BOSCollection payAll,,,
+bos_collectionSurrender,DialogOptionSelected,$option == bos_surrender,BOSCollection surrender,,,
+bos_collectionRefuse,DialogOptionSelected,$option == bos_refuse,BOSCollection refuse,,,
+bos_collectionLater,DialogOptionSelected,$option == bos_later,BOSCollection later,,,
+bos_collectionDone,DialogOptionSelected,$option == bos_done,BOSCollection done,,,
+#,,,,,,
+# Confederation branch office at PBC markets,,,,,,
+bos_branchOption,PopulateOptions,"$hasMarket
+$menuState == main
+$tradeMode != NONE
+$faction.id == pbc",,,14:bos_branchVisit:Visit the Confederation branch office,
+bos_branchVisit,DialogOptionSelected,$option == bos_branchVisit,BOSBranch visit,,,
+bos_branchPay,DialogOptionSelected,$option == bos_branchPay,BOSBranch payPastDue,,,
+bos_branchTerminal,DialogOptionSelected,$option == bos_branchTerminal,BOSBranch terminal,,,
+bos_branchBack,DialogOptionSelected,$option == bos_branchBack,FireAll PopulateOptions,,,

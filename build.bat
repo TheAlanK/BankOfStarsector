@@ -24,13 +24,13 @@ set CP=%CP%;%STARSECTOR_DIR%\starsector-core\json.jar
 set CP=%CP%;%STARSECTOR_DIR%\starsector-core\xstream-1.4.10.jar
 set CP=%CP%;%STARSECTOR_DIR%\mods\LazyLib\jars\LazyLib.jar
 
-REM --- Optional: NexusUI (for compilation only) ---
+REM --- NexusUI / Nexerelin: required to COMPILE the compat bridges, optional at runtime ---
 if exist "%STARSECTOR_DIR%\mods\NexusUI\jars\NexusUI.jar" (
     set CP=%CP%;%STARSECTOR_DIR%\mods\NexusUI\jars\NexusUI.jar
     echo NexusUI detected on classpath
 )
 
-REM --- Optional: Nexerelin (for compilation only) ---
+REM (bridge classes are only loaded in-game when the mod is enabled)
 if exist "%STARSECTOR_DIR%\mods\Nexerelin\jars\ExerelinCore.jar" (
     set CP=%CP%;%STARSECTOR_DIR%\mods\Nexerelin\jars\ExerelinCore.jar
     echo Nexerelin detected on classpath
@@ -49,7 +49,7 @@ for /f %%A in ('type "%MOD_DIR%build\sources.txt" ^| find /c /v ""') do echo    
 
 REM --- Compile ---
 echo [3/4] Compiling...
-javac -source 8 -target 8 -encoding UTF-8 -Xlint:-options -cp "%CP%" -d "%OUT_DIR%" @"%MOD_DIR%build\sources.txt" 2>&1
+javac --release 8 -encoding UTF-8 -Xlint:-options -cp "%CP%" -d "%OUT_DIR%" @"%MOD_DIR%build\sources.txt" 2>&1
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

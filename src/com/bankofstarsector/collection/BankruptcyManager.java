@@ -38,7 +38,8 @@ public class BankruptcyManager implements Serializable {
     }
 
     public boolean canFileBankruptcy(BankData data) {
-        if (state != BankruptcyState.NONE) return false;
+        if (getState() != BankruptcyState.NONE) return false;
+        if (data.getLoanManager().getActiveLoanCount() == 0) return false;
 
         // Must have defaulted loan OR debt > 3x monthly income
         boolean hasDefault = false;
@@ -65,6 +66,12 @@ public class BankruptcyManager implements Serializable {
             loan.remainingBalance *= (1f - BankSettings.BANKRUPTCY_DEBT_REDUCTION);
             loan.status = LoanStatus.ACTIVE;
             loan.daysOverdue = 0;
+            loan.amountPastDue = 0f;
+            loan.currentBill = 0f;
+            loan.monthlyRate = loan.baseMonthlyRate;
+            // Restructured: the reduced balance is repaid over a fresh term.
+            loan.principal = loan.remainingBalance;
+            loan.monthsElapsed = 0;
         }
 
         // Liquidate investments at 50% value
@@ -128,10 +135,18 @@ public class BankruptcyManager implements Serializable {
 
     public void advanceMonth(BankData data) {
         if (state == BankruptcyState.ACTIVE || state == BankruptcyState.RECOVERY) {
-            // Gradual credit score recovery
-            int currentScore = data.getCreditScoreManager().getScore();
-            if (currentScore < 500) {
-                // Implicit: CreditScoreManager natural drift handles this
+            // Gradual credit score recovery while the player stays current
+            if (data.getLoanManager().getTotalLate() <= 1f) {
+                data.getCreditScoreManager().onRecoveryMonth();
+            }
+            // Colonies founded after filing carry the stigma too
+            if (stigmaApplied) {
+                for (MarketAPI market : Global.getSector().getEconomy().getMarketsCopy()) {
+                    if (market.isPlayerOwned()) {
+                        market.getIncomeMult().modifyMult("bos_bankruptcy_stigma",
+                            1f - BankSettings.BANKRUPTCY_COLONY_INCOME_PENALTY, "Bankruptcy Stigma");
+                    }
+                }
             }
         }
     }

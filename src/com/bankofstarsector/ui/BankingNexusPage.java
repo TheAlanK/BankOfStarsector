@@ -8,10 +8,6 @@ import com.bankofstarsector.core.BankData;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.List;
 
 public class BankingNexusPage implements NexusPage {
@@ -29,6 +25,8 @@ public class BankingNexusPage implements NexusPage {
     private JLabel creditsLabel;
     private JLabel debtLabel;
     private JLabel investLabel;
+    private JLabel pastDueLabel;
+    private JLabel autopayLabel;
     private JLabel scoreLabel;
     private JLabel bracketLabel;
     private JPanel loansPanel;
@@ -66,6 +64,8 @@ public class BankingNexusPage implements NexusPage {
         creditsLabel = addLabelRow(overviewCard, "Credits:", "--");
         debtLabel = addLabelRow(overviewCard, "Total Debt:", "--");
         investLabel = addLabelRow(overviewCard, "Investments:", "--");
+        pastDueLabel = addLabelRow(overviewCard, "Past Due:", "--");
+        autopayLabel = addLabelRow(overviewCard, "Autopay:", "--");
         mainPanel.add(overviewCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
@@ -126,6 +126,9 @@ public class BankingNexusPage implements NexusPage {
             float debt = lm.getTotalDebt();
             updateLabel(debtLabel, formatCredits(debt), debt > 0 ? NEGATIVE : TEXT_PRIMARY);
             updateLabel(investLabel, formatCredits(im.getTotalValue()), POSITIVE);
+            float late = lm.getTotalLate();
+            updateLabel(pastDueLabel, formatCredits(late), late > 1f ? NEGATIVE : TEXT_PRIMARY);
+            updateLabel(autopayLabel, data.isAutopayEnabled() ? "ON" : "OFF", data.isAutopayEnabled() ? POSITIVE : NEGATIVE);
 
             // Update credit score
             updateLabel(scoreLabel, "" + csm.getScore(), getScoreColor(csm.getScore()));

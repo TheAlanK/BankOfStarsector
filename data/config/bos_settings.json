@@ -1,0 +1,43 @@
+{
+	# Bank of Starsector tunables. Every key is optional; missing keys use the built-in defaults.
+
+	# Interest
+	"warSurchargeMax":0.25,             # cap on the war surcharge applied to loan rates
+	"warSurchargePerWar":0.05,          # +5% per active war between major factions
+	"overduePenaltyPerMonth":0.5,       # overdue loans accrue +50% interest per month overdue
+	"marketDisruptionModifier":0.10,    # share of disrupted markets that drags investment returns
+
+	# Credit score
+	"creditScoreDefault":550,
+	"scoreOnTimePayment":5,
+	"scoreLoanPayoff":15,
+	"scoreLatePayment":-15,
+	"scoreMissedPayment":-25,
+	"scoreDefault":-150,
+
+	# Collection escalation (days overdue)
+	"overduePhase1Days":30,             # past this, banking is restricted (day 1 sends a reminder)
+	"overduePhase2Days":60,             # past this, a collection fleet is dispatched
+	"overduePhase3Days":90,             # reserved for display
+	"defaultThresholdDays":90,          # loan defaults, income garnishment starts
+	"collectionFleetCreditsPerFP":10000,
+	"collectionFleetMinFP":30,
+	"collectionFleetMaxFP":200,
+	"collectionFleetEscalation":1.5,    # each defeated collection fleet is replaced by a stronger one
+	"collectionFleetRetryDays":30,
+	"collectionRefusalRepPenalty":-0.15,
+	"shipSurrenderValueFraction":0.6,   # a surrendered ship pays off this fraction of its base value
+
+	# Bankruptcy
+	"bankruptcyDebtReduction":0.8,
+	"bankruptcyNoLoansMonths":24,
+	"bankruptcyNoInvestMonths":12,
+	"bankruptcyFullRecoveryMonths":36,
+	"bankruptcyRelationPenalty":-0.3,
+	"bankruptcyColonyIncomePenalty":0.1,
+	"bankruptcyScoreRecoveryPerMonth":5,
+
+	# Seizure and withdrawals
+	"garnishPercentage":0.3,            # share of colony income taken while a loan is in default
+	"earlyWithdrawalPenalty":0.5,       # share of accumulated returns lost on early withdrawal
+}
