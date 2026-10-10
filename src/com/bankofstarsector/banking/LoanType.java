@@ -14,7 +14,10 @@ public enum LoanType {
         "Elite financing for faction-level operations. Excellent credit required."),
     /** Since 0.3.0. Amount, term and rate come from BankSettings.BUILDER_*. */
     BUILDER("Credit Builder Loan", 50000f, 0.01f, 12, 300,
-        "The money stays at the bank until you pay the loan off. Builds a credit file.");
+        "The money stays at the bank until you pay the loan off. Builds a credit file."),
+    /** Since 0.3.0. A revolving account: limit, rate and minimum payment come from BankSettings.LINE_*. */
+    CREDIT_LINE("Confederation Credit Line", 500000f, 0.02f, 0, 500,
+        "Draw and repay freely up to your limit. Pay each statement in full and you pay no interest.");
 
     public final String displayName;
     public final float maxAmount;
@@ -41,8 +44,19 @@ public enum LoanType {
         return this == BUILDER;
     }
 
+    /** A revolving credit line: no term, billed a minimum payment on its balance every month. */
+    public boolean isRevolving() {
+        return this == CREDIT_LINE;
+    }
+
     public int getTermMonths() {
+        if (isRevolving()) return 0;
         return isBuilder() ? com.bankofstarsector.core.BankSettings.BUILDER_TERM_MONTHS : termMonths;
+    }
+
+    /** Monthly base rate before credit-score and war adjustments. */
+    public float getBaseRate() {
+        return isRevolving() ? com.bankofstarsector.core.BankSettings.LINE_RATE : baseMonthlyRate;
     }
 
     public float getMaxAmountForScore(int creditScore) {

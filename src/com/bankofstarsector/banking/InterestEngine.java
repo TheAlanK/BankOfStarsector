@@ -30,7 +30,7 @@ public class InterestEngine implements Serializable {
     public float calculateEffectiveLoanRate(LoanType type, int creditScore) {
         // Secured by its own funds: one fixed rate, whatever the score or the wars.
         if (type.isBuilder()) return com.bankofstarsector.core.BankSettings.BUILDER_RATE;
-        float baseRate = type.baseMonthlyRate;
+        float baseRate = type.getBaseRate();
         float warSurcharge = getWarSurcharge();
         float bracketMod = CreditScoreManager.rateModifierFor(creditScore);
         float disruption = getMarketDisruptionModifier(); // disrupted industry makes credit dearer

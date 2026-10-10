@@ -1,6 +1,7 @@
 const com.bankofstarsector.banking.CreditBureau$Category BUSINESS
 const com.bankofstarsector.banking.CreditBureau$Category LINE
 const com.bankofstarsector.banking.CreditBureau$Category PERSONAL
+const com.bankofstarsector.banking.CreditBureau$Category REVOLVING
 const com.bankofstarsector.banking.CreditBureau$EventType CHARGE_OFF
 const com.bankofstarsector.banking.CreditBureau$EventType LATE_120
 const com.bankofstarsector.banking.CreditBureau$EventType LATE_30
@@ -19,6 +20,7 @@ const com.bankofstarsector.banking.LoanStatus PAID_OFF
 const com.bankofstarsector.banking.LoanStatus SEIZED
 const com.bankofstarsector.banking.LoanType BUILDER
 const com.bankofstarsector.banking.LoanType CORPORATE
+const com.bankofstarsector.banking.LoanType CREDIT_LINE
 const com.bankofstarsector.banking.LoanType EMERGENCY
 const com.bankofstarsector.banking.LoanType MEGACORP
 const com.bankofstarsector.banking.LoanType SMALL
@@ -30,8 +32,10 @@ const com.bankofstarsector.collection.BankruptcyManager$BankruptcyState RECOVERY
 field com.bankofstarsector.banking.BankAccount accountId java.lang.String
 field com.bankofstarsector.banking.BankAccount accumulatedReturns float
 field com.bankofstarsector.banking.BankAccount amountPastDue float
+field com.bankofstarsector.banking.BankAccount autopayFull boolean
 field com.bankofstarsector.banking.BankAccount baseMonthlyRate float
 field com.bankofstarsector.banking.BankAccount createdTimestamp long
+field com.bankofstarsector.banking.BankAccount creditLimit float
 field com.bankofstarsector.banking.BankAccount currentBill float
 field com.bankofstarsector.banking.BankAccount currentValue float
 field com.bankofstarsector.banking.BankAccount daysOverdue int
@@ -39,13 +43,17 @@ field com.bankofstarsector.banking.BankAccount heldFunds float
 field com.bankofstarsector.banking.BankAccount investedAmount float
 field com.bankofstarsector.banking.BankAccount investmentType com.bankofstarsector.banking.InvestmentType
 field com.bankofstarsector.banking.BankAccount isLoan boolean
+field com.bankofstarsector.banking.BankAccount lastInterest float
 field com.bankofstarsector.banking.BankAccount loanType com.bankofstarsector.banking.LoanType
 field com.bankofstarsector.banking.BankAccount lockMonthsRemaining int
 field com.bankofstarsector.banking.BankAccount missedPayments int
 field com.bankofstarsector.banking.BankAccount monthlyRate float
 field com.bankofstarsector.banking.BankAccount monthsElapsed int
+field com.bankofstarsector.banking.BankAccount onTimeStreak int
+field com.bankofstarsector.banking.BankAccount paidSinceStatement float
 field com.bankofstarsector.banking.BankAccount principal float
 field com.bankofstarsector.banking.BankAccount remainingBalance float
+field com.bankofstarsector.banking.BankAccount statementBalance float
 field com.bankofstarsector.banking.BankAccount status com.bankofstarsector.banking.LoanStatus
 field com.bankofstarsector.banking.BankAccount termMonths int
 field com.bankofstarsector.banking.CreditBureau bankruptcyTs long
@@ -79,12 +87,16 @@ field com.bankofstarsector.banking.CreditBureau$Result pastDueNow boolean
 field com.bankofstarsector.banking.CreditBureau$Result payment float
 field com.bankofstarsector.banking.CreditBureau$Result reasons java.util.List<java.lang.String>
 field com.bankofstarsector.banking.CreditBureau$Result repossessions int
+field com.bankofstarsector.banking.CreditBureau$Result revolvingBalance float
+field com.bankofstarsector.banking.CreditBureau$Result revolvingLimit float
 field com.bankofstarsector.banking.CreditBureau$Result score java.lang.Integer
+field com.bankofstarsector.banking.CreditBureau$Result utilization float
 field com.bankofstarsector.banking.CreditBureau$Tradeline accountId java.lang.String
 field com.bankofstarsector.banking.CreditBureau$Tradeline category com.bankofstarsector.banking.CreditBureau$Category
 field com.bankofstarsector.banking.CreditBureau$Tradeline chargedOff boolean
 field com.bankofstarsector.banking.CreditBureau$Tradeline closedByEnforcement boolean
 field com.bankofstarsector.banking.CreditBureau$Tradeline closedTs long
+field com.bankofstarsector.banking.CreditBureau$Tradeline creditLimit float
 field com.bankofstarsector.banking.CreditBureau$Tradeline events java.util.List<com.bankofstarsector.banking.CreditBureau$Event>
 field com.bankofstarsector.banking.CreditBureau$Tradeline lastReportedTs long
 field com.bankofstarsector.banking.CreditBureau$Tradeline loanType com.bankofstarsector.banking.LoanType

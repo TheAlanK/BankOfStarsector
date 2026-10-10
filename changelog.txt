@@ -4,6 +4,12 @@ Bank of Starsector
 - New: credit-builder loan. For files with no score or a score under 500 (also during bankruptcy recovery):
   10k-50k held at the bank while you pay 12 installments at a fixed 1%/month, released when paid off.
   Builds a credit file; doesn't count toward the loan limit; on default the bank keeps the deposit.
+- New: revolving Confederation Credit Line (score 500+; limit 50k/200k/500k by bracket). Monthly statement,
+  minimum payment (interest + 1% of the balance, at least 1k), no interest when the statement is paid in full,
+  autopay of the full statement or the minimum, +20% limit after 6 on-time statements, limit cut and no draws
+  after a late payment. The credit score now weighs credit-line utilization (statement balance / limit) and
+  rewards having both installment and revolving credit. Shown in the terminal and in NexusUI.
+- Changed: "Sovereign Credit Line" renamed "Sovereign Loan" (it is an installment loan).
 - Fixed: defaults are reported to the credit bureau when they happen, and a charged-off loan no longer adds
   a new late mark every month.
 - Internal: save compatibility guard (tests/SaveCompatCheck) and docs/SAVE_COMPAT.md.

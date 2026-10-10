@@ -23,6 +23,19 @@
 	"builderRate":0.01,                 # monthly, fixed (no credit or war adjustments)
 	"builderMaxScore":500,              # offered to files with no score or a score below this
 
+	# Revolving credit line (draw and repay up to a limit; monthly statement with a minimum payment)
+	"lineRate":0.02,                    # monthly base rate, before credit-score and war adjustments
+	"lineMinScore":500,
+	"lineLimitFair":50000,              # starting limit for a 500-649 score
+	"lineLimitGood":200000,             # 650-749
+	"lineLimitExcellent":500000,        # 750+
+	"lineMinPaymentPct":0.01,           # minimum payment = interest + 1% of the balance...
+	"lineMinPaymentFloor":1000,         # ...and at least this much (or the whole balance if smaller)
+	"lineIncreaseMonths":6,             # on-time statements between automatic limit increases
+	"lineIncreasePct":0.2,
+	"lineMaxMultiplier":2,              # increases stop at this multiple of the bracket's starting limit
+	"lineLateCutPct":0.25,              # limit cut after a late payment (never below the balance)
+
 	# Collection escalation (days overdue)
 	"overduePhase1Days":30,             # past this, banking is restricted (day 1 sends a reminder)
 	"overduePhase2Days":60,             # past this, a collection fleet is dispatched

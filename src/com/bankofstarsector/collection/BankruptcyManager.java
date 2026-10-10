@@ -79,6 +79,12 @@ public class BankruptcyManager implements Serializable {
             // Restructured: the reduced balance is repaid over a fresh term.
             loan.principal = loan.remainingBalance;
             loan.monthsElapsed = 0;
+            if (loan.loanType.isRevolving()) {
+                // Bankruptcy closes credit lines to new draws; the reduced balance is paid down by minimums.
+                loan.creditLimit = 0f;
+                loan.statementBalance = 0f;
+                loan.paidSinceStatement = 0f;
+            }
         }
 
         // Liquidate investments at 50% value

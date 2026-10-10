@@ -27,6 +27,10 @@ public final class BankSnapshot {
     public final int score;
     public final String bracket, bankruptcyState, bankruptcyLabel, scoreText;
     public final List<Line> loans;
+    /** Credit line (0.3.0); lineId is null when the player has none. */
+    public final String lineId;
+    public final float lineBalance, lineLimit, lineAvailable, lineUtilization, lineMinimumDue, lineStatementDue, lineLastInterest;
+    public final boolean lineAutopayFull, lineLate;
     public final List<Line> investments;
 
     /** One row in a list: label, value, and whether it should be shown as a problem. */
@@ -67,11 +71,24 @@ public final class BankSnapshot {
 
         List<Line> l = new ArrayList<Line>();
         for (BankAccount loan : lm.getActiveLoans()) {
+            if (loan.loanType.isRevolving()) continue; // shown in its own card
             String detail = LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay();
             if (loan.heldFunds > 0f) detail += " | " + com.bankofstarsector.core.Str.f("nexus.loanHeld", LoanManager.formatCredits(loan.heldFunds));
             l.add(new Line(loan.loanType.getDisplayName(), detail, loan.status != LoanStatus.ACTIVE));
         }
         loans = Collections.unmodifiableList(l);
+
+        BankAccount line = lm.getCreditLine();
+        lineId = line != null ? line.accountId : null;
+        lineBalance = line != null ? line.remainingBalance : 0f;
+        lineLimit = line != null ? line.creditLimit : 0f;
+        lineAvailable = line != null ? line.getAvailableCredit() : 0f;
+        lineUtilization = line != null ? line.getUtilization() : 0f;
+        lineMinimumDue = line != null ? line.amountPastDue : 0f;
+        lineStatementDue = line != null ? line.getStatementRemaining() : 0f;
+        lineLastInterest = line != null ? line.lastInterest : 0f;
+        lineAutopayFull = line != null && line.autopayFull;
+        lineLate = line != null && line.getLateAmount() > 1f;
 
         List<Line> inv = new ArrayList<Line>();
         for (BankAccount a : im.getActiveInvestments()) {
@@ -120,6 +137,15 @@ public final class BankSnapshot {
             JSONArray ls = new JSONArray();
             for (Line x : loans) ls.put(new JSONObject().put("name", x.label).put("detail", x.detail).put("problem", x.bad));
             o.put("loans", ls);
+            if (lineId == null) {
+                o.put("creditLine", JSONObject.NULL);
+            } else {
+                o.put("creditLine", new JSONObject()
+                    .put("balance", lineBalance).put("limit", lineLimit).put("available", lineAvailable)
+                    .put("utilization", lineUtilization).put("minimumDue", lineMinimumDue)
+                    .put("statementDue", lineStatementDue).put("lastInterest", lineLastInterest)
+                    .put("autopayFullStatement", lineAutopayFull).put("late", lineLate));
+            }
             JSONArray is = new JSONArray();
             for (Line x : investments) is.put(new JSONObject().put("name", x.label).put("detail", x.detail).put("loss", x.bad));
             o.put("investments", is);

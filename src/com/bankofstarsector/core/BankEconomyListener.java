@@ -82,8 +82,11 @@ public class BankEconomyListener implements EconomyTickListener {
                 }
             });
             for (BankAccount loan : open) {
-                if (loan.amountPastDue <= 0f || available <= 0f) continue;
-                float pay = Math.min(loan.amountPastDue, available);
+                // A credit line on "full statement" autopay clears its whole balance, so no interest accrues.
+                float due = loan.loanType.isRevolving() && loan.autopayFull && loan.status == LoanStatus.ACTIVE
+                    ? loan.remainingBalance : loan.amountPastDue;
+                if (due <= 0f || available <= 0f) continue;
+                float pay = Math.min(due, available);
                 available -= pay;
                 autopaid += pay;
                 lm.applyPayment(loan, pay, "AUTOPAY");
@@ -93,6 +96,7 @@ public class BankEconomyListener implements EconomyTickListener {
 
         // 4. Whatever is still unpaid is a missed payment
         lm.markMissedPayments();
+        lm.reviewCreditLines(data.getCreditScoreManager());
         float stillDue = lm.getTotalLate();
         float dueNextMonth = lm.getTotalCurrentBills();
 

@@ -34,6 +34,10 @@ final class LunaLibBridge {
         BankSettings.BUILDER_MAX_AMOUNT = f("bos_builderMaxAmount", BankSettings.BUILDER_MAX_AMOUNT);
         BankSettings.BUILDER_TERM_MONTHS = i("bos_builderTermMonths", BankSettings.BUILDER_TERM_MONTHS);
         BankSettings.BUILDER_RATE = f("bos_builderRate", BankSettings.BUILDER_RATE);
+        BankSettings.LINE_RATE = f("bos_lineRate", BankSettings.LINE_RATE);
+        BankSettings.LINE_LIMIT_FAIR = f("bos_lineLimitFair", BankSettings.LINE_LIMIT_FAIR);
+        BankSettings.LINE_LIMIT_GOOD = f("bos_lineLimitGood", BankSettings.LINE_LIMIT_GOOD);
+        BankSettings.LINE_LIMIT_EXCELLENT = f("bos_lineLimitExcellent", BankSettings.LINE_LIMIT_EXCELLENT);
         // Keep the escalation ladder ordered even if the player sets odd values.
         if (BankSettings.OVERDUE_PHASE2_DAYS <= BankSettings.OVERDUE_PHASE1_DAYS) {
             BankSettings.OVERDUE_PHASE2_DAYS = BankSettings.OVERDUE_PHASE1_DAYS + 1;

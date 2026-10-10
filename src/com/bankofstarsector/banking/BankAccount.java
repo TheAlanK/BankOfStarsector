@@ -31,6 +31,19 @@ public class BankAccount implements Serializable {
     /** Credit-builder loans (0.3.0): loan money held at the bank until payoff. 0 for other loans and in older saves. */
     public float heldFunds;
 
+    // Revolving credit line (0.3.0). remainingBalance is the balance drawn; amountPastDue/currentBill hold the minimum due.
+    /** Credit limit; 0 = closed to new draws (after default or bankruptcy). */
+    public float creditLimit;
+    /** Balance on the last statement. Paying it in full by the next month end avoids interest. */
+    public float statementBalance;
+    public float paidSinceStatement;
+    /** Interest charged on the last statement (0 when the previous statement was paid in full). */
+    public float lastInterest;
+    /** Consecutive on-time statements, for automatic limit increases. */
+    public int onTimeStreak;
+    /** Autopay pays the whole statement (true) or only the minimum (false). */
+    public boolean autopayFull;
+
     // Investment fields
     public InvestmentType investmentType;
     public float investedAmount;
@@ -92,10 +105,35 @@ public class BankAccount implements Serializable {
     /** Scheduled installment: interest on the balance plus an even share of principal. */
     public float getMonthlyPayment() {
         if (!isOpenLoan()) return 0f;
+        if (loanType.isRevolving()) {
+            // Estimate: the minimum on today's balance, as if carried (interest charged).
+            return lineMinimum(remainingBalance, remainingBalance * monthlyRate);
+        }
         if (monthsElapsed >= termMonths) return remainingBalance; // term over: balloon payment
         float interestPayment = remainingBalance * monthlyRate;
         float principalPayment = principal / termMonths;
         return Math.min(remainingBalance, interestPayment + principalPayment);
+    }
+
+    /** Minimum payment of a credit line: interest plus a share of the balance, with a floor; never more than the balance. */
+    public static float lineMinimum(float balance, float interest) {
+        if (balance <= 0f) return 0f;
+        float min = Math.max(com.bankofstarsector.core.BankSettings.LINE_MIN_PAYMENT_FLOOR,
+            interest + com.bankofstarsector.core.BankSettings.LINE_MIN_PAYMENT_PCT * balance);
+        return Math.min(balance, min);
+    }
+
+    /** Part of the last statement not paid yet: paying this by month end avoids interest. */
+    public float getStatementRemaining() {
+        return Math.max(0f, Math.min(remainingBalance, statementBalance - paidSinceStatement));
+    }
+
+    public float getAvailableCredit() {
+        return Math.max(0f, creditLimit - remainingBalance);
+    }
+
+    public float getUtilization() {
+        return creditLimit > 0f ? remainingBalance / creditLimit : (remainingBalance > 0f ? 1f : 0f);
     }
 
     public boolean isLocked() {

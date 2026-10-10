@@ -52,6 +52,19 @@ public class BankSettings {
     public static float BUILDER_RATE = 0.01f;         // monthly; fixed, it is secured by its own funds
     public static int BUILDER_MAX_SCORE = 500;        // offered to files with no score or a score below this
 
+    // Revolving credit line: draw and repay up to a limit, billed monthly with a minimum payment
+    public static float LINE_RATE = 0.02f;            // monthly base rate, before credit and war adjustments
+    public static int LINE_MIN_SCORE = 500;
+    public static float LINE_LIMIT_FAIR = 50000f;     // starting limit by bracket (500-649 / 650-749 / 750+)
+    public static float LINE_LIMIT_GOOD = 200000f;
+    public static float LINE_LIMIT_EXCELLENT = 500000f;
+    public static float LINE_MIN_PAYMENT_PCT = 0.01f; // minimum payment: interest + this share of the balance
+    public static float LINE_MIN_PAYMENT_FLOOR = 1000f;
+    public static int LINE_INCREASE_MONTHS = 6;       // on-time statements between limit increases
+    public static float LINE_INCREASE_PCT = 0.20f;
+    public static float LINE_MAX_MULTIPLIER = 2f;     // increases stop at this multiple of the bracket's limit
+    public static float LINE_LATE_CUT_PCT = 0.25f;    // limit cut after a late payment (never below the balance)
+
 
     // Collection
     public static int OVERDUE_PHASE1_DAYS = 30;
@@ -101,6 +114,17 @@ public class BankSettings {
             BUILDER_TERM_MONTHS = i(j, "builderTermMonths", BUILDER_TERM_MONTHS);
             BUILDER_RATE = f(j, "builderRate", BUILDER_RATE);
             BUILDER_MAX_SCORE = i(j, "builderMaxScore", BUILDER_MAX_SCORE);
+            LINE_RATE = f(j, "lineRate", LINE_RATE);
+            LINE_MIN_SCORE = i(j, "lineMinScore", LINE_MIN_SCORE);
+            LINE_LIMIT_FAIR = f(j, "lineLimitFair", LINE_LIMIT_FAIR);
+            LINE_LIMIT_GOOD = f(j, "lineLimitGood", LINE_LIMIT_GOOD);
+            LINE_LIMIT_EXCELLENT = f(j, "lineLimitExcellent", LINE_LIMIT_EXCELLENT);
+            LINE_MIN_PAYMENT_PCT = f(j, "lineMinPaymentPct", LINE_MIN_PAYMENT_PCT);
+            LINE_MIN_PAYMENT_FLOOR = f(j, "lineMinPaymentFloor", LINE_MIN_PAYMENT_FLOOR);
+            LINE_INCREASE_MONTHS = i(j, "lineIncreaseMonths", LINE_INCREASE_MONTHS);
+            LINE_INCREASE_PCT = f(j, "lineIncreasePct", LINE_INCREASE_PCT);
+            LINE_MAX_MULTIPLIER = f(j, "lineMaxMultiplier", LINE_MAX_MULTIPLIER);
+            LINE_LATE_CUT_PCT = f(j, "lineLateCutPct", LINE_LATE_CUT_PCT);
             INQUIRY_DEDUPE_DAYS = i(j, "inquiryDedupeDays", INQUIRY_DEDUPE_DAYS);
             DEROGATORY_MONTHS = i(j, "derogatoryMonths", DEROGATORY_MONTHS);
             CLOSED_ACCOUNT_MONTHS = i(j, "closedAccountMonths", CLOSED_ACCOUNT_MONTHS);

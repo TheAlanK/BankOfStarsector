@@ -7,11 +7,12 @@ A Starsector mod that adds the **Persean Banking Confederation (PBC)**, a powerf
 ### Banking System
 - **Loans**: 5 tiers from Emergency (50k) to Sovereign (5M). Each loan is repaid in **monthly installments** (interest plus an even share of the principal).
 - **Credit-builder loan**: for captains with no credit score or a low one (under 500), including during bankruptcy recovery. You borrow 10k–50k, but the money stays at the bank while you pay the installments (12 months, 1%/month fixed); when the loan is paid off, the money is yours. Each month paid on time builds your credit file. It doesn't count toward your loan limit, and if it defaults the bank simply keeps the deposit (no Collection Fleet), but the charge-off still goes on your credit report.
+- **Credit line**: a revolving Confederation Credit Line for scores of 500+ (limit 50k / 200k / 500k by bracket). Draw and repay freely; each month end issues a statement with a minimum payment (interest + 1% of the balance, at least 1k). Pay the statement in full and there is no interest (autopay does this by default; it can pay only the minimum instead). Six on-time statements in a row raise the limit by 20%; a late payment cuts it and blocks draws. The bureau sees the statement balance, so keeping utilization (balance ÷ limit) low matters: 1–10% is best, over 30% hurts, over 90% hurts a lot, and paying it down recovers the score at the next report.
 - **Autopay**: installments appear in the vanilla **monthly income report** under *Fleet → PBC loan installments* and are settled with the rest of your monthly finances. You can turn autopay off in the terminal.
 - **Grace period**: an installment only becomes late if it is still unpaid at the *next* month end, so you always get a month to pay manually.
 - **Investments**: savings accounts, government bonds, commodity futures, venture funds and military contracts.
 - **Sovereign debt market**: major factions borrow from the Confederation to fund their wars and repay in peace (ledger in the Overview tab). Government bonds pay a higher coupon when sovereign debt is high. If an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
-- **Credit score**: computed once a month from a credit report, like a real credit bureau (FICO-style, 300–850): payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%. Every application is a hard inquiry, lateness is reported from 30 days and fades over 7 years, and there is no score until an account is 6 months old, so taking and instantly repaying loans does not farm points. Its bracket sets how many loans you can hold and adjusts your rates (−15% / 0 / +20% / +50%).
+- **Credit score**: computed once a month from a credit report, like a real credit bureau (FICO-style, 300–850): payment history 35%, amounts owed 30% (installment balances and credit-line utilization), length of history 15%, new credit 10%, credit mix 10%. Every application is a hard inquiry, lateness is reported from 30 days and fades over 7 years, and there is no score until an account is 6 months old, so taking and instantly repaying loans does not farm points. Its bracket sets how many loans you can hold and adjusts your rates (−15% / 0 / +20% / +50%).
 - **Interest engine**:
   - Each war between major factions adds +5% to loan rates, up to +25%. With Nexerelin this follows its live wars.
   - Disrupted industries across the sector also make loans more expensive.
@@ -95,6 +96,7 @@ None required.
 
 ### 0.3.0-beta (in development)
 - **New:** credit-builder loan, the realistic way to start (or rebuild) a credit file.
+- **New:** revolving credit line with monthly statements, minimum payments, a grace period, automatic limit increases, and utilization in the credit score. The Sovereign loan is no longer called a "credit line".
 - **Fix:** a default is put on the credit report when it happens, so a seizure that settles it before month end no longer hides it; a charged-off loan no longer adds a new late mark every month.
 - **Internal:** a test now fails the build if a change would break loading existing saves ([docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)).
 

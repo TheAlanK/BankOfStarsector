@@ -43,6 +43,12 @@ public class BankSim {
         scenarioCreditBuilder();
         scenarioCreditBuilderDefault();
         scenarioCreditBuilderEligibility();
+        scenarioCreditLineEligibility();
+        scenarioCreditLineUtilization();
+        scenarioCreditLineGracePeriod();
+        scenarioCreditLineMissedMinimum();
+        scenarioCreditLineLimitIncrease();
+        scenarioCreditLineChurnAndClose();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -261,6 +267,161 @@ public class BankSim {
             good != null && good >= BankSettings.BUILDER_MAX_SCORE && "terminal.loans.reasonBuilderScore".equals(whyGood));
         check("[builder eligibility] offered during the bankruptcy lockout, unlike other loans",
             whyBuilder == null && "terminal.loans.reasonBankruptcy".equals(whySmall));
+    }
+
+    // ------------------------------------------------------------------ revolving credit line (0.3.0)
+
+    /** A file with ~8 months of on-time history and a good score (650-749). */
+    static BankData scoredFile(float cash) {
+        reset(cash);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(8);
+        return data;
+    }
+
+    static void scenarioCreditLineEligibility() {
+        reset(1_000_000f);
+        BankData data = BankData.get();
+        String thin = data.getLoanManager().whyNot(LoanType.CREDIT_LINE, data);
+        data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        int inq = data.getCreditScoreManager().getReport().inquiries12;
+        Integer score = score();
+        BankAccount line = lm.openCreditLine(data);
+        String second = lm.whyNot(LoanType.CREDIT_LINE, data);
+        System.out.printf("[line] thin file: %s | score %s -> limit %.0f, rate %.2f%%/mo | second line: %s%n",
+            thin, score, line == null ? 0f : line.creditLimit, line == null ? 0f : line.monthlyRate * 100, second);
+        check("[line] not offered to a thin file", "terminal.line.reasonScore".equals(thin));
+        check("[line] good score gets the good-bracket limit", line != null && Math.abs(line.creditLimit - BankSettings.LINE_LIMIT_GOOD) < 1f);
+        check("[line] opening is a hard inquiry", data.getCreditScoreManager().getReport().inquiries12 == inq + 1);
+        check("[line] only one credit line", "terminal.line.reasonOpen".equals(second));
+        check("[line] does not count toward the loan limit", lm.getLimitedLoanCount() == 1);
+    }
+
+    static Integer lineScoreAt(float utilization, float payDownTo) {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        line.autopayFull = false;
+        lm.drawCreditLine(line.accountId, line.creditLimit * utilization);
+        months(2);
+        if (payDownTo >= 0f) {
+            lm.makePayment(line.accountId, Math.max(0f, line.remainingBalance - line.creditLimit * payDownTo));
+            months(1);
+        }
+        return score();
+    }
+
+    static void scenarioCreditLineUtilization() {
+        Integer low = lineScoreAt(0.10f, -1f);
+        Integer high = lineScoreAt(0.90f, -1f);
+        Integer lowLater = lineScoreAt(0.10f, 0.10f);
+        Integer recovered = lineScoreAt(0.90f, 0.10f);
+        CreditBureau.Result r = BankData.get().getCreditScoreManager().getReport();
+        System.out.printf("[line utilization] 10%%: %s | 90%%: %s | a month after paying 90%% down to 10%%: %s (10%% throughout: %s), utilization now %.0f%%%n",
+            low, high, recovered, lowLater, r.utilization * 100);
+        check("[line utilization] high utilization costs many points", low != null && high != null && low - high >= 40);
+        check("[line utilization] paying it down recovers at the next report (no memory)",
+            recovered != null && lowLater != null && Math.abs(lowLater - recovered) <= 10);
+    }
+
+    static void scenarioCreditLineGracePeriod() {
+        // Full statement paid every month: never any interest.
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        float interestFull = 0f;
+        for (int m = 0; m < 3; m++) {
+            lm.drawCreditLine(line.accountId, 50_000f);
+            months(1);
+            interestFull += line.lastInterest;
+        }
+        // Only the minimum paid: interest from the second statement on.
+        data = scoredFile(10_000_000f);
+        lm = data.getLoanManager();
+        BankAccount carried = lm.openCreditLine(data);
+        carried.autopayFull = false;
+        lm.drawCreditLine(carried.accountId, 50_000f);
+        months(1);
+        float first = carried.lastInterest;
+        months(1);
+        float second = carried.lastInterest;
+        System.out.printf("[line grace] statement paid in full x3: interest %.0f | minimum only: first statement %.0f, second %.0f (balance %.0f)%n",
+            interestFull, first, second, carried.remainingBalance);
+        check("[line grace] paying the statement in full charges no interest", interestFull < 1f && line.remainingBalance < 1f);
+        check("[line grace] carrying a balance charges interest", first < 1f && second > 500f);
+    }
+
+    static void scenarioCreditLineMissedMinimum() {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        float limit0 = line.creditLimit;
+        data.setAutopayEnabled(false);
+        // Keep the installment loan current by hand; leave the credit line unpaid.
+        lm.drawCreditLine(line.accountId, 100_000f);
+        credits.set(0f);
+        for (int m = 0; m < 3; m++) {
+            advanceDays(30);
+            monthEnd();
+            credits.set(10_000_000f);
+            for (BankAccount loan : lm.getActiveLoans()) if (!loan.loanType.isRevolving() && loan.amountPastDue > 0f) lm.payPastDue(loan.accountId);
+            credits.set(0f);
+        }
+        CreditBureau.Result r = data.getCreditScoreManager().getReport();
+        credits.set(1_000_000f);
+        boolean drew = lm.drawCreditLine(line.accountId, 10_000f);
+        System.out.printf("[line missed] status %s, days overdue %d, late30 %d, restricted %s, limit %.0f -> %.0f, draw allowed: %s%n",
+            line.status, line.daysOverdue, r.late30, data.getCollectionManager().isBankingRestricted(), limit0, line.creditLimit, drew);
+        check("[line missed] an unpaid minimum is reported 30 days late", r.late30 >= 1);
+        check("[line missed] collection starts (banking restricted)", data.getCollectionManager().isBankingRestricted());
+        check("[line missed] no draws while late", !drew);
+        check("[line missed] limit cut after the late payment, not below the balance",
+            line.creditLimit < limit0 && line.creditLimit >= line.remainingBalance - 1f);
+    }
+
+    static void scenarioCreditLineLimitIncrease() {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        float limit0 = line.creditLimit;
+        for (int m = 0; m < BankSettings.LINE_INCREASE_MONTHS; m++) {
+            lm.drawCreditLine(line.accountId, 20_000f);
+            months(1);
+        }
+        System.out.printf("[line increase] after %d on-time statements: limit %.0f -> %.0f%n",
+            BankSettings.LINE_INCREASE_MONTHS, limit0, line.creditLimit);
+        check("[line increase] limit raised after on-time statements",
+            Math.abs(line.creditLimit - limit0 * (1f + BankSettings.LINE_INCREASE_PCT)) < 1f);
+    }
+
+    static void scenarioCreditLineChurnAndClose() {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        months(1);
+        CreditBureau.Tradeline t = data.getCreditScoreManager().getBureau().find(line.accountId);
+        int onTime0 = t.monthsOnTime;
+        int inq0 = data.getCreditScoreManager().getReport().inquiries12;
+        for (int i = 0; i < 10; i++) {
+            lm.drawCreditLine(line.accountId, line.getAvailableCredit());
+            lm.makePayment(line.accountId, line.remainingBalance);
+        }
+        months(1);
+        int onTime1 = t.monthsOnTime;
+        boolean closedWithBalance;
+        lm.drawCreditLine(line.accountId, 10_000f);
+        closedWithBalance = lm.closeCreditLine(line.accountId);
+        lm.makePayment(line.accountId, line.remainingBalance);
+        boolean closed = lm.closeCreditLine(line.accountId);
+        months(1);
+        System.out.printf("[line churn] 10 draw/repay cycles: on-time months %d -> %d, inquiries %d -> %d | close with balance: %s, close at zero: %s, tradeline open: %s%n",
+            onTime0, onTime1, inq0, data.getCreditScoreManager().getReport().inquiries12, closedWithBalance, closed, t.isOpen());
+        check("[line churn] many draws and repayments add one month of history, like any month", onTime1 == onTime0 + 1);
+        check("[line churn] draws are not inquiries", data.getCreditScoreManager().getReport().inquiries12 == inq0);
+        check("[line close] a line with a balance can't be closed", !closedWithBalance);
+        check("[line close] closing at zero closes the account on the report", closed && !t.isOpen());
     }
 
     static Integer score() {

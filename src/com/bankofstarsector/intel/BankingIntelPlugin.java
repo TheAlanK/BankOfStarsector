@@ -123,6 +123,12 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             info.addPara(Str.get("terminal.overview.held"), opad, Misc.getPositiveHighlightColor(),
                 Misc.getDGSCredits(lm.getTotalHeldFunds()));
         }
+        BankAccount line = lm.getCreditLine();
+        if (line != null) {
+            info.addPara(Str.get("terminal.overview.line"), opad, utilizationColor(line.getUtilization()),
+                Misc.getDGSCredits(line.remainingBalance), Misc.getDGSCredits(line.creditLimit),
+                String.format("%.0f%%", line.getUtilization() * 100));
+        }
 
         info.addSpacer(opad);
         heading(info, "terminal.credit.heading", opad);
@@ -217,9 +223,15 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         CreditScoreManager csm = data.getCreditScoreManager();
         InterestEngine engine = data.getInterestEngine();
 
+        renderCreditLine(info, opad);
+        info.addSpacer(opad);
+
         heading(info, "terminal.loans.active", opad);
 
         List<BankAccount> activeLoans = lm.getActiveLoans();
+        for (java.util.Iterator<BankAccount> it = activeLoans.iterator(); it.hasNext(); ) {
+            if (it.next().loanType.isRevolving()) it.remove();
+        }
         if (activeLoans.isEmpty()) {
             info.addPara(Str.get("terminal.loans.none"), Misc.getGrayColor(), opad);
         } else {
@@ -276,7 +288,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         List<LoanType> offers = new ArrayList<LoanType>();
         offers.add(LoanType.BUILDER);
         if (!bankruptcyLock) {
-            for (LoanType type : LoanType.values()) if (!type.isBuilder()) offers.add(type);
+            for (LoanType type : LoanType.values()) if (!type.isBuilder() && !type.isRevolving()) offers.add(type);
         }
         for (LoanType type : offers) {
             String why = lm.whyNot(type, data);
@@ -311,6 +323,95 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), Str.get(why));
             }
             info.addSpacer(opad / 2);
+        }
+    }
+
+    private static Color utilizationColor(float u) {
+        return u <= 0.3f ? Misc.getPositiveHighlightColor() : u <= 0.75f ? Misc.getHighlightColor() : Misc.getNegativeHighlightColor();
+    }
+
+    /** Credit line: the offer, or the open line with its statement, draws and payments. */
+    private void renderCreditLine(TooltipMakerAPI info, float opad) {
+        BankData data = BankData.get();
+        LoanManager lm = data.getLoanManager();
+        CreditScoreManager csm = data.getCreditScoreManager();
+        heading(info, "terminal.line.heading", opad);
+
+        BankAccount line = lm.getCreditLine();
+        if (line == null) {
+            info.addPara("%s", opad, Misc.getGrayColor(), LoanType.CREDIT_LINE.getDescription());
+            String why = lm.whyNot(LoanType.CREDIT_LINE, data);
+            if (why != null) {
+                info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), Str.f(why, BankSettings.LINE_MIN_SCORE));
+                return;
+            }
+            float limit = LoanManager.lineLimitFor(csm);
+            float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.CREDIT_LINE, csm.getScore());
+            info.addPara(Str.get("terminal.line.offer"), 3f, Misc.getHighlightColor(), Misc.getDGSCredits(limit),
+                pct(rate, "%.1f"), pct(BankSettings.LINE_MIN_PAYMENT_PCT, "%.0f"), Misc.getDGSCredits(BankSettings.LINE_MIN_PAYMENT_FLOOR));
+            info.addButton(Str.f("terminal.line.open", Misc.getDGSCredits(limit)), "line_open",
+                Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 24f, opad / 2);
+            return;
+        }
+
+        float u = line.getUtilization();
+        info.addPara(Str.get("terminal.line.limitRow"), opad, utilizationColor(u),
+            Misc.getDGSCredits(line.remainingBalance), Misc.getDGSCredits(line.creditLimit),
+            Misc.getDGSCredits(line.getAvailableCredit()), String.format("%.0f%%", u * 100));
+        info.addPara(Str.get("terminal.line.statementRow"), 3f, Misc.getHighlightColor(),
+            Misc.getDGSCredits(line.statementBalance), Misc.getDGSCredits(line.amountPastDue),
+            pct(line.monthlyRate, "%.1f"), line.getStatusDisplay());
+        if (line.getStatementRemaining() > 1f) {
+            info.addPara(Str.get("terminal.line.graceRisk"), 3f, Misc.getHighlightColor(),
+                Misc.getDGSCredits(line.getStatementRemaining()));
+        } else if (line.remainingBalance > 1f) {
+            info.addPara("%s", 3f, Misc.getPositiveHighlightColor(), Str.get("terminal.line.graceOk"));
+        }
+        if (line.lastInterest > 1f) {
+            info.addPara(Str.get("terminal.line.interest"), 3f, Misc.getNegativeHighlightColor(),
+                Misc.getDGSCredits(line.lastInterest));
+        }
+        if (line.getLateAmount() > 1f) {
+            info.addPara(Str.get("terminal.loans.due"), 3f, Misc.getNegativeHighlightColor(),
+                Misc.getDGSCredits(line.amountPastDue), Misc.getDGSCredits(line.getLateAmount()), "" + line.missedPayments);
+        }
+        if (line.creditLimit <= 0f) {
+            info.addPara("%s", 3f, Misc.getNegativeHighlightColor(), Str.get("terminal.line.frozen"));
+        }
+        info.addPara(Str.get("terminal.line.autopay"), 3f, Misc.getHighlightColor(),
+            Str.get(line.autopayFull ? "terminal.line.autopayFull" : "terminal.line.autopayMin"));
+
+        boolean canDraw = line.status == LoanStatus.ACTIVE && line.getAvailableCredit() >= 1f
+            && !data.getCollectionManager().isBankingRestricted();
+        if (canDraw) {
+            for (float p : new float[]{0.10f, 0.25f, 0.50f, 1.0f}) {
+                info.addButton(Str.f("terminal.line.draw", Misc.getDGSCredits(line.getAvailableCredit() * p)),
+                    "line_draw_" + line.accountId + "_" + (int) (p * 100),
+                    Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
+            }
+        }
+        if (line.amountPastDue > 1f) {
+            info.addButton(Str.f("terminal.line.payMin", Misc.getDGSCredits(line.amountPastDue)),
+                "loan_paypastdue_" + line.accountId,
+                line.getLateAmount() > 1f ? Misc.getNegativeHighlightColor() : Misc.getBasePlayerColor(),
+                DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 24f, 3f);
+        }
+        if (line.getStatementRemaining() > 1f) {
+            info.addButton(Str.f("terminal.line.payStatement", Misc.getDGSCredits(line.getStatementRemaining())),
+                "line_paystatement_" + line.accountId,
+                Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 24f, 3f);
+        }
+        if (line.remainingBalance > 1f) {
+            info.addButton(Str.f("terminal.line.payAll", Misc.getDGSCredits(line.remainingBalance)),
+                "loan_payoff_" + line.accountId,
+                Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 24f, 3f);
+        }
+        info.addButton(Str.get(line.autopayFull ? "terminal.line.autopayToMin" : "terminal.line.autopayToFull"),
+            "line_autopay_" + line.accountId,
+            Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 24f, 3f);
+        if (line.remainingBalance <= 1f && line.status == LoanStatus.ACTIVE) {
+            info.addButton(Str.get("terminal.line.close"), "line_close_" + line.accountId,
+                Misc.getNegativeHighlightColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 24f, 3f);
         }
     }
 
@@ -439,6 +540,11 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             "" + r.chargeOffs, "" + r.repossessions, Str.get(r.bankruptcyOnFile ? "common.yes" : "common.no"));
         info.addPara(Str.get("terminal.credit.newCredit"), 3f, hl, "" + r.inquiries12, "" + r.accountsOpened12,
             String.format("%.0f%%", r.balanceRatio * 100));
+        if (r.hasRevolving()) {
+            info.addPara(Str.get("terminal.credit.utilization"), 3f, utilizationColor(r.utilization),
+                String.format("%.0f%%", r.utilization * 100), Misc.getDGSCredits(r.revolvingBalance),
+                Misc.getDGSCredits(r.revolvingLimit));
+        }
 
         // Brackets (pricing and limits)
         info.addSpacer(opad);
@@ -464,7 +570,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
         info.addSpacer(opad);
         heading(info, "terminal.credit.tips", opad);
-        for (String tip : new String[]{"tipOnTime", "tipLate", "tipInquiries", "tipAge", "tipBalance", "tipPayoff", "tipMix"}) {
+        for (String tip : new String[]{"tipOnTime", "tipLate", "tipInquiries", "tipAge", "tipBalance", "tipUtilization", "tipPayoff", "tipMix"}) {
             info.addPara(Str.get("terminal.credit." + tip), 3f);
         }
         BankruptcyManager bm = data.getBankruptcyManager();
@@ -546,6 +652,42 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
         if (id.startsWith("loan_payoff_")) {
             data.getLoanManager().payOff(id.substring("loan_payoff_".length()));
+            ui.updateUIForItem(this);
+            return;
+        }
+
+        if ("line_open".equals(id)) {
+            data.getLoanManager().openCreditLine(data);
+            ui.updateUIForItem(this);
+            return;
+        }
+
+        if (id.startsWith("line_draw_")) {
+            String rest = id.substring("line_draw_".length());
+            int lastUnderscore = rest.lastIndexOf('_');
+            String accountId = rest.substring(0, lastUnderscore);
+            int p = Integer.parseInt(rest.substring(lastUnderscore + 1));
+            BankAccount line = data.getLoanManager().findLoan(accountId);
+            if (line != null) data.getLoanManager().drawCreditLine(accountId, line.getAvailableCredit() * (p / 100f));
+            ui.updateUIForItem(this);
+            return;
+        }
+
+        if (id.startsWith("line_paystatement_")) {
+            data.getLoanManager().payStatement(id.substring("line_paystatement_".length()));
+            ui.updateUIForItem(this);
+            return;
+        }
+
+        if (id.startsWith("line_autopay_")) {
+            BankAccount line = data.getLoanManager().findLoan(id.substring("line_autopay_".length()));
+            if (line != null) line.autopayFull = !line.autopayFull;
+            ui.updateUIForItem(this);
+            return;
+        }
+
+        if (id.startsWith("line_close_")) {
+            data.getLoanManager().closeCreditLine(id.substring("line_close_".length()));
             ui.updateUIForItem(this);
             return;
         }
