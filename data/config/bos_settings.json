@@ -9,13 +9,12 @@
 	"overduePenaltyPerMonth":0.5,       # overdue loans accrue +50% interest per month overdue
 	"marketDisruptionModifier":0.10,    # share of disrupted markets that drags investment returns
 
-	# Credit score
-	"creditScoreDefault":550,
-	"scoreOnTimePayment":5,
-	"scoreLoanPayoff":15,
-	"scoreLatePayment":-15,
-	"scoreMissedPayment":-25,
-	"scoreDefault":-150,
+	# Credit bureau (FICO-style report; see CreditBureau.java)
+	"minScoringMonths":6,               # an account must be this old (and reported recently) to be scoreable
+	"inquiryDedupeDays":45,             # same-type loan applications inside this window count as one inquiry
+	"derogatoryMonths":84,              # late payments, charge-offs and repossessions stay 7 years
+	"closedAccountMonths":120,          # closed accounts in good standing stay 10 years
+	"bankruptcyRecordMonths":120,       # bankruptcy public record
 
 	# Collection escalation (days overdue)
 	"overduePhase1Days":30,             # past this, banking is restricted (day 1 sends a reminder)
@@ -37,7 +36,6 @@
 	"bankruptcyFullRecoveryMonths":36,
 	"bankruptcyRelationPenalty":-0.3,
 	"bankruptcyColonyIncomePenalty":0.1,
-	"bankruptcyScoreRecoveryPerMonth":5,
 
 	# Seizure and withdrawals
 	"garnishPercentage":0.3,            # share of colony income taken while a loan is in default

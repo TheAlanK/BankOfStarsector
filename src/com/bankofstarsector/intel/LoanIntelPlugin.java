@@ -27,11 +27,11 @@ public class LoanIntelPlugin extends BaseIntelPlugin {
     @Override
     public void createIntelInfo(TooltipMakerAPI info, ListInfoMode mode) {
         Color c = getTitleColor(mode);
-        info.addPara(title, c, 0f);
+        info.addPara("%s", 0f, c, title); // text is pre-formatted: never use it as a format string
 
         Color textColor = phase >= 3 ? Misc.getNegativeHighlightColor() :
                           phase >= 2 ? Misc.getHighlightColor() : Misc.getGrayColor();
-        info.addPara(description, textColor, 3f);
+        info.addPara("%s", 3f, textColor, description);
     }
 
     @Override
@@ -39,7 +39,7 @@ public class LoanIntelPlugin extends BaseIntelPlugin {
 
     @Override
     public void createSmallDescription(TooltipMakerAPI info, float width, float height) {
-        info.addPara(description, 10f);
+        info.addPara("%s", 10f, Misc.getTextColor(), description);
         info.addPara(com.bankofstarsector.core.Str.get("notice.howToPay"),
             Misc.getGrayColor(), 10f);
     }

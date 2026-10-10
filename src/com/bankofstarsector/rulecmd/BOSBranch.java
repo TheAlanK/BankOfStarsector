@@ -81,7 +81,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         float debt = data.getLoanManager().getTotalDebt();
         float pastDue = data.getLoanManager().getTotalPastDue();
         text.addPara(Str.get("branch.summary"), Misc.getHighlightColor(),
-            "" + data.getCreditScoreManager().getScore(), data.getCreditScoreManager().getBracket(),
+            data.getCreditScoreManager().getScoreText(), data.getCreditScoreManager().getBracket(),
             Misc.getDGSCredits(debt), Misc.getDGSCredits(pastDue));
 
         OptionPanelAPI options = dialog.getOptionPanel();

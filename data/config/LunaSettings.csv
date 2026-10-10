@@ -15,10 +15,6 @@ bos_collectionFleetMaxFP,Collection fleet maximum size,Int,200,,Maximum fleet po
 bos_collectionFleetEscalation,Fleet escalation after defeat,Double,1.5,,Each Collection Fleet you destroy is replaced by one this many times stronger.,1,3,Collection
 bos_garnishPercentage,Income garnishment,Double,0.3,,Share of colony income taken every month while a loan is in default.,0,0.9,Collection
 bos_shipSurrenderValueFraction,Value of a surrendered ship,Double,0.6,,A ship surrendered to a Collection Fleet pays off this fraction of its base value.,0.1,1,Collection
-bos_creditHeader,Credit score,Header,Credit score,,,,,Credit
-bos_scoreMissedPayment,Missed payment,Int,-25,,Credit score change for each missed monthly installment.,-150,0,Credit
-bos_scoreDefault,Default,Int,-150,,Credit score change when a loan defaults.,-550,0,Credit
-bos_scoreOnTimePayment,On-time payment,Int,5,,Credit score change for each on-time payment.,0,30,Credit
 bos_bankruptcyHeader,Bankruptcy,Header,Bankruptcy,,,,,Bankruptcy
 bos_bankruptcyDebtReduction,Debt forgiven,Double,0.8,,Share of outstanding debt forgiven when filing bankruptcy.,0,1,Bankruptcy
 bos_bankruptcyNoLoansMonths,Months without loans,Int,24,,Months after filing before loans are offered again.,0,120,Bankruptcy

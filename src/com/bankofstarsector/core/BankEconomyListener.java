@@ -100,8 +100,8 @@ public class BankEconomyListener implements EconomyTickListener {
         data.getAssetSeizureManager().simulateSovereignDebts(data);
         data.getInvestmentManager().advanceMonth(engine);
         boolean allCurrent = stillDue <= 1f;
-        data.getCreditScoreManager().advanceMonth(
-            data.getInvestmentManager().getTotalValue(), lm.getActiveLoanCount(), allCurrent);
+        // Monthly reporting cycle: the bureau reads balances, delinquencies and closures now.
+        data.getCreditScoreManager().advanceMonth(lm);
         data.getBankruptcyManager().advanceMonth(data);
 
         lm.cleanupPaidLoans();
@@ -162,7 +162,7 @@ public class BankEconomyListener implements EconomyTickListener {
             public boolean isTooltipExpandable(Object tooltipParam) { return false; }
             public float getTooltipWidth(Object tooltipParam) { return 450; }
             public void createTooltip(TooltipMakerAPI tooltip, boolean expanded, Object tooltipParam) {
-                tooltip.addPara(text, 0f);
+                tooltip.addPara("%s", 0f, com.fs.starfarer.api.util.Misc.getTextColor(), text);
             }
         };
     }

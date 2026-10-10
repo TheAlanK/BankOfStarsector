@@ -24,6 +24,13 @@ public class StringsCheck {
         "tx.LOAN", "tx.PAYMENT", "tx.AUTOPAY", "tx.PAYOFF", "tx.CURED", "tx.MISSED", "tx.DEFAULT", "tx.GARNISH",
         "tx.SEIZURE", "tx.SEIZED", "tx.INVEST", "tx.WITHDRAW", "tx.EARLY_WITHDRAW", "tx.BANKRUPTCY",
         "tx.ENFORCEMENT", "tx.REFUSED", "tx.SOVEREIGN",
+        "factor.payment", "factor.amounts", "factor.length", "factor.newCredit", "factor.mix",
+        "rating.excellent", "rating.good", "rating.fair", "rating.poor",
+        "reason.thinFile", "reason.seriousDelinquency", "reason.delinquency", "reason.publicRecord", "reason.pastDueNow",
+        "reason.limitedPaymentHistory", "reason.balanceRatio", "reason.tooManyBalances", "reason.shortHistory",
+        "reason.inquiries", "reason.newAccounts", "reason.recentOpening", "reason.mix",
+        "terminal.credit.tipOnTime", "terminal.credit.tipLate", "terminal.credit.tipInquiries", "terminal.credit.tipAge",
+        "terminal.credit.tipBalance", "terminal.credit.tipPayoff", "terminal.credit.tipMix",
     };
     static final String[] LOANS = {"EMERGENCY", "SMALL", "CORPORATE", "MEGACORP", "SOVEREIGN"};
     static final String[] INVESTMENTS = {"SAVINGS", "BONDS", "COMMODITIES", "VENTURE", "MILITARY"};

@@ -159,7 +159,7 @@ public class BankingNexusPage implements NexusPage {
         set(autopayLabel, Str.get(s.autopay ? "common.on" : "common.off"), s.autopay ? POSITIVE : NEGATIVE);
         payButton.setEnabled(s.dueNow + s.late > 1);
         autopayButton.setText(Str.get(s.autopay ? "nexus.autopayOff" : "nexus.autopayOn"));
-        set(scoreLabel, "" + s.score, getScoreColor(s.score));
+        set(scoreLabel, s.scoreText, "--".equals(s.scoreText) ? TEXT_SECONDARY : getScoreColor(s.score));
         set(bracketLabel, s.bracket + ("NONE".equals(s.bankruptcyState) ? "" : " | " + Str.f("nexus.bankruptcy", s.bankruptcyLabel)),
             getScoreColor(s.score));
         fillList(loansPanel, s.loans, Str.get("terminal.loans.none"));

@@ -35,6 +35,11 @@ public class BankSim {
         scenarioDefaultSeizesInvestments();
         scenarioSeizureCoversWholeLoan();
         scenarioTranslations();
+        scenarioThinFile();
+        scenarioHistoryBuildsScore();
+        scenarioInstantRepayExploitBlocked();
+        scenarioLatePaymentHurtsAndFades();
+        scenarioRateShopping();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -84,7 +89,10 @@ public class BankSim {
         check("defaults at the threshold", loan.status == LoanStatus.DEFAULTED && loan.daysOverdue >= BankSettings.DEFAULT_THRESHOLD_DAYS);
         check("collection fleet was dispatched", data.getCollectionManager().hasActiveCollection(loan.accountId));
         check("penalty interest raised the rate", loan.monthlyRate > loan.baseMonthlyRate);
-        check("score fell", data.getCreditScoreManager().getScore() < scoreBefore);
+        advanceDays(30); monthEnd();          // next reporting cycle: the lender reports the charge-off
+        CreditBureau.Result rep = data.getCreditScoreManager().getReport();
+        System.out.printf("[never pays] report: tradelines %d, late30 %d late60 %d late90 %d chargeoffs %d%n", data.getCreditScoreManager().getBureau().getTradelines().size(), rep.late30, rep.late60, rep.late90, rep.chargeOffs);
+        check("delinquencies and charge-off are on the credit report", rep.chargeOffs >= 1 && rep.late30 + rep.late60 + rep.late90 >= 1);
         check("bankruptcy is available", data.getBankruptcyManager().canFileBankruptcy(data));
     }
 
@@ -169,6 +177,127 @@ public class BankSim {
         check("unknown language falls back to English", Str.f("status.overdue", 5).equals("OVERDUE (5 days)"));
         Str.load("xx");
         check("unsupported language resolves to en", "en".equals(Str.language()));
+    }
+
+    // ------------------------------------------------------------------ credit bureau scenarios
+
+    static Integer score() {
+        return BankData.get().getCreditScoreManager().getReport().score;
+    }
+
+    static void months(int n) {
+        for (int i = 0; i < n; i++) { advanceDays(30); monthEnd(); }
+    }
+
+    static void scenarioThinFile() {
+        reset(5_000_000f);
+        BankData data = BankData.get();
+        check("new player has no score (thin file)", score() == null);
+        data.getLoanManager().takeLoan(LoanType.SMALL, 150_000f, 0.05f);
+        months(3);
+        Integer at3 = score();
+        months(3);
+        Integer at6 = score();
+        System.out.printf("[thin file] score after 3 months: %s, after 6 months: %s%n", at3, at6);
+        check("still unscoreable with a 3-month-old account", at3 == null);
+        check("scoreable once an account is 6 months old", at6 != null);
+    }
+
+    static void scenarioHistoryBuildsScore() {
+        reset(5_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f); // 24-month term, autopay
+        months(7);
+        Integer early = score();
+        months(17);
+        Integer later = score();
+        CreditBureau.Result r = data.getCreditScoreManager().getReport();
+        System.out.printf("[history] score at 7 months: %s, at 24 months: %s (on-time months %d, reasons %s)%n",
+            early, later, r.monthsOnTime, r.reasons);
+        check("months of on-time payments raise the score", early != null && later != null && later > early + 20);
+    }
+
+    /** The reported exploit: save money, take loans and repay them at once to farm score. */
+    static void scenarioInstantRepayExploitBlocked() {
+        // Control: one loan, kept and paid on time.
+        reset(10_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(8);
+        Integer control = score();
+
+        // Same history, plus 4 loans taken and repaid immediately during month 8.
+        reset(10_000_000f);
+        data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(7);
+        Integer before = score();
+        int onTimeBefore = data.getCreditScoreManager().getReport().monthsOnTime;
+        LoanType[] types = {LoanType.EMERGENCY, LoanType.CORPORATE, LoanType.MEGACORP, LoanType.SOVEREIGN};
+        for (LoanType t : types) {
+            BankAccount quick = data.getLoanManager().takeLoan(t, 100_000f, 0.05f);
+            data.getLoanManager().payOff(quick.accountId);
+        }
+        months(1);
+        Integer after = score();
+        CreditBureau.Result r = data.getCreditScoreManager().getReport();
+        System.out.printf("[exploit] control at month 8: %s | farmer before: %s, after 4 instant loans: %s (inquiries %d, opened %d, on-time months %d -> %d)%n",
+            control, before, after, r.inquiries12, r.accountsOpened12, onTimeBefore, r.monthsOnTime);
+        check("instant take-and-repay does not raise the score", after != null && control != null && after <= control);
+        check("instant loans add no on-time history", r.monthsOnTime == onTimeBefore + 1);
+        check("each application left a hard inquiry", r.inquiries12 >= 4);
+    }
+
+    static void scenarioLatePaymentHurtsAndFades() {
+        // Clean baseline
+        reset(5_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.SOVEREIGN, 2_000_000f, 0.03f);
+        months(11);                // same horizon as the late run below (6+1+1+1+2)
+        Integer clean10 = score();
+        months(20);
+        Integer clean36 = score();
+
+        // Same loan, one payment left 30+ days late around month 7-8, then current again.
+        reset(5_000_000f);
+        data = BankData.get();
+        BankAccount loan = data.getLoanManager().takeLoan(LoanType.SOVEREIGN, 2_000_000f, 0.03f);
+        months(6);
+        data.setAutopayEnabled(false);
+        float cash = credits.get();
+        credits.set(0f);
+        months(1);                 // bill issued, not paid
+        advanceDays(30); monthEnd(); // missed due date: OVERDUE, but under 30 days -> not reported
+        advanceDays(30); monthEnd(); // still unpaid 30+ days past due: reported as a 30-day late
+        credits.set(cash);
+        data.getLoanManager().payPastDue(loan.accountId);
+        data.setAutopayEnabled(true);
+        months(2);
+        Integer late10 = score();
+        months(20);
+        Integer late36 = score();
+        System.out.printf("[late] clean: %s -> %s | one 30-day late: %s -> %s%n", clean10, clean36, late10, late36);
+        check("a reported 30-day late payment costs a lot of points", clean10 != null && late10 != null && clean10 - late10 >= 30);
+        check("the damage fades with time but does not vanish", late36 != null && clean36 != null
+            && (clean36 - late36) < (clean10 - late10) && late36 < clean36);
+    }
+
+    static void dumpReport(String tag) {
+        CreditBureau.Result r = BankData.get().getCreditScoreManager().getReport();
+        System.out.printf("  [%s] score %s pay %.0f amt %.0f len %.0f new %.0f mix %.0f | ontime %d late30 %d open %d closed %d ratio %.2f oldest %.1f avg %.1f inq %d%n", tag, r.score, r.payment, r.amounts, r.length, r.newCredit, r.mix, r.monthsOnTime, r.late30, r.openAccounts, r.closedAccounts, r.balanceRatio, r.oldestMonths, r.averageMonths, r.inquiries12);
+    }
+
+    static void scenarioRateShopping() {
+        reset(5_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.EMERGENCY, 20_000f, 0.08f);
+        advanceDays(10);
+        data.getLoanManager().takeLoan(LoanType.SMALL, 50_000f, 0.05f);      // same category, inside 45 days
+        advanceDays(10);
+        data.getLoanManager().takeLoan(LoanType.CORPORATE, 200_000f, 0.04f); // different category
+        int inq = data.getCreditScoreManager().getReport().inquiries12;
+        System.out.printf("[rate shopping] 3 applications -> %d counted inquiries%n", inq);
+        check("same-type applications within 45 days count as one inquiry", inq == 2);
     }
 
     // ------------------------------------------------------------------ helpers

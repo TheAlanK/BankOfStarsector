@@ -27,9 +27,6 @@ final class LunaLibBridge {
         BankSettings.COLLECTION_FLEET_ESCALATION = f("bos_collectionFleetEscalation", BankSettings.COLLECTION_FLEET_ESCALATION);
         BankSettings.GARNISH_PERCENTAGE = f("bos_garnishPercentage", BankSettings.GARNISH_PERCENTAGE);
         BankSettings.SHIP_SURRENDER_VALUE_FRACTION = f("bos_shipSurrenderValueFraction", BankSettings.SHIP_SURRENDER_VALUE_FRACTION);
-        BankSettings.SCORE_MISSED_PAYMENT = i("bos_scoreMissedPayment", BankSettings.SCORE_MISSED_PAYMENT);
-        BankSettings.SCORE_DEFAULT = i("bos_scoreDefault", BankSettings.SCORE_DEFAULT);
-        BankSettings.SCORE_ON_TIME_PAYMENT = i("bos_scoreOnTimePayment", BankSettings.SCORE_ON_TIME_PAYMENT);
         BankSettings.BANKRUPTCY_DEBT_REDUCTION = f("bos_bankruptcyDebtReduction", BankSettings.BANKRUPTCY_DEBT_REDUCTION);
         BankSettings.BANKRUPTCY_NO_LOANS_MONTHS = i("bos_bankruptcyNoLoansMonths", BankSettings.BANKRUPTCY_NO_LOANS_MONTHS);
         BankSettings.BANKRUPTCY_NO_INVEST_MONTHS = i("bos_bankruptcyNoInvestMonths", BankSettings.BANKRUPTCY_NO_INVEST_MONTHS);
