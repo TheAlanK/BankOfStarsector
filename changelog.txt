@@ -9,6 +9,10 @@ Bank of Starsector
   autopay of the full statement or the minimum, +20% limit after 6 on-time statements, limit cut and no draws
   after a late payment. The credit score now weighs credit-line utilization (statement balance / limit) and
   rewards having both installment and revolving credit. Shown in the terminal and in NexusUI.
+- New: before any loan, the terminal asks for confirmation and shows the first installment, total interest,
+  total repaid, rate and term; before a locked investment, the lock and the early-withdrawal penalty.
+- New: the branch office takes loan applications and investments for any amount (slider), with the same
+  terms shown before signing.
 - Changed: "Sovereign Credit Line" renamed "Sovereign Loan" (it is an installment loan).
 - Fixed: defaults are reported to the credit bureau when they happen, and a charged-off loan no longer adds
   a new late mark every month.

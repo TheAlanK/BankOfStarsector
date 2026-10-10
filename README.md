@@ -7,6 +7,7 @@ A Starsector mod that adds the **Persean Banking Confederation (PBC)**, a powerf
 ### Banking System
 - **Loans**: 5 tiers from Emergency (50k) to Sovereign (5M). Each loan is repaid in **monthly installments** (interest plus an even share of the principal).
 - **Credit-builder loan**: for captains with no credit score or a low one (under 500), including during bankruptcy recovery. You borrow 10k–50k, but the money stays at the bank while you pay the installments (12 months, 1%/month fixed); when the loan is paid off, the money is yours. Each month paid on time builds your credit file. It doesn't count toward your loan limit, and if it defaults the bank simply keeps the deposit (no Collection Fleet), but the charge-off still goes on your credit report.
+- **Know what you sign**: before any loan, the terminal and the branch show the first installment, total interest, total repaid, rate and term (projected exactly as the bank bills it); before a locked investment, the lock period and the early-withdrawal penalty.
 - **Credit line**: a revolving Confederation Credit Line for scores of 500+ (limit 50k / 200k / 500k by bracket). Draw and repay freely; each month end issues a statement with a minimum payment (interest + 1% of the balance, at least 1k). Pay the statement in full and there is no interest (autopay does this by default; it can pay only the minimum instead). Six on-time statements in a row raise the limit by 20%; a late payment cuts it and blocks draws. The bureau sees the statement balance, so keeping utilization (balance ÷ limit) low matters: 1–10% is best, over 30% hurts, over 90% hurts a lot, and paying it down recovers the score at the next report.
 - **Autopay**: installments appear in the vanilla **monthly income report** under *Fleet → PBC loan installments* and are settled with the rest of your monthly finances. You can turn autopay off in the terminal.
 - **Grace period**: an installment only becomes late if it is still unpaid at the *next* month end, so you always get a month to pay manually.
@@ -54,7 +55,7 @@ Loans are locked for 24 months, and you can't invest for 12.
 The Confederation has kept the Sector's books since the Collapse. Read its history, charter and relations with every faction in **[LORE.md](LORE.md)**.
 
 - A full faction with the Aurum star system (3 planets and an orbital station). In a Nexerelin random sector, Nexerelin places the PBC markets itself and Aurum is not generated.
-- **Confederation branch office** at every PBC market. You can review your file, pay past-due installments, or open a banking terminal there.
+- **Confederation branch office** at every PBC market. You can review your file, pay past-due installments, apply for a loan or make an investment for any amount (a slider), or open a banking terminal there. The teller shows the terms before you sign.
 - A powerful defensive navy with high-quality ships and officers.
 - A neutral diplomatic stance: other factions avoid war with the PBC.
 - Custom fleet types: Security Details, Enforcement Fleets, Confederation Task Forces.
@@ -96,6 +97,7 @@ None required.
 
 ### 0.3.0-beta (in development)
 - **New:** credit-builder loan, the realistic way to start (or rebuild) a credit file.
+- **New:** loan and investment quotes before signing (terminal confirmation and branch office), and loans/investments for any amount at the branch office.
 - **New:** revolving credit line with monthly statements, minimum payments, a grace period, automatic limit increases, and utilization in the credit score. The Sovereign loan is no longer called a "credit line".
 - **Fix:** a default is put on the credit report when it happens, so a seizure that settles it before month end no longer hides it; a charged-off loan no longer adds a new late mark every month.
 - **Internal:** a test now fails the build if a change would break loading existing saves ([docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)).

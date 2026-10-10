@@ -738,11 +738,29 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
     @Override
     public boolean doesButtonHaveConfirmDialog(Object buttonId) {
-        return "bankruptcy_file".equals(buttonId) || super.doesButtonHaveConfirmDialog(buttonId);
+        return "bankruptcy_file".equals(buttonId) || loanButtonType(buttonId) != null
+            || lockedInvestButtonType(buttonId) != null || super.doesButtonHaveConfirmDialog(buttonId);
     }
 
     @Override
     public void createConfirmationPrompt(Object buttonId, TooltipMakerAPI prompt) {
+        LoanType loanType = loanButtonType(buttonId);
+        if (loanType != null) {
+            // Same amount and rate the button handler will use when confirmed.
+            BankData data = BankData.get();
+            int score = data.getCreditScoreManager().getScore();
+            float amount = loanAmount(loanType, loanType.getMaxAmountForScore(score), buttonSuffix(buttonId) / 100f);
+            float rate = data.getInterestEngine().calculateEffectiveLoanRate(loanType, score);
+            prompt.addPara(Str.get("confirm.loan.title"), Misc.getHighlightColor(), 0f);
+            addQuote(prompt, com.bankofstarsector.ui.Quote.loan(loanType, amount, rate));
+            return;
+        }
+        InvestmentType investType = lockedInvestButtonType(buttonId);
+        if (investType != null) {
+            prompt.addPara(Str.get("confirm.invest.title"), Misc.getHighlightColor(), 0f);
+            addQuote(prompt, com.bankofstarsector.ui.Quote.investment(investType, buttonSuffix(buttonId)));
+            return;
+        }
         if (!"bankruptcy_file".equals(buttonId)) {
             super.createConfirmationPrompt(buttonId, prompt);
             return;
@@ -751,9 +769,41 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         prompt.addPara("%s", 10f, Misc.getTextColor(), Str.f("terminal.bankruptcy.confirmText", pct(BankSettings.BANKRUPTCY_DEBT_REDUCTION, "%.0f"), BankSettings.BANKRUPTCY_NO_LOANS_MONTHS));
     }
 
+    private static void addQuote(TooltipMakerAPI prompt, List<com.bankofstarsector.ui.Quote.Line> lines) {
+        for (com.bankofstarsector.ui.Quote.Line l : lines) prompt.addPara(Str.get(l.key), 10f, l.color, l.args);
+    }
+
     @Override
     public String getConfirmText(Object buttonId) {
+        if (loanButtonType(buttonId) != null) return Str.get("confirm.sign");
+        if (lockedInvestButtonType(buttonId) != null) return Str.get("confirm.invest");
         return "bankruptcy_file".equals(buttonId) ? Str.get("terminal.bankruptcy.confirmButton") : super.getConfirmText(buttonId);
+    }
+
+    @Override
+    public String getCancelText(Object buttonId) {
+        if (loanButtonType(buttonId) != null || lockedInvestButtonType(buttonId) != null) return Str.get("confirm.cancel");
+        return super.getCancelText(buttonId);
+    }
+
+    /** "loan_take_TYPE_PCT" -> TYPE, else null. */
+    private static LoanType loanButtonType(Object buttonId) {
+        if (!(buttonId instanceof String) || !((String) buttonId).startsWith("loan_take_")) return null;
+        String rest = ((String) buttonId).substring("loan_take_".length());
+        return LoanType.valueOf(rest.substring(0, rest.lastIndexOf('_')));
+    }
+
+    /** "invest_buy_TYPE_AMOUNT" for a type with a lock period -> TYPE, else null (unlocked savings need no prompt). */
+    private static InvestmentType lockedInvestButtonType(Object buttonId) {
+        if (!(buttonId instanceof String) || !((String) buttonId).startsWith("invest_buy_")) return null;
+        String rest = ((String) buttonId).substring("invest_buy_".length());
+        InvestmentType type = InvestmentType.valueOf(rest.substring(0, rest.lastIndexOf('_')));
+        return type.lockMonths > 0 ? type : null;
+    }
+
+    private static int buttonSuffix(Object buttonId) {
+        String id = (String) buttonId;
+        return Integer.parseInt(id.substring(id.lastIndexOf('_') + 1));
     }
 
     @Override

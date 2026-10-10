@@ -49,6 +49,8 @@ public class BankSim {
         scenarioCreditLineMissedMinimum();
         scenarioCreditLineLimitIncrease();
         scenarioCreditLineChurnAndClose();
+        scenarioQuoteMatchesBilling();
+        scenarioQuoteTextFormats();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -422,6 +424,62 @@ public class BankSim {
         check("[line churn] draws are not inquiries", data.getCreditScoreManager().getReport().inquiries12 == inq0);
         check("[line close] a line with a balance can't be closed", !closedWithBalance);
         check("[line close] closing at zero closes the account on the report", closed && !t.isOpen());
+    }
+
+    // ------------------------------------------------------------------ quotes before signing (0.3.0)
+
+    static void scenarioQuoteMatchesBilling() {
+        Object[][] cases = {
+            {LoanType.EMERGENCY, 40_000f, 0.08f},
+            {LoanType.CORPORATE, 400_000f, 0.06f},
+            {LoanType.BUILDER, 30_000f, BankSettings.BUILDER_RATE},
+        };
+        for (Object[] c : cases) {
+            LoanType type = (LoanType) c[0];
+            float amount = (Float) c[1], rate = (Float) c[2];
+            LoanSchedule quote = LoanSchedule.project(amount, rate, type.getTermMonths());
+            reset(5_000_000f);
+            BankAccount loan = BankData.get().getLoanManager().takeLoan(type, amount, rate);
+            float start = credits.get();
+            float first = -1f;
+            int months = 0;
+            while (loan.status != LoanStatus.PAID_OFF && months < 60) {
+                float before = credits.get();
+                advanceDays(30);
+                monthEnd();
+                if (first < 0f) first = before - credits.get();
+                months++;
+            }
+            // A credit-builder payoff releases the held amount back to the player.
+            float paid = start - credits.get() + (type.isBuilder() ? amount : 0f);
+            System.out.printf("[quote] %s %.0f: quoted first %.0f, total %.0f, %d months | billed first %.0f, total %.0f, %d months%n",
+                type.name(), amount, quote.firstPayment, quote.totalPaid, quote.rows.size(), first, paid, months);
+            check("[quote] " + type.name() + ": quoted installment and total match what is billed",
+                Math.abs(quote.firstPayment - first) < 1f && Math.abs(quote.totalPaid - paid) < 2f && quote.rows.size() == months);
+        }
+    }
+
+    static void scenarioQuoteTextFormats() {
+        int bad = 0, lines = 0;
+        for (String lang : new String[]{"en", "pt_BR"}) {
+            Str.load(lang);
+            List<com.bankofstarsector.ui.Quote.Line> all = new ArrayList<com.bankofstarsector.ui.Quote.Line>();
+            for (LoanType t : LoanType.values()) if (!t.isRevolving()) all.addAll(com.bankofstarsector.ui.Quote.loan(t, 50_000f, 0.05f));
+            for (InvestmentType t : InvestmentType.values()) all.addAll(com.bankofstarsector.ui.Quote.investment(t, 100_000f));
+            for (com.bankofstarsector.ui.Quote.Line l : all) {
+                lines++;
+                String format = Str.get(l.key);
+                int slots = format.split("%s", -1).length - 1;
+                String stray = format.replace("%s", "");
+                if (slots != l.args.length || stray.contains("%")) {
+                    System.out.println("  bad quote line (" + lang + "): " + format + " with " + l.args.length + " args");
+                    bad++;
+                }
+            }
+        }
+        Str.load("en");
+        System.out.printf("[quote text] %d lines checked in en and pt_BR, %d bad%n", lines, bad);
+        check("[quote text] every quote line has one argument per %s and no literal percent sign", bad == 0);
     }
 
     static Integer score() {
