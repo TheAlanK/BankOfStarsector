@@ -98,7 +98,7 @@ None required.
 
 ## Changelog
 
-### 0.3.0-beta (in development)
+### 0.3.0-beta
 - **New:** credit-builder loan, the realistic way to start (or rebuild) a credit file.
 - **New:** fleet insurance (Standard and Comprehensive policies, credit-based premiums, claims after post-battle recovery).
 - **New:** colony-secured loans with receivership, Nexerelin foreclosure and auction of the colony to a major faction.
