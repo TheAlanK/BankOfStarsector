@@ -86,7 +86,7 @@ public class BankruptcyManager implements Serializable {
             inv.investedAmount = 0;
         }
 
-        // Credit score to minimum
+        // Public record on the credit report (see CreditBureau)
         data.getCreditScoreManager().onBankruptcy();
 
         // Relations penalty with PBC

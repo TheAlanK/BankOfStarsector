@@ -1,5 +1,10 @@
 Bank of Starsector
 
+0.2.1-beta
+- New: Persean Banking Confederation lore (LORE.md); condensed into the in-game faction and planet descriptions
+  (English and Brazilian Portuguese).
+- Fixed: README described the old credit score (bankruptcy resetting it to 300, +5 monthly recovery).
+
 0.2.0-beta
 - New: credit score works like a real credit bureau (FICO-style, 300-850). It is computed once a month from a
   credit report: payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%.

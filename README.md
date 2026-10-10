@@ -10,7 +10,7 @@ A Starsector mod that adds the **Persean Banking Confederation (PBC)**, a powerf
 - **Grace period**: an installment only becomes late if it is still unpaid at the *next* month end, so you always get a month to pay manually.
 - **Investments**: savings accounts, government bonds, commodity futures, venture funds and military contracts.
 - **Sovereign debt market**: major factions borrow from the Confederation to fund their wars and repay in peace (ledger in the Overview tab). Government bonds pay a higher coupon when sovereign debt is high. If an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
-- **Credit score**: a FICO-like score (300–850). Its bracket sets how many loans you can hold and adjusts your rates (−15% / 0 / +20% / +50%).
+- **Credit score**: computed once a month from a credit report, like a real credit bureau (FICO-style, 300–850): payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%. Every application is a hard inquiry, lateness is reported from 30 days and fades over 7 years, and there is no score until an account is 6 months old, so taking and instantly repaying loans does not farm points. Its bracket sets how many loans you can hold and adjusts your rates (−15% / 0 / +20% / +50%).
 - **Interest engine**:
   - Each war between major factions adds +5% to loan rates, up to +25%. With Nexerelin this follows its live wars.
   - Disrupted industries across the sector also make loans more expensive.
@@ -42,13 +42,15 @@ Paying what you owe at any time (in the terminal, at a branch or to the fleet) c
 Bankruptcy is available once a loan has defaulted, or when your debt exceeds 3× your monthly colony income. Filing (after a confirmation prompt):
 - cuts your debt by 80% and restructures it over a new term;
 - liquidates your investments at 50% of their value;
-- resets your credit score to 300;
+- puts a bankruptcy public record on your credit report for 10 years (its weight fades after 2 and 5 years);
 - costs relations with the PBC;
 - applies a colony income stigma.
 
-Loans are locked for 24 months, and you can't invest for 12. Your score recovers by +5 each month while you stay current.
+Loans are locked for 24 months, and you can't invest for 12.
 
 ### The Persean Banking Confederation
+The Confederation has kept the Sector's books since the Collapse. Read its history, charter and relations with every faction in **[LORE.md](LORE.md)**.
+
 - A full faction with the Aurum star system (3 planets and an orbital station). In a Nexerelin random sector, Nexerelin places the PBC markets itself and Aurum is not generated.
 - **Confederation branch office** at every PBC market. You can review your file, pay past-due installments, or open a banking terminal there.
 - A powerful defensive navy with high-quality ships and officers.
@@ -89,6 +91,9 @@ None required.
 - **NexusUI** (optional)
 
 ## Changelog
+
+### 0.2.1-beta
+- **New:** Persean Banking Confederation lore ([LORE.md](LORE.md)), condensed into the in-game faction and planet descriptions (English and pt-BR).
 
 ### 0.2.0-beta
 - **New:** Brazilian Portuguese translation (automatic by system language), translatable faction/planet descriptions.
