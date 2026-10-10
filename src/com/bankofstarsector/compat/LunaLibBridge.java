@@ -35,6 +35,9 @@ final class LunaLibBridge {
         BankSettings.BUILDER_TERM_MONTHS = i("bos_builderTermMonths", BankSettings.BUILDER_TERM_MONTHS);
         BankSettings.BUILDER_RATE = f("bos_builderRate", BankSettings.BUILDER_RATE);
         BankSettings.LINE_RATE = f("bos_lineRate", BankSettings.LINE_RATE);
+        BankSettings.SECURED_LTV = f("bos_securedLtv", BankSettings.SECURED_LTV);
+        BankSettings.FORECLOSURE_DELAY_DAYS = i("bos_foreclosureDelayDays", BankSettings.FORECLOSURE_DELAY_DAYS);
+        BankSettings.RECEIVERSHIP_STABILITY_PENALTY = f("bos_receivershipStabilityPenalty", BankSettings.RECEIVERSHIP_STABILITY_PENALTY);
         BankSettings.LINE_LIMIT_FAIR = f("bos_lineLimitFair", BankSettings.LINE_LIMIT_FAIR);
         BankSettings.LINE_LIMIT_GOOD = f("bos_lineLimitGood", BankSettings.LINE_LIMIT_GOOD);
         BankSettings.LINE_LIMIT_EXCELLENT = f("bos_lineLimitExcellent", BankSettings.LINE_LIMIT_EXCELLENT);

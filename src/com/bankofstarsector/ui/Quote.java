@@ -51,6 +51,22 @@ public final class Quote {
         return lines;
     }
 
+    /** A colony-secured loan: the loan terms plus what is pledged and what happens on default. */
+    public static List<Line> securedLoan(String colonyName, float appraisal, float amount, float monthlyRate) {
+        List<Line> lines = loan(LoanType.SECURED, amount, monthlyRate);
+        lines.add(lines.size() - 1, new Line("confirm.secured.collateral", Misc.getHighlightColor(), colonyName,
+            Misc.getDGSCredits(appraisal)));
+        lines.add(lines.size() - 1, riskLine());
+        return lines;
+    }
+
+    /** What a default does to the pledged colony (foreclosure only exists with Nexerelin). */
+    public static Line riskLine() {
+        return com.bankofstarsector.compat.NexerelinCompat.isAvailable()
+            ? new Line("terminal.secured.riskNex", Misc.getNegativeHighlightColor(), "" + BankSettings.FORECLOSURE_DELAY_DAYS)
+            : new Line("terminal.secured.risk", Misc.getNegativeHighlightColor());
+    }
+
     public static List<Line> investment(InvestmentType type, float amount) {
         Color hl = Misc.getHighlightColor();
         List<Line> lines = new ArrayList<Line>();

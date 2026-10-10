@@ -61,9 +61,17 @@ public class BankEconomyListener implements EconomyTickListener {
         // 2a. Default judgment: investments held by the bank are seized first
         float seized = data.getAssetSeizureManager().seizeInvestments(data);
 
-        // 2b. Garnishment on colony income while still in default
+        // 2b. Receivership: a defaulted colony-secured loan takes its colony's whole income
+        java.util.Map<String, Float> receivership = new java.util.LinkedHashMap<String, Float>();
+        float receivershipTotal = data.getForeclosureManager().collectReceivership(data, receivership);
+        if (receivershipTotal > 0f) {
+            getReceivershipNode(report).upkeep += receivershipTotal;
+            available -= receivershipTotal;
+        }
+
+        // 2c. Garnishment on (the rest of the) colony income while still in default
         FDNode colonies = report.getNode(MonthlyReport.OUTPOSTS);
-        float colonyNet = colonies.totalIncome - colonies.totalUpkeep;
+        float colonyNet = colonies.totalIncome - colonies.totalUpkeep - receivershipTotal;
         float garnish = data.getAssetSeizureManager().computeGarnishment(data, colonyNet);
         if (garnish > 0f) {
             getGarnishNode(report).upkeep += garnish;
@@ -136,6 +144,17 @@ public class BankEconomyListener implements EconomyTickListener {
             node.name = com.bankofstarsector.core.Str.get("report.installments");
             node.icon = crest();
             node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.installments.tooltip"));
+        }
+        return node;
+    }
+
+    private static FDNode getReceivershipNode(MonthlyReport report) {
+        FDNode colonies = report.getNode(MonthlyReport.OUTPOSTS);
+        FDNode node = report.getNode(colonies, "bos_receivership");
+        if (node.name == null) {
+            node.name = com.bankofstarsector.core.Str.get("report.receivership");
+            node.icon = crest();
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.receivership.tooltip"));
         }
         return node;
     }

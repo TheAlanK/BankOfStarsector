@@ -52,6 +52,7 @@ public class LoanManager implements Serializable {
     public int getLimitedLoanCount() {
         int n = 0;
         for (BankAccount loan : getActiveLoans()) if (!loan.loanType.isBuilder() && !loan.loanType.isRevolving()) n++;
+        // Colony-secured loans count: each is still a loan the player must service.
         return n;
     }
 
@@ -81,6 +82,13 @@ public class LoanManager implements Serializable {
     public String whyNot(LoanType type, BankData data) {
         CreditScoreManager csm = data.getCreditScoreManager();
         int score = csm.getScore();
+        if (type.isSecured()) {
+            if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
+            if (!data.getBankruptcyManager().canTakeLoanType(type)) return "terminal.loans.reasonBankruptcy";
+            if (score < type.minCreditScore) return "terminal.loans.reasonScore";
+            if (getLimitedLoanCount() >= csm.getMaxLoans()) return "terminal.loans.reasonMax";
+            return pledgeableColonies().isEmpty() ? "terminal.secured.reasonNoColony" : null;
+        }
         if (type.isRevolving()) {
             if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
             if (!data.getBankruptcyManager().canTakeLoanType(type)) return "terminal.loans.reasonBankruptcy";
@@ -171,12 +179,14 @@ public class LoanManager implements Serializable {
             if (forced && wasLate) {
                 // Closed by enforcement, not by the borrower: no payoff credit.
                 loan.status = LoanStatus.SEIZED;
+                if (loan.loanType.isSecured()) data.getForeclosureManager().onLoanClosed(loan);
                 data.addTransaction("SEIZED", -amount, com.bankofstarsector.core.Str.f("txd.seized", loan.loanType.getDisplayName()));
             } else {
                 loan.status = LoanStatus.PAID_OFF;
                 data.getCreditScoreManager().onLoanPayoff();
                 data.addTransaction("PAYOFF", -amount, com.bankofstarsector.core.Str.f("txd.payoff", loan.loanType.getDisplayName()));
                 releaseHeldFunds(loan);
+                if (loan.loanType.isSecured()) data.getForeclosureManager().onLoanClosed(loan);
             }
             return;
         }
@@ -408,6 +418,43 @@ public class LoanManager implements Serializable {
                 BankData.get().getAssetSeizureManager().seizeInvestments(BankData.get());
             }
         }
+    }
+
+    // ------------------------------------------------------------------ colony-secured loans
+
+    /** Player colonies that can be pledged: big enough and not already securing a loan. */
+    public List<com.fs.starfarer.api.campaign.econ.MarketAPI> pledgeableColonies() {
+        List<com.fs.starfarer.api.campaign.econ.MarketAPI> out = new ArrayList<com.fs.starfarer.api.campaign.econ.MarketAPI>();
+        for (com.fs.starfarer.api.campaign.econ.MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
+            if (!m.isPlayerOwned() || m.getSize() < BankSettings.SECURED_MIN_COLONY_SIZE) continue;
+            if (isPledged(m.getId())) continue;
+            out.add(m);
+        }
+        return out;
+    }
+
+    public boolean isPledged(String marketId) {
+        for (BankAccount loan : getActiveLoans()) if (marketId.equals(loan.collateralMarketId)) return true;
+        return false;
+    }
+
+    /** Largest loan this colony can secure: a share of its appraisal, capped by the loan type's maximum. */
+    public static float securedMaxFor(com.fs.starfarer.api.campaign.econ.MarketAPI market) {
+        return Math.min(LoanType.SECURED.maxAmount, ColonyAppraisal.of(market).total * BankSettings.SECURED_LTV);
+    }
+
+    /** Signs a colony-secured loan: the colony gets a lien, the money is paid out. */
+    public BankAccount takeSecuredLoan(com.fs.starfarer.api.campaign.econ.MarketAPI market, float amount, float effectiveRate) {
+        BankData data = BankData.get();
+        if (whyNot(LoanType.SECURED, data) != null || !market.isPlayerOwned() || isPledged(market.getId())) return null;
+        if (amount > securedMaxFor(market) + 1f) return null;
+        ColonyAppraisal appraisal = ColonyAppraisal.of(market);
+        BankAccount loan = takeLoan(LoanType.SECURED, amount, effectiveRate);
+        loan.collateralMarketId = market.getId();
+        loan.collateralName = market.getName();
+        loan.collateralAppraisal = appraisal.total;
+        data.getForeclosureManager().onLoanSigned(loan, market);
+        return loan;
     }
 
     /** Payoff of a credit-builder loan: the held money goes to the player. */

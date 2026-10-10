@@ -36,6 +36,21 @@
 	"lineMaxMultiplier":2,              # increases stop at this multiple of the bracket's starting limit
 	"lineLateCutPct":0.25,              # limit cut after a late payment (never below the balance)
 
+	# Colony-secured loan (a colony as collateral; receivership, foreclosure and auction on default)
+	"securedLtv":0.6,                   # largest loan: this share of the colony's appraisal
+	"securedRateDiscount":0.25,         # rate 25% below the unsecured equivalent
+	"securedMinColonySize":4,
+	"receivershipStabilityPenalty":3,   # stability lost while a defaulted loan's colony is in receivership
+	"foreclosureDelayDays":60,          # days in receivership before the PBC forecloses (Nexerelin only)
+	"foreclosureRetryDays":60,          # a new foreclosure invasion if the last one failed
+	"foreclosureRelation":-0.65,        # the PBC's relation to the player during a foreclosure (hostile)
+	"auctionReservePct":0.7,            # a foreclosed colony never sells under this share of its appraisal
+	"appraisalSizeBase":100000,         # appraisal: development value of a size-3 colony...
+	"appraisalSizeGrowth":2.5,          # ...times this for each size above 3
+	"appraisalResourceTierValue":60000, # per tier of natural resources and traits
+	"appraisalIncomeMonths":12,         # months of positive net income counted
+	"appraisalImprovedBonus":0.25,      # improved industries count 25% more
+
 	# Collection escalation (days overdue)
 	"overduePhase1Days":30,             # past this, banking is restricted (day 1 sends a reminder)
 	"overduePhase2Days":60,             # past this, a collection fleet is dispatched

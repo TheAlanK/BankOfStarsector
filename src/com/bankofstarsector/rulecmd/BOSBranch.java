@@ -1,6 +1,9 @@
 package com.bankofstarsector.rulecmd;
 
 import com.bankofstarsector.banking.BankAccount;
+import com.bankofstarsector.banking.ColonyAppraisal;
+import com.bankofstarsector.core.BankSettings;
+import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.bankofstarsector.banking.InvestmentType;
 import com.bankofstarsector.banking.LoanManager;
 import com.bankofstarsector.banking.LoanType;
@@ -125,7 +128,9 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         OptionPanelAPI options = dialog.getOptionPanel();
         options.clearOptions();
         if (pastDue > 1f) options.addOption(Str.get("branch.optPay"), OPT_PAY);
-        if (!availableLoans().isEmpty()) options.addOption(Str.get("branch.optLoans"), PREFIX + "loans");
+        if (!availableLoans().isEmpty() || lm.whyNot(LoanType.SECURED, data) == null) {
+            options.addOption(Str.get("branch.optLoans"), PREFIX + "loans");
+        }
         if (data.getBankruptcyManager().canInvest()) options.addOption(Str.get("branch.optInvest"), PREFIX + "invest");
         options.addOption(Str.get("branch.optTerminal"), OPT_TERMINAL);
         options.addOption(Str.get("branch.optLeave"), OPT_BACK);
@@ -137,7 +142,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         BankData data = BankData.get();
         List<LoanType> out = new ArrayList<LoanType>();
         for (LoanType type : LoanType.values()) {
-            if (type.isRevolving()) continue;
+            if (type.isRevolving() || type.isSecured()) continue;
             if (data.getLoanManager().whyNot(type, data) == null) out.add(type);
         }
         return out;
@@ -149,6 +154,10 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         else if ("loan".equals(screen)) showLoanAmount(LoanType.valueOf(p[1]));
         else if ("quote".equals(screen)) showLoanQuote(LoanType.valueOf(p[1]), selectedAmount());
         else if ("sign".equals(screen)) sign(LoanType.valueOf(p[1]), Float.parseFloat(p[2]));
+        else if ("colonies".equals(screen)) showColonies();
+        else if ("col".equals(screen)) showColonyAmount(market(p[1]));
+        else if ("cquote".equals(screen)) showColonyQuote(market(p[1]), selectedAmount());
+        else if ("csign".equals(screen)) signSecured(market(p[1]), Float.parseFloat(p[2]));
         else if ("invest".equals(screen)) showInvestments();
         else if ("inv".equals(screen)) showInvestAmount(InvestmentType.valueOf(p[1]));
         else if ("iquote".equals(screen)) showInvestQuote(InvestmentType.valueOf(p[1]), selectedAmount());
@@ -184,7 +193,74 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
                 Misc.getDGSCredits(max), Quote.percentText(rate), "" + type.getTermMonths());
             options.addOption(type.getDisplayName(), PREFIX + "loan:" + type.name());
         }
+        if (data.getLoanManager().whyNot(LoanType.SECURED, data) == null) {
+            options.addOption(LoanType.SECURED.getDisplayName(), PREFIX + "colonies");
+        }
         addBack("back");
+    }
+
+    // ------------------------------------------------------------------ colony-secured loans
+
+    private void showColonies() {
+        BankData data = BankData.get();
+        TextPanelAPI text = dialog.getTextPanel();
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        text.addPara(Str.get("branch.secured.intro"), Misc.getHighlightColor(), Quote.percentText(BankSettings.SECURED_LTV));
+        Quote.Line risk = Quote.riskLine();
+        text.addPara(Str.get(risk.key), risk.color, risk.args);
+        for (MarketAPI m : data.getLoanManager().pledgeableColonies()) {
+            text.addPara(Str.get("branch.secured.line"), Misc.getHighlightColor(), m.getName(),
+                Misc.getDGSCredits(ColonyAppraisal.of(m).total), Misc.getDGSCredits(LoanManager.securedMaxFor(m)));
+            options.addOption(m.getName(), PREFIX + "col:" + m.getId());
+        }
+        addBack("loans");
+    }
+
+    private void showColonyAmount(MarketAPI market) {
+        if (market == null) { showLoans(); return; }
+        float max = Quote.roundAmount(LoanManager.securedMaxFor(market));
+        float min = Math.min(max, Math.max(1000f, Quote.roundAmount(max * 0.1f)));
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        dialog.getTextPanel().addPara(Str.get("branch.loan.pick"), Misc.getHighlightColor(), market.getName(),
+            Misc.getDGSCredits(min), Misc.getDGSCredits(max));
+        options.addSelector(Str.get("branch.amount"), SELECTOR, Misc.getHighlightColor(), 400f, 120f,
+            min, max, ValueDisplayMode.VALUE, null);
+        options.setSelectorValue(SELECTOR, Quote.roundAmount((min + max) / 2f));
+        options.addOption(Str.get("branch.optReview"), PREFIX + "cquote:" + market.getId());
+        addBack("colonies");
+    }
+
+    private void showColonyQuote(MarketAPI market, float amount) {
+        if (market == null) { showLoans(); return; }
+        BankData data = BankData.get();
+        float max = LoanManager.securedMaxFor(market);
+        amount = Math.max(Math.min(max, 1000f), Math.min(max, amount));
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        addQuote(Quote.securedLoan(market.getName(), ColonyAppraisal.of(market).total, amount, rate));
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        options.addOption(Str.f("branch.optSign", Misc.getDGSCredits(amount)), PREFIX + "csign:" + market.getId() + ":" + (long) amount);
+        options.addOption(Str.get("branch.optChangeAmount"), PREFIX + "col:" + market.getId());
+        addBack("back");
+    }
+
+    private void signSecured(MarketAPI market, float amount) {
+        BankData data = BankData.get();
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        BankAccount loan = market == null ? null : data.getLoanManager().takeSecuredLoan(market, amount, rate);
+        if (loan == null) {
+            dialog.getTextPanel().addPara(Str.get("branch.loan.refused"), Misc.getNegativeHighlightColor());
+        } else {
+            dialog.getTextPanel().addPara(Str.get("branch.secured.signed"), Misc.getHighlightColor(),
+                Misc.getDGSCredits(amount), market.getName());
+        }
+        showSummary();
+    }
+
+    private static MarketAPI market(String id) {
+        return Global.getSector().getEconomy().getMarket(id);
     }
 
     private void showLoanAmount(LoanType type) {

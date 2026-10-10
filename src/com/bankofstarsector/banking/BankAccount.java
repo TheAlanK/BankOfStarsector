@@ -44,6 +44,13 @@ public class BankAccount implements Serializable {
     /** Autopay pays the whole statement (true) or only the minimum (false). */
     public boolean autopayFull;
 
+    // Colony-secured loan (0.3.0)
+    /** Market pledged as collateral; null once released, sold or lost (the loan is then unsecured). */
+    public String collateralMarketId;
+    public String collateralName;
+    /** Appraisal when the loan was signed. */
+    public float collateralAppraisal;
+
     // Investment fields
     public InvestmentType investmentType;
     public float investedAmount;

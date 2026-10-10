@@ -65,6 +65,21 @@ public class BankSettings {
     public static float LINE_MAX_MULTIPLIER = 2f;     // increases stop at this multiple of the bracket's limit
     public static float LINE_LATE_CUT_PCT = 0.25f;    // limit cut after a late payment (never below the balance)
 
+    // Colony-secured loan: a colony as collateral; receivership, foreclosure and auction on default
+    public static float SECURED_LTV = 0.6f;           // largest loan: this share of the colony's appraisal
+    public static float SECURED_RATE_DISCOUNT = 0.25f; // cheaper than unsecured credit
+    public static int SECURED_MIN_COLONY_SIZE = 4;
+    public static float RECEIVERSHIP_STABILITY_PENALTY = 3f;
+    public static int FORECLOSURE_DELAY_DAYS = 60;    // in receivership this long (Nexerelin) -> foreclosure war
+    public static int FORECLOSURE_RETRY_DAYS = 60;    // a new invasion if the last one failed
+    public static float FORECLOSURE_RELATION = -0.65f; // the PBC's relation to the player during foreclosure
+    public static float AUCTION_RESERVE_PCT = 0.7f;   // lowest sale price, share of the appraisal
+    public static float APPRAISAL_SIZE_BASE = 100000f; // development value of a size-3 colony
+    public static float APPRAISAL_SIZE_GROWTH = 2.5f; // x per size above 3
+    public static float APPRAISAL_RESOURCE_TIER_VALUE = 60000f;
+    public static float APPRAISAL_INCOME_MONTHS = 12f;
+    public static float APPRAISAL_IMPROVED_BONUS = 0.25f;
+
 
     // Collection
     public static int OVERDUE_PHASE1_DAYS = 30;
@@ -125,6 +140,19 @@ public class BankSettings {
             LINE_INCREASE_PCT = f(j, "lineIncreasePct", LINE_INCREASE_PCT);
             LINE_MAX_MULTIPLIER = f(j, "lineMaxMultiplier", LINE_MAX_MULTIPLIER);
             LINE_LATE_CUT_PCT = f(j, "lineLateCutPct", LINE_LATE_CUT_PCT);
+            SECURED_LTV = f(j, "securedLtv", SECURED_LTV);
+            SECURED_RATE_DISCOUNT = f(j, "securedRateDiscount", SECURED_RATE_DISCOUNT);
+            SECURED_MIN_COLONY_SIZE = i(j, "securedMinColonySize", SECURED_MIN_COLONY_SIZE);
+            RECEIVERSHIP_STABILITY_PENALTY = f(j, "receivershipStabilityPenalty", RECEIVERSHIP_STABILITY_PENALTY);
+            FORECLOSURE_DELAY_DAYS = i(j, "foreclosureDelayDays", FORECLOSURE_DELAY_DAYS);
+            FORECLOSURE_RETRY_DAYS = i(j, "foreclosureRetryDays", FORECLOSURE_RETRY_DAYS);
+            FORECLOSURE_RELATION = f(j, "foreclosureRelation", FORECLOSURE_RELATION);
+            AUCTION_RESERVE_PCT = f(j, "auctionReservePct", AUCTION_RESERVE_PCT);
+            APPRAISAL_SIZE_BASE = f(j, "appraisalSizeBase", APPRAISAL_SIZE_BASE);
+            APPRAISAL_SIZE_GROWTH = f(j, "appraisalSizeGrowth", APPRAISAL_SIZE_GROWTH);
+            APPRAISAL_RESOURCE_TIER_VALUE = f(j, "appraisalResourceTierValue", APPRAISAL_RESOURCE_TIER_VALUE);
+            APPRAISAL_INCOME_MONTHS = f(j, "appraisalIncomeMonths", APPRAISAL_INCOME_MONTHS);
+            APPRAISAL_IMPROVED_BONUS = f(j, "appraisalImprovedBonus", APPRAISAL_IMPROVED_BONUS);
             INQUIRY_DEDUPE_DAYS = i(j, "inquiryDedupeDays", INQUIRY_DEDUPE_DAYS);
             DEROGATORY_MONTHS = i(j, "derogatoryMonths", DEROGATORY_MONTHS);
             CLOSED_ACCOUNT_MONTHS = i(j, "closedAccountMonths", CLOSED_ACCOUNT_MONTHS);

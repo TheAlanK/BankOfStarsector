@@ -32,6 +32,20 @@ public final class BankSnapshot {
     public final List<String> scoreChanges;
     /** Installment loans: projected repayment if paid on time (parallel to the loans list's order). */
     public final List<Schedule> schedules;
+    /** Colonies pledged for colony-secured loans and their state (lien, receivership, foreclosure). */
+    public final List<Collateral> collateral;
+
+    public static final class Collateral {
+        public final String loan, colony, state;
+        public final float appraisal;
+
+        Collateral(String loan, String colony, float appraisal, String state) {
+            this.loan = loan;
+            this.colony = colony;
+            this.appraisal = appraisal;
+            this.state = state;
+        }
+    }
 
     public static final class Schedule {
         public final String name;
@@ -90,6 +104,7 @@ public final class BankSnapshot {
 
         List<Line> l = new ArrayList<Line>();
         List<Schedule> sch = new ArrayList<Schedule>();
+        List<Collateral> coll = new ArrayList<Collateral>();
         for (BankAccount loan : lm.getActiveLoans()) {
             if (loan.loanType.isRevolving()) continue; // shown in its own card
             LoanSchedule projected = LoanSchedule.remaining(loan);
@@ -97,10 +112,22 @@ public final class BankSnapshot {
             String detail = LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay()
                 + " | " + com.bankofstarsector.core.Str.f("nexus.monthsLeft", projected.rows.size());
             if (loan.heldFunds > 0f) detail += " | " + com.bankofstarsector.core.Str.f("nexus.loanHeld", LoanManager.formatCredits(loan.heldFunds));
-            l.add(new Line(loan.loanType.getDisplayName(), detail, loan.status != LoanStatus.ACTIVE));
+            boolean foreclosureTrouble = false;
+            if (loan.loanType.isSecured() && loan.collateralMarketId != null) {
+                int stage = data.getForeclosureManager().getStage(loan);
+                String key = stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_FORECLOSURE ? "nexus.foreclosure"
+                    : stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP ? "nexus.receivership" : "nexus.collateral";
+                detail += " | " + com.bankofstarsector.core.Str.f(key, loan.collateralName);
+                foreclosureTrouble = stage != com.bankofstarsector.collection.ForeclosureManager.STAGE_NONE;
+                coll.add(new Collateral(loan.loanType.getDisplayName(), loan.collateralName, loan.collateralAppraisal,
+                    stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_FORECLOSURE ? "foreclosure"
+                        : stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP ? "receivership" : "lien"));
+            }
+            l.add(new Line(loan.loanType.getDisplayName(), detail, loan.status != LoanStatus.ACTIVE || foreclosureTrouble));
         }
         loans = Collections.unmodifiableList(l);
         schedules = Collections.unmodifiableList(sch);
+        collateral = Collections.unmodifiableList(coll);
         CreditScoreManager csm = data.getCreditScoreManager();
         scoreHistory = Collections.unmodifiableList(new ArrayList<Integer>(csm.getScoreHistory()));
         List<String> ch = new ArrayList<String>();
@@ -172,6 +199,11 @@ public final class BankSnapshot {
                     .put("remainingInterest", x.remainingInterest).put("remainingTotal", x.remainingTotal));
             }
             o.put("loanSchedules", ss);
+            JSONArray cs = new JSONArray();
+            for (Collateral x : collateral) {
+                cs.put(new JSONObject().put("loan", x.loan).put("colony", x.colony).put("appraisal", x.appraisal).put("state", x.state));
+            }
+            o.put("collateral", cs);
             JSONArray hs = new JSONArray();
             for (int i = 0; i < scoreHistory.size(); i++) {
                 String c = scoreChanges.get(i);

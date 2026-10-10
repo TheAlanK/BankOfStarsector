@@ -17,7 +17,10 @@ public enum LoanType {
         "The money stays at the bank until you pay the loan off. Builds a credit file."),
     /** Since 0.3.0. A revolving account: limit, rate and minimum payment come from BankSettings.LINE_*. */
     CREDIT_LINE("Confederation Credit Line", 500000f, 0.02f, 0, 500,
-        "Draw and repay freely up to your limit. Pay each statement in full and you pay no interest.");
+        "Draw and repay freely up to your limit. Pay each statement in full and you pay no interest."),
+    /** Since 0.3.0. Secured by a colony: amount from its appraisal (BankSettings.SECURED_LTV). */
+    SECURED("Colony-Secured Loan", 3000000f, 0.03f, 24, 450,
+        "Pledge one of your colonies for a larger, cheaper loan. If it defaults, the colony's income goes to the bank, and it can be foreclosed and auctioned.");
 
     public final String displayName;
     public final float maxAmount;
@@ -49,6 +52,11 @@ public enum LoanType {
         return this == CREDIT_LINE;
     }
 
+    /** Secured by one of the player's colonies (needs a colony to be offered). */
+    public boolean isSecured() {
+        return this == SECURED;
+    }
+
     public int getTermMonths() {
         if (isRevolving()) return 0;
         return isBuilder() ? com.bankofstarsector.core.BankSettings.BUILDER_TERM_MONTHS : termMonths;
@@ -56,7 +64,9 @@ public enum LoanType {
 
     /** Monthly base rate before credit-score and war adjustments. */
     public float getBaseRate() {
-        return isRevolving() ? com.bankofstarsector.core.BankSettings.LINE_RATE : baseMonthlyRate;
+        if (isRevolving()) return com.bankofstarsector.core.BankSettings.LINE_RATE;
+        if (isSecured()) return baseMonthlyRate * (1f - com.bankofstarsector.core.BankSettings.SECURED_RATE_DISCOUNT);
+        return baseMonthlyRate;
     }
 
     public float getMaxAmountForScore(int creditScore) {

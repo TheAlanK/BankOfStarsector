@@ -253,6 +253,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                     info.addPara(Str.get("terminal.loans.held"), 3f, Misc.getPositiveHighlightColor(),
                         Misc.getDGSCredits(loan.heldFunds));
                 }
+                if (loan.loanType.isSecured()) renderCollateral(info, data, loan);
 
                 if (loan.amountPastDue > 1f) {
                     info.addPara(Str.get("terminal.loans.due"), 3f,
@@ -295,7 +296,9 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         List<LoanType> offers = new ArrayList<LoanType>();
         offers.add(LoanType.BUILDER);
         if (!bankruptcyLock) {
-            for (LoanType type : LoanType.values()) if (!type.isBuilder() && !type.isRevolving()) offers.add(type);
+            for (LoanType type : LoanType.values()) {
+                if (!type.isBuilder() && !type.isRevolving() && !type.isSecured()) offers.add(type);
+            }
         }
         for (LoanType type : offers) {
             String why = lm.whyNot(type, data);
@@ -330,6 +333,68 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), Str.get(why));
             }
             info.addSpacer(opad / 2);
+        }
+        if (!bankruptcyLock) {
+            info.addSpacer(opad);
+            renderSecuredOffers(info, opad);
+        }
+    }
+
+    /** Collateral of a colony-secured loan, and its receivership or foreclosure if the loan defaulted. */
+    private void renderCollateral(TooltipMakerAPI info, BankData data, BankAccount loan) {
+        if (loan.collateralMarketId == null) {
+            info.addPara("%s", 3f, Misc.getGrayColor(), Str.get("terminal.loans.unsecured"));
+            return;
+        }
+        info.addPara(Str.get("terminal.loans.collateral"), 3f, Misc.getHighlightColor(),
+            loan.collateralName, Misc.getDGSCredits(loan.collateralAppraisal));
+        com.bankofstarsector.collection.ForeclosureManager fm = data.getForeclosureManager();
+        int stage = fm.getStage(loan);
+        if (stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP) {
+            info.addPara(Str.get("terminal.loans.receivership"), 3f, Misc.getNegativeHighlightColor(),
+                loan.collateralName, "" + fm.getDays(loan));
+        } else if (stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_FORECLOSURE) {
+            info.addPara(Str.get("terminal.loans.foreclosure"), 3f, Misc.getNegativeHighlightColor(), loan.collateralName);
+        }
+    }
+
+    /** Colony-secured loans: each pledgeable colony with its appraisal and the loan it can secure. */
+    private void renderSecuredOffers(TooltipMakerAPI info, float opad) {
+        BankData data = BankData.get();
+        LoanManager lm = data.getLoanManager();
+        CreditScoreManager csm = data.getCreditScoreManager();
+        heading(info, "terminal.secured.heading", opad);
+        info.addPara(Str.get("terminal.secured.intro"), opad, Misc.getGrayColor(),
+            "" + BankSettings.SECURED_MIN_COLONY_SIZE, pct(BankSettings.SECURED_LTV, "%.0f") + "%");
+        com.bankofstarsector.ui.Quote.Line risk = com.bankofstarsector.ui.Quote.riskLine();
+        info.addPara(Str.get(risk.key), 3f, risk.color, risk.args);
+
+        List<com.fs.starfarer.api.campaign.econ.MarketAPI> colonies = lm.pledgeableColonies();
+        if (colonies.isEmpty()) {
+            info.addPara(Str.get("terminal.secured.none"), opad, Misc.getGrayColor(), "" + BankSettings.SECURED_MIN_COLONY_SIZE);
+            return;
+        }
+        String why = lm.whyNot(LoanType.SECURED, data);
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, csm.getScore());
+        for (com.fs.starfarer.api.campaign.econ.MarketAPI m : colonies) {
+            ColonyAppraisal a = ColonyAppraisal.of(m);
+            float max = LoanManager.securedMaxFor(m);
+            info.addPara(Str.get("terminal.secured.colony"), opad, why == null ? Misc.getHighlightColor() : Misc.getGrayColor(),
+                m.getName(), "" + m.getSize(), Misc.getDGSCredits(a.total));
+            info.addPara(Str.get("terminal.secured.breakdown"), 3f, Misc.getGrayColor(),
+                Misc.getDGSCredits(a.development), Misc.getDGSCredits(a.structures), Misc.getDGSCredits(a.resources),
+                Misc.getDGSCredits(a.income), String.format("%.2f", a.hazardMult));
+            if (why != null) {
+                info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), Str.get(why));
+                continue;
+            }
+            info.addPara(Str.get("terminal.secured.offer"), 3f, Misc.getHighlightColor(),
+                Misc.getDGSCredits(max), pct(rate, "%.1f"), "" + LoanType.SECURED.getTermMonths());
+            for (float p : new float[]{0.25f, 0.50f, 0.75f, 1.0f}) {
+                info.addButton(Str.f("terminal.secured.take", Misc.getDGSCredits(max * p)),
+                    "loan_secure_" + m.getId() + "_" + (int) (p * 100),
+                    Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
+            }
         }
     }
 
@@ -480,6 +545,13 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             info.addButton(Str.get("terminal.line.close"), "line_close_" + line.accountId,
                 Misc.getNegativeHighlightColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 24f, 3f);
         }
+    }
+
+    /** "loan_secure_MARKETID_PCT" -> the market, else null. */
+    private static com.fs.starfarer.api.campaign.econ.MarketAPI securedButtonMarket(Object buttonId) {
+        if (!(buttonId instanceof String) || !((String) buttonId).startsWith("loan_secure_")) return null;
+        String rest = ((String) buttonId).substring("loan_secure_".length());
+        return Global.getSector().getEconomy().getMarket(rest.substring(0, rest.lastIndexOf('_')));
     }
 
     /** Amount offered on a "take" button: a share of the maximum, never below the credit-builder minimum. */
@@ -755,6 +827,17 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             return;
         }
 
+        if (id.startsWith("loan_secure_")) {
+            com.fs.starfarer.api.campaign.econ.MarketAPI market = securedButtonMarket(id);
+            if (market != null) {
+                float amount = LoanManager.securedMaxFor(market) * buttonSuffix(id) / 100f;
+                float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+                data.getLoanManager().takeSecuredLoan(market, amount, rate);
+            }
+            ui.updateUIForItem(this);
+            return;
+        }
+
         if (id.startsWith("loan_take_")) {
             String rest = id.substring("loan_take_".length());
             int lastUnderscore = rest.lastIndexOf('_');
@@ -802,6 +885,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     @Override
     public boolean doesButtonHaveConfirmDialog(Object buttonId) {
         return "bankruptcy_file".equals(buttonId) || loanButtonType(buttonId) != null
+            || securedButtonMarket(buttonId) != null
             || lockedInvestButtonType(buttonId) != null || super.doesButtonHaveConfirmDialog(buttonId);
     }
 
@@ -816,6 +900,15 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             float rate = data.getInterestEngine().calculateEffectiveLoanRate(loanType, score);
             prompt.addPara(Str.get("confirm.loan.title"), Misc.getHighlightColor(), 0f);
             addQuote(prompt, com.bankofstarsector.ui.Quote.loan(loanType, amount, rate));
+            return;
+        }
+        com.fs.starfarer.api.campaign.econ.MarketAPI pledged = securedButtonMarket(buttonId);
+        if (pledged != null) {
+            BankData data = BankData.get();
+            float amount = LoanManager.securedMaxFor(pledged) * buttonSuffix(buttonId) / 100f;
+            float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+            prompt.addPara(Str.get("confirm.loan.title"), Misc.getHighlightColor(), 0f);
+            addQuote(prompt, com.bankofstarsector.ui.Quote.securedLoan(pledged.getName(), ColonyAppraisal.of(pledged).total, amount, rate));
             return;
         }
         InvestmentType investType = lockedInvestButtonType(buttonId);
@@ -838,14 +931,15 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
     @Override
     public String getConfirmText(Object buttonId) {
-        if (loanButtonType(buttonId) != null) return Str.get("confirm.sign");
+        if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null) return Str.get("confirm.sign");
         if (lockedInvestButtonType(buttonId) != null) return Str.get("confirm.invest");
         return "bankruptcy_file".equals(buttonId) ? Str.get("terminal.bankruptcy.confirmButton") : super.getConfirmText(buttonId);
     }
 
     @Override
     public String getCancelText(Object buttonId) {
-        if (loanButtonType(buttonId) != null || lockedInvestButtonType(buttonId) != null) return Str.get("confirm.cancel");
+        if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null
+                || lockedInvestButtonType(buttonId) != null) return Str.get("confirm.cancel");
         return super.getCancelText(buttonId);
     }
 

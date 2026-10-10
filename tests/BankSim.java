@@ -53,6 +53,11 @@ public class BankSim {
         scenarioQuoteTextFormats();
         scenarioScheduleMatchesBilling();
         scenarioScoreChartExplainsChange();
+        scenarioColonyAppraisal();
+        scenarioSecuredLoanSigning();
+        scenarioReceivership();
+        scenarioForeclosureAndAuction();
+        scenarioCollateralLoss();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -468,6 +473,7 @@ public class BankSim {
             List<com.bankofstarsector.ui.Quote.Line> all = new ArrayList<com.bankofstarsector.ui.Quote.Line>();
             for (LoanType t : LoanType.values()) if (!t.isRevolving()) all.addAll(com.bankofstarsector.ui.Quote.loan(t, 50_000f, 0.05f));
             for (InvestmentType t : InvestmentType.values()) all.addAll(com.bankofstarsector.ui.Quote.investment(t, 100_000f));
+            all.addAll(com.bankofstarsector.ui.Quote.securedLoan("Alpha", 3_000_000f, 1_000_000f, 0.02f));
             for (com.bankofstarsector.ui.Quote.Line l : all) {
                 lines++;
                 String format = Str.get(l.key);
@@ -648,6 +654,9 @@ public class BankSim {
 
     static void reset(float startCredits) {
         persistent.clear();
+        colonies.clear();
+        factions.clear();
+        relations.clear();
         credits.set(startCredits);
         now = 1_000_000_000L;
     }
@@ -677,6 +686,315 @@ public class BankSim {
         if (!ok) failures++;
     }
 
+    // ------------------------------------------------------------------ fake colonies and factions
+
+    static final Map<String, Colony> colonies = new LinkedHashMap<String, Colony>();
+    static final Map<String, Object> factions = new HashMap<String, Object>();
+    static final Map<String, Float> relations = new HashMap<String, Float>();
+
+    /** A market the tests can shape: size, hazard, income, conditions, industries, owner. */
+    static final class Colony {
+        String id, name, factionId;
+        int size;
+        float hazard = 1f, netIncome;
+        boolean inEconomy = true;
+        final Set<String> conditions = new LinkedHashSet<String>();
+        final List<float[]> industries = new ArrayList<float[]>(); // {buildCost, improved 0/1}
+        com.fs.starfarer.api.campaign.econ.MarketAPI proxy;
+    }
+
+    static Colony colony(String id, String factionId, int size, float netIncome) {
+        final Colony c = new Colony();
+        c.id = id; c.name = id; c.factionId = factionId; c.size = size; c.netIncome = netIncome;
+        c.proxy = (com.fs.starfarer.api.campaign.econ.MarketAPI) Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+            new Class<?>[]{com.fs.starfarer.api.campaign.econ.MarketAPI.class}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method m, Object[] a) throws Throwable {
+                    String n = m.getName();
+                    if (n.equals("getId")) return c.id;
+                    if (n.equals("getName")) return c.name;
+                    if (n.equals("getFactionId")) return c.factionId;
+                    if (n.equals("setFactionId")) { c.factionId = (String) a[0]; return null; }
+                    if (n.equals("getFaction")) return faction(c.factionId);
+                    if (n.equals("isPlayerOwned")) return "player".equals(c.factionId);
+                    if (n.equals("getSize")) return c.size;
+                    if (n.equals("getHazardValue")) return c.hazard;
+                    if (n.equals("getNetIncome")) return c.netIncome;
+                    if (n.equals("isInEconomy")) return c.inEconomy;
+                    if (n.equals("isHidden")) return false;
+                    if (n.equals("hasCondition")) return c.conditions.contains((String) a[0]);
+                    if (n.equals("addCondition") && a[0] instanceof String) { c.conditions.add((String) a[0]); return a[0]; }
+                    if (n.equals("removeCondition")) { c.conditions.remove((String) a[0]); return null; }
+                    if (n.equals("getConditions")) {
+                        List<Object> out = new ArrayList<Object>();
+                        for (final String cid : c.conditions) out.add(withId(com.fs.starfarer.api.campaign.econ.MarketConditionAPI.class, cid));
+                        return out;
+                    }
+                    if (n.equals("getIndustries")) {
+                        List<Object> out = new ArrayList<Object>();
+                        for (float[] ind : c.industries) out.add(industry(ind[0], ind[1] > 0f));
+                        return out;
+                    }
+                    if (n.equals("hashCode")) return System.identityHashCode(proxy);
+                    if (n.equals("equals")) return proxy == a[0];
+                    if (n.equals("toString")) return "market:" + c.id;
+                    if (n.equals("getStarSystem") || n.equals("getLocationInHyperspace")) return null;
+                    return defaultFor(m.getReturnType());
+                }
+            });
+        colonies.put(id, c);
+        return c;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <T> T withId(Class<T> type, final String id) {
+        return (T) Proxy.newProxyInstance(BankSim.class.getClassLoader(), new Class<?>[]{type}, new InvocationHandler() {
+            public Object invoke(Object proxy, Method m, Object[] a) {
+                if (m.getName().equals("getId")) return id;
+                return defaultFor(m.getReturnType());
+            }
+        });
+    }
+
+    static Object industry(final float buildCost, final boolean improved) {
+        return Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+            new Class<?>[]{com.fs.starfarer.api.campaign.econ.Industry.class}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method m, Object[] a) {
+                    if (m.getName().equals("getBuildCost")) return buildCost;
+                    if (m.getName().equals("isImproved")) return improved;
+                    if (m.getName().equals("getAICoreId") || m.getName().equals("getSpecialItem")) return null;
+                    return defaultFor(m.getReturnType());
+                }
+            });
+    }
+
+    static com.fs.starfarer.api.campaign.FactionAPI faction(final String id) {
+        Object f = factions.get(id);
+        if (f == null) {
+            f = Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+                new Class<?>[]{com.fs.starfarer.api.campaign.FactionAPI.class}, new InvocationHandler() {
+                    public Object invoke(Object proxy, Method m, Object[] a) {
+                        String n = m.getName();
+                        if (n.equals("getId") || n.equals("getDisplayName")) return id;
+                        if (n.equals("isPlayerFaction")) return "player".equals(id);
+                        if (n.equals("getRelationship")) return relation(id, (String) a[0]);
+                        if (n.equals("setRelationship") && a[0] instanceof String) {
+                            relations.put(key(id, (String) a[0]), ((Number) a[1]).floatValue());
+                            return null;
+                        }
+                        if (n.equals("isHostileTo")) {
+                            String other = a[0] instanceof String ? (String) a[0]
+                                : ((com.fs.starfarer.api.campaign.FactionAPI) a[0]).getId();
+                            return relation(id, other) <= -0.5f;
+                        }
+                        if (n.equals("hashCode")) return id.hashCode();
+                        if (n.equals("equals")) return proxy == a[0];
+                        if (n.equals("toString")) return "faction:" + id;
+                        return defaultFor(m.getReturnType());
+                    }
+                });
+            factions.put(id, f);
+        }
+        return (com.fs.starfarer.api.campaign.FactionAPI) f;
+    }
+
+    static String key(String a, String b) { return a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a; }
+
+    static float relation(String a, String b) {
+        Float r = relations.get(key(a, b));
+        return r == null ? 0f : r;
+    }
+
+    // ------------------------------------------------------------------ colony-secured loans (0.3.0)
+
+    /** Alpha: size 6, 100k/month, rich ore + adequate farmland + habitable, two industries (one improved). */
+    static Colony alpha() {
+        Colony c = colony("alpha", "player", 6, 100_000f);
+        c.conditions.add("ore_rich");
+        c.conditions.add("farmland_adequate");
+        c.conditions.add("habitable");
+        c.industries.add(new float[]{150_000f, 1f});
+        c.industries.add(new float[]{300_000f, 0f});
+        return c;
+    }
+
+    /** The PBC and two bidders with real territory; pirates (never bidders) and a faction hostile to the PBC. */
+    static void sectorFactions() {
+        colony("pbc_hq", "pbc", 6, 0f);
+        colony("heg_capital", "hegemony", 7, 0f);
+        colony("tt_hub", "tritachyon", 5, 0f);
+        colony("pirate_den", "pirates", 5, 0f);
+        colony("church_world", "luddic_church", 6, 0f);
+        relations.put(key("luddic_church", "pbc"), -0.6f);
+    }
+
+    static void scenarioColonyAppraisal() {
+        reset(0f);
+        Colony c = alpha();
+        ColonyAppraisal a = ColonyAppraisal.of(c.proxy);
+        // development 100k x 2.5^3 = 1,562,500; structures 150k x 1.25 + 300k = 487,500;
+        // resources (4 + 2 + 2) x 60k = 480,000; income 12 x 100k = 1,200,000; hazard 100% -> x1.0
+        float expected = 1_562_500f + 487_500f + 480_000f + 1_200_000f;
+        c.hazard = 2f;
+        ColonyAppraisal hazardous = ColonyAppraisal.of(c.proxy);
+        System.out.printf("[appraisal] development %.0f, structures %.0f, resources %.0f, income %.0f, x%.2f = %.0f | hazard 200%%: %.0f | max loan %.0f%n",
+            a.development, a.structures, a.resources, a.income, a.hazardMult, a.total, hazardous.total,
+            LoanManager.securedMaxFor(colonies.get("alpha").proxy));
+        check("[appraisal] development, structures, resources and income add up", Math.abs(a.total - expected) < 1f);
+        check("[appraisal] a hazardous world is worth less", Math.abs(hazardous.total - expected * 0.5f) < 1f);
+    }
+
+    static void scenarioSecuredLoanSigning() {
+        BankData data = scoredFile(1_000_000f);
+        Colony c = alpha();
+        LoanManager lm = data.getLoanManager();
+        int score = data.getCreditScoreManager().getScore();
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, score);
+        float unsecured = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.MEGACORP, score);
+        float before = credits.get();
+        float max = LoanManager.securedMaxFor(c.proxy);
+        BankAccount tooMuch = lm.takeSecuredLoan(c.proxy, max * 1.5f, rate);
+        BankAccount loan = lm.takeSecuredLoan(c.proxy, 1_000_000f, rate);
+        BankAccount twice = lm.takeSecuredLoan(c.proxy, 100_000f, rate);
+        System.out.printf("[secured] rate %.2f%% vs megacorp %.2f%% | paid out %.0f | lien: %s | second pledge: %s%n",
+            rate * 100, unsecured * 100, credits.get() - before, c.conditions.contains("bos_lien"), twice);
+        check("[secured] cheaper than unsecured credit", rate < unsecured);
+        check("[secured] can't borrow more than the loan-to-value allows", tooMuch == null);
+        check("[secured] signing pays out and puts a lien on the colony", loan != null
+            && Math.abs(credits.get() - before - 1_000_000f) < 1f && c.conditions.contains("bos_lien")
+            && "alpha".equals(loan.collateralMarketId));
+        check("[secured] a colony secures one loan at a time", twice == null);
+        credits.set(10_000_000f);
+        lm.payOff(loan.accountId);
+        check("[secured] paying off releases the lien", loan.status == LoanStatus.PAID_OFF && !c.conditions.contains("bos_lien"));
+    }
+
+    /** A defaulted colony-secured loan on Alpha (autopay off, no credits). */
+    static BankAccount defaultedSecuredLoan(BankData data, Colony c) {
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        BankAccount loan = data.getLoanManager().takeSecuredLoan(c.proxy, 1_000_000f, rate);
+        data.setAutopayEnabled(false);
+        credits.set(0f);
+        int day = 0;
+        while (loan.status != LoanStatus.DEFAULTED && day < 240) { advanceDays(1); day++; if (day % 30 == 0) monthEnd(); }
+        advanceDays(1);
+        return loan;
+    }
+
+    static float garnishedThisMonth(BankData data) {
+        float total = 0f;
+        for (BankData.TransactionRecord t : data.getTransactionHistory()) if ("GARNISH".equals(t.type)) total -= t.amount;
+        return total;
+    }
+
+    static void scenarioReceivership() {
+        BankData data = scoredFile(1_000_000f);
+        Colony c = alpha();
+        BankAccount loan = defaultedSecuredLoan(data, c);
+        com.bankofstarsector.collection.ForeclosureManager fm = data.getForeclosureManager();
+        int stage = fm.getStage(loan);
+        boolean marked = c.conditions.contains("bos_receivership");
+        boolean fleet = data.getCollectionManager().hasActiveCollection(loan.accountId);
+        float garnishedBefore = garnishedThisMonth(data);
+        advanceDays(29);
+        monthEnd();
+        float taken = garnishedThisMonth(data) - garnishedBefore;
+        advanceDays(BankSettings.FORECLOSURE_DELAY_DAYS + 30);
+        int stageLater = fm.getStage(loan);
+        float pbcRel = relation("pbc", "player");
+        credits.set(10_000_000f);
+        data.getLoanManager().payPastDue(loan.accountId);
+        advanceDays(1);
+        System.out.printf("[receivership] stage %d, condition %s, fleet %s | month end took %.0f of the colony's income | without Nexerelin after %d days: stage %d, PBC relation %.2f | paid: status %s, stage %d, condition %s%n",
+            stage, marked, fleet, taken, BankSettings.FORECLOSURE_DELAY_DAYS + 30,
+            stageLater, pbcRel, loan.status, fm.getStage(loan), c.conditions.contains("bos_receivership"));
+        check("[receivership] default puts the colony in receivership (condition on the colony)",
+            stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP && marked);
+        check("[receivership] no Collection Fleet for a loan secured by a colony", !fleet);
+        check("[receivership] the colony's whole income goes to the loan", Math.abs(taken - 100_000f) < 1f);
+        check("[receivership] without Nexerelin there is no foreclosure war",
+            stageLater == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP && pbcRel > -0.5f);
+        check("[receivership] paying the amount due lifts it", loan.status == LoanStatus.ACTIVE
+            && fm.getStage(loan) == com.bankofstarsector.collection.ForeclosureManager.STAGE_NONE
+            && !c.conditions.contains("bos_receivership") && c.conditions.contains("bos_lien"));
+    }
+
+    static void setNexerelin(boolean on) throws Exception {
+        java.lang.reflect.Field f = com.bankofstarsector.compat.NexerelinCompat.class.getDeclaredField("available");
+        f.setAccessible(true);
+        f.set(null, on ? Boolean.TRUE : null);
+    }
+
+    static void scenarioForeclosureAndAuction() throws Exception {
+        setNexerelin(true); // invasion classes are not on the test classpath: the launch fails and is reported as such
+        try {
+            BankData data = scoredFile(1_000_000f);
+            sectorFactions();
+            relations.put(key("pbc", "player"), 0.2f);
+            Colony c = alpha();
+            BankAccount loan = defaultedSecuredLoan(data, c);
+            com.bankofstarsector.collection.ForeclosureManager fm = data.getForeclosureManager();
+            advanceDays(BankSettings.FORECLOSURE_DELAY_DAYS + 1);
+            int stage = fm.getStage(loan);
+            float warRel = relation("pbc", "player");
+
+            // The PBC takes the colony; the next day it is auctioned.
+            float owed = loan.remainingBalance;
+            float appraisal = ColonyAppraisal.of(c.proxy).total;
+            c.factionId = "pbc";
+            float before = credits.get();
+            advanceDays(1);
+            float surplus = credits.get() - before;
+            System.out.printf("[foreclosure] stage %d, PBC relation %.2f during | auction: %s now owns alpha, owed %.0f, appraisal %.0f, returned %.0f, loan %s, relation after %.2f, conditions %s%n",
+                stage, warRel, c.factionId, owed, appraisal, surplus, loan.status, relation("pbc", "player"), c.conditions);
+            check("[foreclosure] unpaid receivership turns into a foreclosure war (Nexerelin)",
+                stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_FORECLOSURE && warRel <= -0.5f);
+            check("[auction] the PBC never keeps the colony; a major faction not hostile to it buys it",
+                ("hegemony".equals(c.factionId) || "tritachyon".equals(c.factionId)));
+            check("[auction] the price pays the loan and the surplus goes to the player",
+                loan.status == LoanStatus.SEIZED && surplus >= appraisal * BankSettings.AUCTION_RESERVE_PCT - owed - 1f);
+            check("[auction] relations go back to what they were", Math.abs(relation("pbc", "player") - 0.2f) < 1e-4);
+            check("[auction] lien and receivership are gone", c.conditions.isEmpty() || !c.conditions.contains("bos_lien")
+                && !c.conditions.contains("bos_receivership"));
+
+            List<com.bankofstarsector.collection.ForeclosureManager.Bid> bids =
+                com.bankofstarsector.collection.ForeclosureManager.collectBids(c.proxy, appraisal, new Random(1));
+            StringBuilder who = new StringBuilder();
+            for (com.bankofstarsector.collection.ForeclosureManager.Bid b : bids) who.append(b.faction.getId()).append(' ');
+            System.out.println("[auction] bidders: " + who.toString().trim());
+            boolean noPirates = true, noHostile = true;
+            for (com.bankofstarsector.collection.ForeclosureManager.Bid b : bids) {
+                if ("pirates".equals(b.faction.getId())) noPirates = false;
+                if ("luddic_church".equals(b.faction.getId())) noHostile = false;
+            }
+            check("[auction] pirates and factions hostile to the PBC don't bid", noPirates && noHostile && bids.size() == 2);
+        } finally {
+            setNexerelin(false);
+        }
+    }
+
+    static void scenarioCollateralLoss() {
+        // Captured by another faction while current: the loan simply continues, unsecured.
+        BankData data = scoredFile(1_000_000f);
+        Colony c = alpha();
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        BankAccount captured = data.getLoanManager().takeSecuredLoan(c.proxy, 500_000f, rate);
+        c.factionId = "hegemony";
+        advanceDays(1);
+        boolean unsecured = captured.collateralMarketId == null && captured.status == LoanStatus.ACTIVE;
+
+        // Abandoned while current: the whole balance falls due.
+        data = scoredFile(1_000_000f);
+        c = alpha();
+        BankAccount abandoned = data.getLoanManager().takeSecuredLoan(c.proxy, 500_000f, rate);
+        c.inEconomy = false;
+        advanceDays(1);
+        System.out.printf("[collateral] captured: unsecured %s | abandoned: status %s, due now %.0f of %.0f%n",
+            unsecured, abandoned.status, abandoned.amountPastDue, abandoned.remainingBalance);
+        check("[collateral] captured by another faction: the loan continues unsecured", unsecured);
+        check("[collateral] abandoned: the whole balance is due at once (default)",
+            abandoned.status == LoanStatus.DEFAULTED && abandoned.amountPastDue >= abandoned.remainingBalance - 1f);
+    }
+
     // ------------------------------------------------------------------ deep stubs
 
     @SuppressWarnings("unchecked")
@@ -696,6 +1014,17 @@ public class BankSim {
                     return new org.json.JSONObject(new String(java.nio.file.Files.readAllBytes(pth), "UTF-8"));
                 }
                 if (n.equals("isModEnabled")) return false;
+                if (n.equals("getFaction") && a != null && a.length == 1 && a[0] instanceof String) return faction((String) a[0]);
+                if (n.equals("getPlayerFaction")) return faction("player");
+                if (n.equals("getMarket") && a != null && a.length == 1 && a[0] instanceof String) {
+                    Colony c = colonies.get((String) a[0]);
+                    return c != null && c.inEconomy ? c.proxy : null;
+                }
+                if (n.equals("getMarketsCopy")) {
+                    List<Object> out = new ArrayList<Object>();
+                    for (Colony c : colonies.values()) if (c.inEconomy) out.add(c.proxy);
+                    return out;
+                }
                 if (n.equals("addMessage")) { messages.add(String.valueOf(a[0])); return null; }
                 if (n.equals("toString")) return "stub:" + type.getSimpleName();
                 if (n.equals("hashCode")) return System.identityHashCode(proxy);

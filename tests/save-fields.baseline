@@ -2,6 +2,7 @@ const com.bankofstarsector.banking.CreditBureau$Category BUSINESS
 const com.bankofstarsector.banking.CreditBureau$Category LINE
 const com.bankofstarsector.banking.CreditBureau$Category PERSONAL
 const com.bankofstarsector.banking.CreditBureau$Category REVOLVING
+const com.bankofstarsector.banking.CreditBureau$Category SECURED
 const com.bankofstarsector.banking.CreditBureau$EventType CHARGE_OFF
 const com.bankofstarsector.banking.CreditBureau$EventType LATE_120
 const com.bankofstarsector.banking.CreditBureau$EventType LATE_30
@@ -23,6 +24,7 @@ const com.bankofstarsector.banking.LoanType CORPORATE
 const com.bankofstarsector.banking.LoanType CREDIT_LINE
 const com.bankofstarsector.banking.LoanType EMERGENCY
 const com.bankofstarsector.banking.LoanType MEGACORP
+const com.bankofstarsector.banking.LoanType SECURED
 const com.bankofstarsector.banking.LoanType SMALL
 const com.bankofstarsector.banking.LoanType SOVEREIGN
 const com.bankofstarsector.collection.BankruptcyManager$BankruptcyState ACTIVE
@@ -34,6 +36,9 @@ field com.bankofstarsector.banking.BankAccount accumulatedReturns float
 field com.bankofstarsector.banking.BankAccount amountPastDue float
 field com.bankofstarsector.banking.BankAccount autopayFull boolean
 field com.bankofstarsector.banking.BankAccount baseMonthlyRate float
+field com.bankofstarsector.banking.BankAccount collateralAppraisal float
+field com.bankofstarsector.banking.BankAccount collateralMarketId java.lang.String
+field com.bankofstarsector.banking.BankAccount collateralName java.lang.String
 field com.bankofstarsector.banking.BankAccount createdTimestamp long
 field com.bankofstarsector.banking.BankAccount creditLimit float
 field com.bankofstarsector.banking.BankAccount currentBill float
@@ -138,11 +143,15 @@ field com.bankofstarsector.collection.CollectionManager phase2Notified java.util
 field com.bankofstarsector.collection.CollectionManager phase3FleetDispatched java.util.Set<java.lang.String>
 field com.bankofstarsector.collection.CollectionManager phase4Notified java.util.Set<java.lang.String>
 field com.bankofstarsector.collection.CollectionManager retryCooldown java.util.Map<java.lang.String, java.lang.Integer>
+field com.bankofstarsector.collection.ForeclosureManager days java.util.Map<java.lang.String, java.lang.Integer>
+field com.bankofstarsector.collection.ForeclosureManager savedRelation java.util.Map<java.lang.String, java.lang.Float>
+field com.bankofstarsector.collection.ForeclosureManager stage java.util.Map<java.lang.String, java.lang.Integer>
 field com.bankofstarsector.core.BankData assetSeizureManager com.bankofstarsector.collection.AssetSeizureManager
 field com.bankofstarsector.core.BankData autopayEnabled boolean
 field com.bankofstarsector.core.BankData bankruptcyManager com.bankofstarsector.collection.BankruptcyManager
 field com.bankofstarsector.core.BankData collectionManager com.bankofstarsector.collection.CollectionManager
 field com.bankofstarsector.core.BankData creditScoreManager com.bankofstarsector.banking.CreditScoreManager
+field com.bankofstarsector.core.BankData foreclosureManager com.bankofstarsector.collection.ForeclosureManager
 field com.bankofstarsector.core.BankData interestEngine com.bankofstarsector.banking.InterestEngine
 field com.bankofstarsector.core.BankData investmentManager com.bankofstarsector.banking.InvestmentManager
 field com.bankofstarsector.core.BankData lastDayTimestamp long

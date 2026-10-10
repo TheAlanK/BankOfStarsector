@@ -16,6 +16,12 @@ Bank of Starsector
 - New: "Repayment schedule" on every loan (payment, interest, principal and balance per month, plus what is
   still to pay); the Credit tab charts the last 12 monthly reports and names the factor behind each change.
   NexusUI shows the score trend, the last change and months left per loan.
+- New: colony-secured loans. Pledge a colony (size 4+) for up to 60% of its appraisal (development, structures,
+  resources and traits, income, hazard) at a 25% lower rate; the colony gets a PBC Lien. On default: receivership
+  (all its income to the bank, -3 stability). With Nexerelin, 60 days later: foreclosure (the PBC turns hostile
+  and invades), then the colony is auctioned to a major faction; the price pays the loan, the surplus is
+  returned, relations are restored. Abandoning the colony accelerates the loan; losing it to another faction
+  leaves the loan unsecured. Terminal, branch office (slider) and NexusUI.
 - Changed: "Sovereign Credit Line" renamed "Sovereign Loan" (it is an installment loan).
 - Fixed: defaults are reported to the credit bureau when they happen, and a charged-off loan no longer adds
   a new late mark every month.

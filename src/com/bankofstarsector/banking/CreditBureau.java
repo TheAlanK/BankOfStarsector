@@ -37,7 +37,7 @@ public class CreditBureau implements Serializable {
     public static final float PAYMENT_MAX = 192f, AMOUNTS_MAX = 165f, LENGTH_MAX = 83f, NEW_MAX = 55f, MIX_MAX = 55f;
 
     /** LINE is the sovereign installment loan (kept for saves); REVOLVING is the credit line (0.3.0). */
-    public enum Category { PERSONAL, BUSINESS, LINE, REVOLVING }
+    public enum Category { PERSONAL, BUSINESS, LINE, REVOLVING, SECURED }
 
     public enum EventType { LATE_30, LATE_60, LATE_90, LATE_120, CHARGE_OFF, REPOSSESSION }
 
@@ -47,6 +47,7 @@ public class CreditBureau implements Serializable {
             case MEGACORP: return Category.BUSINESS;
             case SOVEREIGN: return Category.LINE;
             case CREDIT_LINE: return Category.REVOLVING;
+            case SECURED: return Category.SECURED;
             default: return Category.PERSONAL;
         }
     }

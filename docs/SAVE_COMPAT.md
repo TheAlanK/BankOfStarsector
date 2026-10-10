@@ -22,6 +22,7 @@ Starsector writes the whole campaign to `campaign.xml` with **XStream 1.4.10**. 
 | `collection.CollectionFleetScript` | `sector.addScript` | One per active collection |
 | `faction.PBCPostInitScript` | `sector.addScript` | |
 | Memory keys `$bos_*` on fleets | `MemoryAPI.set` | `$bos_collection_fleet`, `$bos_target_loan`, `$bos_hail_cooldown`, `$bos_settled` |
+| Market condition ids on colonies | `MarketAPI.addCondition` | `bos_lien`, `bos_receivership` (0.3.0). The ids are saved in each colony's condition list; never rename them. Their plugins are transient (rebuilt on load) and not saved. |
 
 These are **not** saved: `BankCampaignScript` and `BankSnapshotScript` (transient scripts), `BankEconomyListener` (registered as a transient listener), and rule commands (`BOSBranch`, `BOSCollection`, created per use).
 
@@ -29,7 +30,7 @@ From `BankData` the save reaches:
 - `LoanManager`, `InvestmentManager` and their `BankAccount`s;
 - `CreditScoreManager` → `CreditBureau` (tradelines, events, inquiries, cached result);
 - `InterestEngine`;
-- `CollectionManager`, `AssetSeizureManager` and `BankruptcyManager`;
+- `CollectionManager`, `AssetSeizureManager`, `BankruptcyManager` and `ForeclosureManager` (0.3.0);
 - the transaction history.
 
 The exact list (26 classes, every field and enum constant) is [`tests/save-fields.baseline`](../tests/save-fields.baseline).
