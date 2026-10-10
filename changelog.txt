@@ -1,6 +1,13 @@
 Bank of Starsector
 
 0.2.0-beta
+- New: credit score works like a real credit bureau (FICO-style, 300-850). It is computed once a month from a
+  credit report: payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%.
+  Taking loans and repaying them instantly no longer farms points: every application is a hard inquiry and adds a
+  young account. Lateness is reported from 30 days and fades over 7 years; charge-offs, repossessions and
+  bankruptcy stay on file. No score until an account is 6 months old. The terminal shows factors, reasons and tips.
+- New: Brazilian Portuguese translation (language setting, or auto from the system locale).
+- Fixed: crash ("Conversion = 'r'") when opening bank intel or tooltips with % in the text.
 - Fixed: Nexerelin and NexusUI integrations never worked (Starsector blocks reflection in mod scripts); both use direct calls now.
 - New: monthly loan installments in the vanilla income report, autopay toggle, one-month grace period.
 - New: debt collection in four phases - reminder, banking restriction with penalty interest, Collection Fleet, default.
