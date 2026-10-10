@@ -36,6 +36,7 @@ public class BankingNexusPage implements NexusPage {
     private JLabel netWorthLabel;
     private JLabel heldLabel;
     private JLabel trendLabel, changeLabel;
+    private JLabel insPlanLabel, insPremiumLabel, insStatusLabel, insFleetLabel, insClaimsLabel;
     private JLabel lineBalanceLabel, lineLimitLabel, lineAvailableLabel, lineUtilLabel, lineMinLabel, lineStatementLabel, lineAutopayLabel;
     private JButton payStatementButton;
     private JLabel creditsLabel;
@@ -128,6 +129,15 @@ public class BankingNexusPage implements NexusPage {
         mainPanel.add(lineCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
+        JPanel insCard = createCard(Str.get("nexus.card.insurance"));
+        insPlanLabel = addLabelRow(insCard, Str.get("nexus.insPlan"), "--");
+        insPremiumLabel = addLabelRow(insCard, Str.get("nexus.insPremium"), "--");
+        insStatusLabel = addLabelRow(insCard, Str.get("nexus.insStatus"), "--");
+        insFleetLabel = addLabelRow(insCard, Str.get("nexus.insFleet"), "--");
+        insClaimsLabel = addLabelRow(insCard, Str.get("nexus.insClaims"), "--");
+        mainPanel.add(insCard);
+        mainPanel.add(Box.createVerticalStrut(8));
+
         JPanel scoreCard = createCard(Str.get("nexus.card.score"));
         scoreLabel = addLabelRow(scoreCard, Str.get("nexus.score"), "--");
         bracketLabel = addLabelRow(scoreCard, Str.get("nexus.bracket"), "--");
@@ -191,6 +201,20 @@ public class BankingNexusPage implements NexusPage {
         set(bracketLabel, s.bracket + ("NONE".equals(s.bankruptcyState) ? "" : " | " + Str.f("nexus.bankruptcy", s.bankruptcyLabel)),
             getScoreColor(s.score));
         fillList(loansPanel, s.loans, Str.get("terminal.loans.none"));
+        if (s.insurancePlan == null) {
+            set(insPlanLabel, Str.get("nexus.insNone"), TEXT_SECONDARY);
+            set(insPremiumLabel, "--", TEXT_SECONDARY);
+            set(insStatusLabel, "--", TEXT_SECONDARY);
+        } else {
+            set(insPlanLabel, s.insurancePlan + String.format(" (%.0f%%, -%s)", s.insuranceCoverage * 100, formatCredits(s.insuranceDeductible)), TEXT_PRIMARY);
+            set(insPremiumLabel, formatCredits(s.insurancePremium), GOLD);
+            String status = s.insuranceLapsed ? Str.get("nexus.insLapsed")
+                : s.insuranceWaitingDays > 0 ? Str.f("nexus.insWaiting", s.insuranceWaitingDays) : Str.get("nexus.insActive");
+            set(insStatusLabel, status, s.insuranceLapsed ? NEGATIVE : s.insuranceWaitingDays > 0 ? GOLD : POSITIVE);
+        }
+        set(insFleetLabel, formatCredits(s.fleetValue), TEXT_PRIMARY);
+        set(insClaimsLabel, Str.f("nexus.insClaimsValue", s.insuranceClaims12, s.insurancePending), TEXT_PRIMARY);
+
         StringBuilder trend = new StringBuilder();
         for (int i = Math.min(5, s.scoreHistory.size() - 1); i >= 0; i--) {
             if (trend.length() > 0) trend.append(" > ");

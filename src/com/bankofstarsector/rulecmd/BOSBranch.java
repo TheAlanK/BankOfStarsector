@@ -132,6 +132,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
             options.addOption(Str.get("branch.optLoans"), PREFIX + "loans");
         }
         if (data.getBankruptcyManager().canInvest()) options.addOption(Str.get("branch.optInvest"), PREFIX + "invest");
+        options.addOption(Str.get("branch.optInsurance"), PREFIX + "ins");
         options.addOption(Str.get("branch.optTerminal"), OPT_TERMINAL);
         options.addOption(Str.get("branch.optLeave"), OPT_BACK);
         options.setShortcut(OPT_BACK, org.lwjgl.input.Keyboard.KEY_ESCAPE, false, false, false, true);
@@ -158,6 +159,11 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         else if ("col".equals(screen)) showColonyAmount(market(p[1]));
         else if ("cquote".equals(screen)) showColonyQuote(market(p[1]), selectedAmount());
         else if ("csign".equals(screen)) signSecured(market(p[1]), Float.parseFloat(p[2]));
+        else if ("ins".equals(screen)) showInsurance();
+        else if ("insq".equals(screen)) showInsuranceQuote(com.bankofstarsector.banking.InsurancePlan.valueOf(p[1]));
+        else if ("insbuy".equals(screen)) buyInsurance(com.bankofstarsector.banking.InsurancePlan.valueOf(p[1]));
+        else if ("inscancelq".equals(screen)) showInsuranceCancel();
+        else if ("inscancel".equals(screen)) cancelInsurance();
         else if ("invest".equals(screen)) showInvestments();
         else if ("inv".equals(screen)) showInvestAmount(InvestmentType.valueOf(p[1]));
         else if ("iquote".equals(screen)) showInvestQuote(InvestmentType.valueOf(p[1]), selectedAmount());
@@ -308,6 +314,66 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         lm.takeLoan(type, amount, data.getInterestEngine().calculateEffectiveLoanRate(type, score));
         dialog.getTextPanel().addPara(Str.get(type.isBuilder() ? "branch.loan.signedHeld" : "branch.loan.signed"),
             Misc.getHighlightColor(), Misc.getDGSCredits(amount));
+        showSummary();
+    }
+
+    // ------------------------------------------------------------------ fleet insurance
+
+    private void showInsurance() {
+        BankData data = BankData.get();
+        com.bankofstarsector.banking.InsuranceManager ins = data.getInsuranceManager();
+        TextPanelAPI text = dialog.getTextPanel();
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        text.addPara(Str.get("branch.insurance.intro"));
+        if (ins.hasPolicy()) {
+            text.addPara(Str.get("branch.insurance.current"), Misc.getHighlightColor(), ins.getPlan().getDisplayName(),
+                Misc.getDGSCredits(ins.premiumFor(ins.getPlan(), data)));
+        }
+        for (com.bankofstarsector.banking.InsurancePlan plan : com.bankofstarsector.banking.InsurancePlan.values()) {
+            text.addPara(Str.get("branch.insurance.plan"), Misc.getHighlightColor(), plan.getDisplayName(),
+                Quote.percentText(plan.coverage), Misc.getDGSCredits(plan.deductible), Misc.getDGSCredits(ins.premiumFor(plan, data)));
+            String id = PREFIX + "insq:" + plan.name();
+            options.addOption(plan.getDisplayName(), id);
+            String why = ins.whyNot(plan, data);
+            if (why != null) {
+                options.setEnabled(id, false);
+                options.setTooltip(id, Str.get(why));
+            }
+        }
+        if (ins.hasPolicy()) options.addOption(Str.get("terminal.insurance.cancel"), PREFIX + "inscancelq");
+        addBack("back");
+    }
+
+    private void showInsuranceQuote(com.bankofstarsector.banking.InsurancePlan plan) {
+        BankData data = BankData.get();
+        addQuote(Quote.insurance(plan, data.getInsuranceManager().premiumFor(plan, data)));
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        options.addOption(Str.get("confirm.insure"), PREFIX + "insbuy:" + plan.name());
+        addBack("ins");
+    }
+
+    private void buyInsurance(com.bankofstarsector.banking.InsurancePlan plan) {
+        BankData data = BankData.get();
+        boolean ok = data.getInsuranceManager().buy(plan, data);
+        dialog.getTextPanel().addPara(Str.get(ok ? "branch.insurance.bought" : "branch.insurance.refused"),
+            ok ? Misc.getHighlightColor() : Misc.getNegativeHighlightColor(), plan.getDisplayName());
+        showSummary();
+    }
+
+    private void showInsuranceCancel() {
+        dialog.getTextPanel().addPara(Str.get("confirm.insurance.cancelText"), Misc.getHighlightColor(),
+            "" + BankSettings.INSURANCE_WAITING_DAYS);
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        options.addOption(Str.get("confirm.insurance.cancelButton"), PREFIX + "inscancel");
+        addBack("ins");
+    }
+
+    private void cancelInsurance() {
+        BankData.get().getInsuranceManager().cancel(BankData.get());
+        dialog.getTextPanel().addPara(Str.get("branch.insurance.cancelled"));
         showSummary();
     }
 

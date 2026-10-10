@@ -31,6 +31,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     public static final String TAB_INVESTMENTS = "tab_investments";
     public static final String TAB_CREDIT = "tab_credit";
     public static final String TAB_HISTORY = "tab_history";
+    public static final String TAB_INSURANCE = "tab_insurance";
 
     private static String pct(float fraction, String fmt) {
         return String.format(fmt, fraction * 100);
@@ -82,6 +83,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             case TAB_INVESTMENTS:  renderInvestments(outer, width, opad); break;
             case TAB_CREDIT:       renderCreditScore(outer, width, opad); break;
             case TAB_HISTORY:      renderHistory(outer, width, opad); break;
+            case TAB_INSURANCE:    renderInsurance(outer, width, opad); break;
         }
 
         panel.addUIElement(outer);
@@ -90,7 +92,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     private void addTabBar(TooltipMakerAPI info, float width, float opad) {
         info.addSectionHeading(Str.get("terminal.title"), GOLD, DARK_NAVY, Alignment.MID, opad);
 
-        String[] tabIds = {TAB_OVERVIEW, TAB_LOANS, TAB_INVESTMENTS, TAB_CREDIT, TAB_HISTORY};
+        String[] tabIds = {TAB_OVERVIEW, TAB_LOANS, TAB_INVESTMENTS, TAB_INSURANCE, TAB_CREDIT, TAB_HISTORY};
         for (String tabId : tabIds) {
             Color btnColor = tabId.equals(currentTab) ? GOLD : Misc.getBasePlayerColor();
             info.addButton(Str.get("terminal." + tabId), tabId, btnColor, DARK_NAVY,
@@ -137,6 +139,12 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         Color scoreColor = scoreColor(csm.getScore());
         info.addPara(Str.get("terminal.overview.score"), opad, scoreColor, csm.getScoreText(), csm.getBracket());
         info.addPara(Str.get("terminal.overview.maxLoans"), opad, Misc.getHighlightColor(), "" + csm.getMaxLoans());
+        InsuranceManager ins = data.getInsuranceManager();
+        if (ins.hasPolicy()) {
+            info.addPara(Str.get("terminal.overview.insurance"), opad,
+                ins.isLapsed() ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(),
+                ins.getPlan().getDisplayName(), Misc.getDGSCredits(ins.premiumFor(ins.getPlan(), data)));
+        }
 
         info.addSpacer(opad);
         heading(info, "terminal.overview.cashFlow", opad);
@@ -338,6 +346,80 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             info.addSpacer(opad);
             renderSecuredOffers(info, opad);
         }
+    }
+
+    /** Fleet insurance: the policy, quotes for each plan, and the claims record. */
+    private void renderInsurance(TooltipMakerAPI info, float width, float opad) {
+        BankData data = BankData.get();
+        InsuranceManager ins = data.getInsuranceManager();
+        Color hl = Misc.getHighlightColor(), gray = Misc.getGrayColor(), neg = Misc.getNegativeHighlightColor();
+        heading(info, "terminal.insurance.heading", opad);
+        info.addPara("%s", opad, gray, Str.get("terminal.insurance.intro"));
+
+        float fleetValue = InsuranceManager.fleetValue();
+        info.addPara(Str.get("terminal.insurance.fleet"), opad, hl, Misc.getDGSCredits(fleetValue),
+            "" + InsuranceManager.fleet().size(), "" + ins.shipsInWaiting(), "" + BankSettings.INSURANCE_WAITING_DAYS);
+        info.addPara(Str.get("terminal.insurance.factors"), 3f, hl,
+            String.format("%.2f", InsuranceManager.creditFactor(data.getCreditScoreManager())),
+            "" + ins.paidClaimsLast12Months(), String.format("%.2f", ins.claimsFactor()),
+            String.format("%.2f", 1f + data.getInterestEngine().getWarSurcharge()));
+
+        info.addSpacer(opad);
+        heading(info, "terminal.insurance.policy", opad);
+        if (!ins.hasPolicy()) {
+            info.addPara("%s", opad, gray, Str.get("terminal.insurance.none"));
+        } else {
+            InsurancePlan p = ins.getPlan();
+            info.addPara(Str.get("terminal.insurance.current"), opad, hl, p.getDisplayName(),
+                pct(p.coverage, "%.0f") + "%", Misc.getDGSCredits(p.deductible),
+                Misc.getDGSCredits(ins.premiumFor(p, data)));
+            if (ins.waitingDaysLeft() > 0) {
+                info.addPara(Str.get("terminal.insurance.waitingLeft"), 3f, neg, "" + ins.waitingDaysLeft());
+            }
+            if (ins.isLapsed()) info.addPara("%s", 3f, neg, Str.get("terminal.insurance.lapsed"));
+            if (!ins.getPending().isEmpty()) {
+                info.addPara(Str.get("terminal.insurance.pending"), 3f, hl, "" + ins.getPending().size());
+            }
+            info.addButton(Str.get("terminal.insurance.cancel"), "ins_cancel",
+                neg, DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, opad / 2);
+        }
+
+        info.addSpacer(opad);
+        heading(info, "terminal.insurance.plans", opad);
+        for (InsurancePlan p : InsurancePlan.values()) {
+            String why = ins.whyNot(p, data);
+            info.addPara(Str.get("terminal.insurance.plan"), opad, why == null ? hl : gray, p.getDisplayName(),
+                pct(p.coverage, "%.0f") + "%", Misc.getDGSCredits(p.deductible), Misc.getDGSCredits(ins.premiumFor(p, data)));
+            if (why == null) {
+                info.addButton(Str.get(ins.hasPolicy() ? "terminal.insurance.switch" : "terminal.insurance.buy"),
+                    "ins_buy_" + p.name(), Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+            } else {
+                info.addPara("  [%s]", 3f, neg, Str.get(why));
+            }
+        }
+
+        List<InsuranceManager.Claim> claims = ins.getClaims();
+        if (!claims.isEmpty()) {
+            info.addSpacer(opad);
+            heading(info, "terminal.insurance.claims", opad);
+            info.beginTable(Global.getSector().getFaction("pbc"), 20f,
+                Str.get("terminal.insurance.colShip"), 200f, Str.get("terminal.insurance.colValue"), 100f,
+                Str.get("terminal.insurance.colPayout"), 100f, Str.get("terminal.insurance.colOutcome"), Math.max(150f, width - 420f));
+            for (int i = 0; i < claims.size() && i < 10; i++) {
+                InsuranceManager.Claim c = claims.get(i);
+                info.addRow(Alignment.LMID, Misc.getTextColor(), c.shipName,
+                    Alignment.RMID, Misc.getTextColor(), Misc.getDGSCredits(c.baseValue),
+                    Alignment.RMID, c.payout > 0f ? Misc.getPositiveHighlightColor() : neg, Misc.getDGSCredits(c.payout),
+                    Alignment.LMID, gray, Str.get(c.outcome));
+            }
+            info.addTable("", 0, opad / 2);
+        }
+    }
+
+    /** "ins_buy_PLAN" -> PLAN, else null. */
+    private static InsurancePlan insuranceButtonPlan(Object buttonId) {
+        if (!(buttonId instanceof String) || !((String) buttonId).startsWith("ins_buy_")) return null;
+        return InsurancePlan.valueOf(((String) buttonId).substring("ins_buy_".length()));
     }
 
     /** Collateral of a colony-secured loan, and its receivership or foreclosure if the loan defaulted. */
@@ -827,6 +909,18 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             return;
         }
 
+        if (id.startsWith("ins_buy_")) {
+            data.getInsuranceManager().buy(insuranceButtonPlan(id), data);
+            ui.updateUIForItem(this);
+            return;
+        }
+
+        if ("ins_cancel".equals(id)) {
+            data.getInsuranceManager().cancel(data);
+            ui.updateUIForItem(this);
+            return;
+        }
+
         if (id.startsWith("loan_secure_")) {
             com.fs.starfarer.api.campaign.econ.MarketAPI market = securedButtonMarket(id);
             if (market != null) {
@@ -885,7 +979,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     @Override
     public boolean doesButtonHaveConfirmDialog(Object buttonId) {
         return "bankruptcy_file".equals(buttonId) || loanButtonType(buttonId) != null
-            || securedButtonMarket(buttonId) != null
+            || securedButtonMarket(buttonId) != null || insuranceButtonPlan(buttonId) != null || "ins_cancel".equals(buttonId)
             || lockedInvestButtonType(buttonId) != null || super.doesButtonHaveConfirmDialog(buttonId);
     }
 
@@ -900,6 +994,19 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             float rate = data.getInterestEngine().calculateEffectiveLoanRate(loanType, score);
             prompt.addPara(Str.get("confirm.loan.title"), Misc.getHighlightColor(), 0f);
             addQuote(prompt, com.bankofstarsector.ui.Quote.loan(loanType, amount, rate));
+            return;
+        }
+        InsurancePlan insurancePlan = insuranceButtonPlan(buttonId);
+        if (insurancePlan != null) {
+            BankData data = BankData.get();
+            prompt.addPara(Str.get("confirm.insurance.title"), Misc.getHighlightColor(), 0f);
+            addQuote(prompt, com.bankofstarsector.ui.Quote.insurance(insurancePlan,
+                data.getInsuranceManager().premiumFor(insurancePlan, data)));
+            return;
+        }
+        if ("ins_cancel".equals(buttonId)) {
+            prompt.addPara(Str.get("confirm.insurance.cancelTitle"), Misc.getNegativeHighlightColor(), 0f);
+            prompt.addPara(Str.get("confirm.insurance.cancelText"), 10f, Misc.getHighlightColor(), "" + BankSettings.INSURANCE_WAITING_DAYS);
             return;
         }
         com.fs.starfarer.api.campaign.econ.MarketAPI pledged = securedButtonMarket(buttonId);
@@ -932,14 +1039,16 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     @Override
     public String getConfirmText(Object buttonId) {
         if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null) return Str.get("confirm.sign");
+        if (insuranceButtonPlan(buttonId) != null) return Str.get("confirm.insure");
+        if ("ins_cancel".equals(buttonId)) return Str.get("confirm.insurance.cancelButton");
         if (lockedInvestButtonType(buttonId) != null) return Str.get("confirm.invest");
         return "bankruptcy_file".equals(buttonId) ? Str.get("terminal.bankruptcy.confirmButton") : super.getConfirmText(buttonId);
     }
 
     @Override
     public String getCancelText(Object buttonId) {
-        if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null
-                || lockedInvestButtonType(buttonId) != null) return Str.get("confirm.cancel");
+        if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null || insuranceButtonPlan(buttonId) != null
+                || "ins_cancel".equals(buttonId) || lockedInvestButtonType(buttonId) != null) return Str.get("confirm.cancel");
         return super.getCancelText(buttonId);
     }
 

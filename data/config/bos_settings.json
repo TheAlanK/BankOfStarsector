@@ -51,6 +51,15 @@
 	"appraisalIncomeMonths":12,         # months of positive net income counted
 	"appraisalImprovedBonus":0.25,      # improved industries count 25% more
 
+	# Fleet insurance (Standard: 60% cover, 10k deductible; Comprehensive: 80%, 5k)
+	"insuranceRateStandard":0.008,      # monthly premium rate on the insured value
+	"insuranceRateComprehensive":0.013,
+	"insuranceWaitingDays":30,          # no claims in a new policy's first days, nor for ships new to the fleet
+	"insuranceSettleDays":2,            # claims are settled after post-battle recovery
+	"insuranceMonthlyCapPct":0.5,       # payouts per month, share of the insured value
+	"insuranceClaimLoad":0.25,          # premium +25% per claim paid in the last 12 months...
+	"insuranceMaxClaimsFactor":2,       # ...up to double
+
 	# Collection escalation (days overdue)
 	"overduePhase1Days":30,             # past this, banking is restricted (day 1 sends a reminder)
 	"overduePhase2Days":60,             # past this, a collection fleet is dispatched

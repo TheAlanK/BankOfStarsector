@@ -67,6 +67,19 @@ public final class Quote {
             : new Line("terminal.secured.risk", Misc.getNegativeHighlightColor());
     }
 
+    /** A fleet insurance policy: cover, deductible, premium for the current fleet, waiting and lapse rules. */
+    public static List<Line> insurance(com.bankofstarsector.banking.InsurancePlan plan, float premium) {
+        Color hl = Misc.getHighlightColor();
+        List<Line> lines = new ArrayList<Line>();
+        lines.add(new Line("confirm.insurance.summary", hl, plan.getDisplayName(), percent(plan.coverage, "%.0f"),
+            Misc.getDGSCredits(plan.deductible)));
+        lines.add(new Line("confirm.insurance.premium", hl, Misc.getDGSCredits(premium)));
+        lines.add(new Line("confirm.insurance.waiting", Misc.getNegativeHighlightColor(),
+            "" + BankSettings.INSURANCE_WAITING_DAYS, "" + BankSettings.INSURANCE_WAITING_DAYS));
+        lines.add(new Line("confirm.insurance.lapse", Misc.getNegativeHighlightColor()));
+        return lines;
+    }
+
     public static List<Line> investment(InvestmentType type, float amount) {
         Color hl = Misc.getHighlightColor();
         List<Line> lines = new ArrayList<Line>();

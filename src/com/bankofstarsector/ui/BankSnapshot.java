@@ -34,6 +34,12 @@ public final class BankSnapshot {
     public final List<Schedule> schedules;
     /** Colonies pledged for colony-secured loans and their state (lien, receivership, foreclosure). */
     public final List<Collateral> collateral;
+    /** Fleet insurance: plan display name (null = none), premium for the current fleet, state. */
+    public final String insurancePlan;
+    public final float insurancePremium, insuranceCoverage, insuranceDeductible, fleetValue;
+    public final boolean insuranceLapsed;
+    public final int insuranceWaitingDays, insuranceClaims12, insurancePending;
+    public final List<String[]> recentClaims; // {ship, payout, outcome text}
 
     public static final class Collateral {
         public final String loan, colony, state;
@@ -128,6 +134,24 @@ public final class BankSnapshot {
         loans = Collections.unmodifiableList(l);
         schedules = Collections.unmodifiableList(sch);
         collateral = Collections.unmodifiableList(coll);
+
+        InsuranceManager ins = data.getInsuranceManager();
+        InsurancePlan plan = ins.getPlan();
+        insurancePlan = plan != null ? plan.getDisplayName() : null;
+        insurancePremium = plan != null ? ins.premiumFor(plan, data) : 0f;
+        insuranceCoverage = plan != null ? plan.coverage : 0f;
+        insuranceDeductible = plan != null ? plan.deductible : 0f;
+        insuranceLapsed = ins.isLapsed();
+        insuranceWaitingDays = ins.waitingDaysLeft();
+        insuranceClaims12 = ins.paidClaimsLast12Months();
+        insurancePending = ins.getPending().size();
+        fleetValue = InsuranceManager.fleetValue();
+        List<String[]> rc = new ArrayList<String[]>();
+        for (int i = 0; i < ins.getClaims().size() && i < 5; i++) {
+            InsuranceManager.Claim c = ins.getClaims().get(i);
+            rc.add(new String[]{c.shipName, String.valueOf(c.payout), com.bankofstarsector.core.Str.get(c.outcome)});
+        }
+        recentClaims = Collections.unmodifiableList(rc);
         CreditScoreManager csm = data.getCreditScoreManager();
         scoreHistory = Collections.unmodifiableList(new ArrayList<Integer>(csm.getScoreHistory()));
         List<String> ch = new ArrayList<String>();
@@ -204,6 +228,15 @@ public final class BankSnapshot {
                 cs.put(new JSONObject().put("loan", x.loan).put("colony", x.colony).put("appraisal", x.appraisal).put("state", x.state));
             }
             o.put("collateral", cs);
+            JSONObject in = new JSONObject();
+            in.put("plan", insurancePlan != null ? (Object) insurancePlan : JSONObject.NULL);
+            in.put("premium", insurancePremium).put("coverage", insuranceCoverage).put("deductible", insuranceDeductible)
+                .put("lapsed", insuranceLapsed).put("waitingDaysLeft", insuranceWaitingDays)
+                .put("claimsPaid12Months", insuranceClaims12).put("pendingClaims", insurancePending).put("fleetValue", fleetValue);
+            JSONArray rcs = new JSONArray();
+            for (String[] c : recentClaims) rcs.put(new JSONObject().put("ship", c[0]).put("payout", Float.parseFloat(c[1])).put("outcome", c[2]));
+            in.put("recentClaims", rcs);
+            o.put("insurance", in);
             JSONArray hs = new JSONArray();
             for (int i = 0; i < scoreHistory.size(); i++) {
                 String c = scoreChanges.get(i);

@@ -33,3 +33,7 @@ bos_bankruptcyDebtReduction,Debt forgiven,Double,0.8,,Share of outstanding debt 
 bos_bankruptcyNoLoansMonths,Months without loans,Int,24,,Months after filing before loans are offered again.,0,120,Bankruptcy
 bos_bankruptcyNoInvestMonths,Months without investing,Int,12,,Months after filing before investing is allowed again.,0,120,Bankruptcy
 bos_earlyWithdrawalPenalty,Early withdrawal penalty,Double,0.5,,Share of accumulated returns lost when withdrawing a locked investment early.,0,1,Bankruptcy
+bos_insuranceHeader,Fleet insurance,Header,Fleet insurance,,,,,Insurance
+bos_insuranceRateStandard,Standard premium rate,Double,0.008,,Monthly premium of the Standard policy as a share of the insured value.,0,0.1,Insurance
+bos_insuranceRateComprehensive,Comprehensive premium rate,Double,0.013,,Monthly premium of the Comprehensive policy as a share of the insured value.,0,0.1,Insurance
+bos_insuranceWaitingDays,Waiting period (days),Int,30,,No claims in a new policy's first days, nor for ships that joined the fleet more recently.,0,180,Insurance

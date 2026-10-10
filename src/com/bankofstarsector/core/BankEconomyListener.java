@@ -102,6 +102,13 @@ public class BankEconomyListener implements EconomyTickListener {
             if (autopaid > 0f) getLoanNode(report).upkeep += autopaid;
         }
 
+        // 3b. Fleet insurance premium (a missed premium lapses the policy)
+        float premium = data.getInsuranceManager().monthEnd(data, available);
+        if (premium > 0f) {
+            getInsuranceNode(report).upkeep += premium;
+            available -= premium;
+        }
+
         // 4. Whatever is still unpaid is a missed payment
         lm.markMissedPayments();
         lm.reviewCreditLines(data.getCreditScoreManager());
@@ -144,6 +151,22 @@ public class BankEconomyListener implements EconomyTickListener {
             node.name = com.bankofstarsector.core.Str.get("report.installments");
             node.icon = crest();
             node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.installments.tooltip"));
+        }
+        return node;
+    }
+
+    private static FDNode getInsuranceNode(MonthlyReport report) {
+        FDNode fleetNode = report.getNode(MonthlyReport.FLEET);
+        if (fleetNode.name == null) {
+            fleetNode.name = "Fleet";
+            fleetNode.custom = MonthlyReport.FLEET;
+            fleetNode.tooltipCreator = report.getMonthlyReportTooltip();
+        }
+        FDNode node = report.getNode(fleetNode, "bos_insurance");
+        if (node.name == null) {
+            node.name = com.bankofstarsector.core.Str.get("report.insurance");
+            node.icon = crest();
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.insurance.tooltip"));
         }
         return node;
     }

@@ -57,6 +57,7 @@ public class BankModPlugin extends BaseModPlugin {
 
         Global.getSector().addTransientScript(new BankCampaignScript());
         Global.getSector().getListenerManager().addListener(new BankEconomyListener(), true);
+        Global.getSector().addTransientListener(new BankBattleListener());
 
         registerIntelPlugin();
 

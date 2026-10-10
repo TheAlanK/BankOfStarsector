@@ -58,6 +58,9 @@ public class BankSim {
         scenarioReceivership();
         scenarioForeclosureAndAuction();
         scenarioCollateralLoss();
+        scenarioInsurancePremium();
+        scenarioInsuranceClaims();
+        scenarioInsuranceLapseAndCap();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -531,6 +534,136 @@ public class BankSim {
             change.startsWith("factor.amounts:-") && h.get(0) < h.get(1));
     }
 
+    // ------------------------------------------------------------------ fleet insurance (0.3.0)
+
+    static final List<Object> fleetMembers = new ArrayList<Object>();
+
+    static com.fs.starfarer.api.fleet.FleetMemberAPI ship(final String id, final float baseValue) {
+        Object m = Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+            new Class<?>[]{com.fs.starfarer.api.fleet.FleetMemberAPI.class}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method mt, Object[] a) {
+                    String n = mt.getName();
+                    if (n.equals("getId") || n.equals("getShipName")) return id;
+                    if (n.equals("getBaseValue")) return baseValue;
+                    if (n.equals("hashCode")) return id.hashCode();
+                    if (n.equals("equals")) return proxy == a[0];
+                    if (n.equals("toString")) return "ship:" + id;
+                    return defaultFor(mt.getReturnType());
+                }
+            });
+        fleetMembers.add(m);
+        return (com.fs.starfarer.api.fleet.FleetMemberAPI) m;
+    }
+
+    static void lose(com.fs.starfarer.api.fleet.FleetMemberAPI m, boolean recovered) {
+        if (!recovered) fleetMembers.remove(m);
+        BankData.get().getInsuranceManager().onShipsLost(java.util.Collections.singletonList(m));
+    }
+
+    static void scenarioInsurancePremium() {
+        reset(10_000_000f);
+        BankData data = BankData.get();
+        ship("a", 500_000f);
+        ship("b", 1_000_000f);
+        InsuranceManager ins = data.getInsuranceManager();
+        float thin = ins.premiumFor(InsurancePlan.STANDARD, data);           // no score: credit x1.5
+        float comprehensive = ins.premiumFor(InsurancePlan.COMPREHENSIVE, data);
+        data = scoredFile(10_000_000f);
+        ship("a", 500_000f);
+        ship("b", 1_000_000f);
+        ins = data.getInsuranceManager();
+        float good = ins.premiumFor(InsurancePlan.STANDARD, data);           // 650-749: x1.0
+        ship("c", 1_500_000f);
+        float bigger = ins.premiumFor(InsurancePlan.STANDARD, data);
+        System.out.printf("[insurance premium] 1.5M fleet: no score %.0f, good score %.0f, comprehensive (no score) %.0f | 3M fleet %.0f%n",
+            thin, good, comprehensive, bigger);
+        check("[insurance premium] 0.8% x 60% x fleet value at a good score", Math.abs(good - 0.008f * 0.6f * 1_500_000f) < 1f);
+        check("[insurance premium] worse credit pays more (credit-based insurance score)", Math.abs(thin / good - 1.5f) < 0.01f);
+        check("[insurance premium] follows the fleet's value", Math.abs(bigger / good - 2f) < 0.01f);
+        check("[insurance premium] comprehensive cover costs more", comprehensive > thin);
+    }
+
+    static void scenarioInsuranceClaims() {
+        BankData data = scoredFile(10_000_000f);
+        InsuranceManager ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI a = ship("a", 500_000f);
+        com.fs.starfarer.api.fleet.FleetMemberAPI b = ship("b", 1_000_000f);
+        com.fs.starfarer.api.fleet.FleetMemberAPI c = ship("c", 800_000f);
+        advanceDays(1); // the ships are seen in the fleet
+        ins.buy(InsurancePlan.STANDARD, data);
+
+        lose(c, false);                                  // inside the policy's waiting period
+        advanceDays(3);
+        String early = ins.getClaims().get(0).outcome;
+
+        months(1);                                        // premium paid; waiting period over
+        float before = credits.get();
+        lose(a, false);
+        advanceDays(3);
+        float paid = credits.get() - before;
+
+        lose(b, true);                                    // disabled, then recovered after the battle
+        advanceDays(3);
+        int claimsAfterRecovery = ins.getClaims().size();
+
+        com.fs.starfarer.api.fleet.FleetMemberAPI fresh = ship("fresh", 600_000f);
+        advanceDays(5);
+        lose(fresh, false);                               // bought 5 days before the loss
+        advanceDays(3);
+        String newShip = ins.getClaims().get(0).outcome;
+
+        System.out.printf("[insurance claims] loss in waiting period: %s | covered loss of 500k paid %.0f | recovered ship: %d claims | 5-day-old ship: %s | claims factor x%.2f%n",
+            early, paid, claimsAfterRecovery, newShip, ins.claimsFactor());
+        check("[insurance claims] no claims in the policy's waiting period", "claim.reason.waiting".equals(early));
+        check("[insurance claims] a covered loss pays coverage x value - deductible", Math.abs(paid - (0.6f * 500_000f - 10_000f)) < 1f);
+        check("[insurance claims] a ship recovered after the battle is not a loss", claimsAfterRecovery == 2);
+        check("[insurance claims] ships new to the fleet are not covered yet", "claim.reason.newShip".equals(newShip));
+        check("[insurance claims] each paid claim raises the premium", Math.abs(ins.claimsFactor() - 1.25f) < 1e-4);
+    }
+
+    static void scenarioInsuranceLapseAndCap() {
+        // Monthly cap: three 1M ships, insured value 1.8M, cap 0.9M a month.
+        BankData data = scoredFile(10_000_000f);
+        InsuranceManager ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI x = ship("x", 1_000_000f);
+        com.fs.starfarer.api.fleet.FleetMemberAPI y = ship("y", 1_000_000f);
+        ship("z", 1_000_000f);
+        advanceDays(1);
+        ins.buy(InsurancePlan.STANDARD, data);
+        months(2);
+        float before = credits.get();
+        lose(x, false);
+        lose(y, false);
+        advanceDays(3);
+        float paid = credits.get() - before;
+        String second = ins.getClaims().get(0).outcome;
+
+        // Lapse: no money at month end.
+        data = scoredFile(10_000_000f);
+        ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI old = ship("old", 500_000f);
+        ship("other", 500_000f);
+        advanceDays(1);
+        ins.buy(InsurancePlan.STANDARD, data);
+        months(2);
+        credits.set(0f);
+        data.setAutopayEnabled(false);
+        months(1);
+        boolean lapsed = ins.isLapsed();
+        lose(old, false);
+        advanceDays(3);
+        String lapsedClaim = ins.getClaims().get(0).outcome;
+        credits.set(0f);
+        months(1);
+        boolean cancelled = !ins.hasPolicy();
+        System.out.printf("[insurance limits] two 1M losses in a month: paid %.0f (second: %s) | unpaid premium: lapsed %s, claim %s, second miss cancels: %s%n",
+            paid, second, lapsed, lapsedClaim, cancelled);
+        check("[insurance limits] payouts stop at the monthly cap (50% of the insured value)", Math.abs(paid - 900_000f) < 1f
+            && "claim.reason.partial".equals(second));
+        check("[insurance limits] an unpaid premium suspends the cover", lapsed && "claim.reason.lapsed".equals(lapsedClaim));
+        check("[insurance limits] a second unpaid premium cancels the policy", cancelled);
+    }
+
     static Integer score() {
         return BankData.get().getCreditScoreManager().getReport().score;
     }
@@ -657,6 +790,7 @@ public class BankSim {
         colonies.clear();
         factions.clear();
         relations.clear();
+        fleetMembers.clear();
         credits.set(startCredits);
         now = 1_000_000_000L;
     }
@@ -1020,6 +1154,7 @@ public class BankSim {
                     Colony c = colonies.get((String) a[0]);
                     return c != null && c.inEconomy ? c.proxy : null;
                 }
+                if (n.equals("getMembersListCopy")) return new ArrayList<Object>(fleetMembers);
                 if (n.equals("getMarketsCopy")) {
                     List<Object> out = new ArrayList<Object>();
                     for (Colony c : colonies.values()) if (c.inEconomy) out.add(c.proxy);

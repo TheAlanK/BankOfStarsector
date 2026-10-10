@@ -80,6 +80,15 @@ public class BankSettings {
     public static float APPRAISAL_INCOME_MONTHS = 12f;
     public static float APPRAISAL_IMPROVED_BONUS = 0.25f;
 
+    // Fleet insurance
+    public static float INSURANCE_RATE_STANDARD = 0.008f;      // monthly, on the insured value
+    public static float INSURANCE_RATE_COMPREHENSIVE = 0.013f;
+    public static int INSURANCE_WAITING_DAYS = 30;              // new policy, and ships new to the fleet
+    public static int INSURANCE_SETTLE_DAYS = 2;                // claims wait for post-battle recovery
+    public static float INSURANCE_MONTHLY_CAP_PCT = 0.5f;       // payouts per month, share of the insured value
+    public static float INSURANCE_CLAIM_LOAD = 0.25f;           // premium +25% per claim paid in 12 months...
+    public static float INSURANCE_MAX_CLAIMS_FACTOR = 2f;       // ...up to double
+
 
     // Collection
     public static int OVERDUE_PHASE1_DAYS = 30;
@@ -153,6 +162,13 @@ public class BankSettings {
             APPRAISAL_RESOURCE_TIER_VALUE = f(j, "appraisalResourceTierValue", APPRAISAL_RESOURCE_TIER_VALUE);
             APPRAISAL_INCOME_MONTHS = f(j, "appraisalIncomeMonths", APPRAISAL_INCOME_MONTHS);
             APPRAISAL_IMPROVED_BONUS = f(j, "appraisalImprovedBonus", APPRAISAL_IMPROVED_BONUS);
+            INSURANCE_RATE_STANDARD = f(j, "insuranceRateStandard", INSURANCE_RATE_STANDARD);
+            INSURANCE_RATE_COMPREHENSIVE = f(j, "insuranceRateComprehensive", INSURANCE_RATE_COMPREHENSIVE);
+            INSURANCE_WAITING_DAYS = i(j, "insuranceWaitingDays", INSURANCE_WAITING_DAYS);
+            INSURANCE_SETTLE_DAYS = i(j, "insuranceSettleDays", INSURANCE_SETTLE_DAYS);
+            INSURANCE_MONTHLY_CAP_PCT = f(j, "insuranceMonthlyCapPct", INSURANCE_MONTHLY_CAP_PCT);
+            INSURANCE_CLAIM_LOAD = f(j, "insuranceClaimLoad", INSURANCE_CLAIM_LOAD);
+            INSURANCE_MAX_CLAIMS_FACTOR = f(j, "insuranceMaxClaimsFactor", INSURANCE_MAX_CLAIMS_FACTOR);
             INQUIRY_DEDUPE_DAYS = i(j, "inquiryDedupeDays", INQUIRY_DEDUPE_DAYS);
             DEROGATORY_MONTHS = i(j, "derogatoryMonths", DEROGATORY_MONTHS);
             CLOSED_ACCOUNT_MONTHS = i(j, "closedAccountMonths", CLOSED_ACCOUNT_MONTHS);

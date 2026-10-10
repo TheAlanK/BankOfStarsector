@@ -9,6 +9,8 @@ const com.bankofstarsector.banking.CreditBureau$EventType LATE_30
 const com.bankofstarsector.banking.CreditBureau$EventType LATE_60
 const com.bankofstarsector.banking.CreditBureau$EventType LATE_90
 const com.bankofstarsector.banking.CreditBureau$EventType REPOSSESSION
+const com.bankofstarsector.banking.InsurancePlan COMPREHENSIVE
+const com.bankofstarsector.banking.InsurancePlan STANDARD
 const com.bankofstarsector.banking.InvestmentType BONDS
 const com.bankofstarsector.banking.InvestmentType COMMODITIES
 const com.bankofstarsector.banking.InvestmentType MILITARY
@@ -120,6 +122,26 @@ field com.bankofstarsector.banking.CreditScoreManager loansPayedOffThisMonth int
 field com.bankofstarsector.banking.CreditScoreManager onTimePaymentsThisMonth int
 field com.bankofstarsector.banking.CreditScoreManager scoreChanges java.util.List<java.lang.String>
 field com.bankofstarsector.banking.CreditScoreManager scoreHistory java.util.List<java.lang.Integer>
+field com.bankofstarsector.banking.InsuranceManager claims java.util.List<com.bankofstarsector.banking.InsuranceManager$Claim>
+field com.bankofstarsector.banking.InsuranceManager firstSeen java.util.Map<java.lang.String, java.lang.Long>
+field com.bankofstarsector.banking.InsuranceManager insuredValue float
+field com.bankofstarsector.banking.InsuranceManager lapsed boolean
+field com.bankofstarsector.banking.InsuranceManager lastPremium float
+field com.bankofstarsector.banking.InsuranceManager missedPremiums int
+field com.bankofstarsector.banking.InsuranceManager paidThisMonth float
+field com.bankofstarsector.banking.InsuranceManager pending java.util.List<com.bankofstarsector.banking.InsuranceManager$PendingClaim>
+field com.bankofstarsector.banking.InsuranceManager plan com.bankofstarsector.banking.InsurancePlan
+field com.bankofstarsector.banking.InsuranceManager startTs long
+field com.bankofstarsector.banking.InsuranceManager$Claim baseValue float
+field com.bankofstarsector.banking.InsuranceManager$Claim outcome java.lang.String
+field com.bankofstarsector.banking.InsuranceManager$Claim payout float
+field com.bankofstarsector.banking.InsuranceManager$Claim shipName java.lang.String
+field com.bankofstarsector.banking.InsuranceManager$Claim ts long
+field com.bankofstarsector.banking.InsuranceManager$PendingClaim baseValue float
+field com.bankofstarsector.banking.InsuranceManager$PendingClaim joinedTs long
+field com.bankofstarsector.banking.InsuranceManager$PendingClaim lossTs long
+field com.bankofstarsector.banking.InsuranceManager$PendingClaim memberId java.lang.String
+field com.bankofstarsector.banking.InsuranceManager$PendingClaim shipName java.lang.String
 field com.bankofstarsector.banking.InterestEngine random java.util.Random
 field com.bankofstarsector.banking.InvestmentManager investments java.util.List<com.bankofstarsector.banking.BankAccount>
 field com.bankofstarsector.banking.LoanManager loans java.util.List<com.bankofstarsector.banking.BankAccount>
@@ -152,6 +174,7 @@ field com.bankofstarsector.core.BankData bankruptcyManager com.bankofstarsector.
 field com.bankofstarsector.core.BankData collectionManager com.bankofstarsector.collection.CollectionManager
 field com.bankofstarsector.core.BankData creditScoreManager com.bankofstarsector.banking.CreditScoreManager
 field com.bankofstarsector.core.BankData foreclosureManager com.bankofstarsector.collection.ForeclosureManager
+field com.bankofstarsector.core.BankData insuranceManager com.bankofstarsector.banking.InsuranceManager
 field com.bankofstarsector.core.BankData interestEngine com.bankofstarsector.banking.InterestEngine
 field com.bankofstarsector.core.BankData investmentManager com.bankofstarsector.banking.InvestmentManager
 field com.bankofstarsector.core.BankData lastDayTimestamp long

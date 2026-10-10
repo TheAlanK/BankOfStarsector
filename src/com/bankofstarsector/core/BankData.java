@@ -21,6 +21,7 @@ public class BankData implements Serializable {
     private AssetSeizureManager assetSeizureManager;
     private BankruptcyManager bankruptcyManager;
     private com.bankofstarsector.collection.ForeclosureManager foreclosureManager; // 0.3.0
+    private InsuranceManager insuranceManager; // 0.3.0
     private List<TransactionRecord> transactionHistory;
 
     /** Account id counter; persisted so ids stay unique across save/load. */
@@ -61,6 +62,7 @@ public class BankData implements Serializable {
         if (assetSeizureManager == null) assetSeizureManager = new AssetSeizureManager();
         if (bankruptcyManager == null) bankruptcyManager = new BankruptcyManager();
         if (foreclosureManager == null) foreclosureManager = new com.bankofstarsector.collection.ForeclosureManager();
+        if (insuranceManager == null) insuranceManager = new InsuranceManager();
         if (transactionHistory == null) transactionHistory = new ArrayList<TransactionRecord>();
         if (nextAccountNumber <= 0) {
             // 0.1.x saves used a static counter that reset on every load; resume past the highest id.
@@ -94,6 +96,11 @@ public class BankData implements Serializable {
     public CollectionManager getCollectionManager() { return collectionManager; }
     public AssetSeizureManager getAssetSeizureManager() { return assetSeizureManager; }
     public BankruptcyManager getBankruptcyManager() { return bankruptcyManager; }
+
+    public InsuranceManager getInsuranceManager() {
+        if (insuranceManager == null) insuranceManager = new InsuranceManager();
+        return insuranceManager;
+    }
 
     public com.bankofstarsector.collection.ForeclosureManager getForeclosureManager() {
         if (foreclosureManager == null) foreclosureManager = new com.bankofstarsector.collection.ForeclosureManager();
