@@ -42,6 +42,39 @@ public class NexerelinCompat {
         }
     }
 
+    /** Sends a Nexerelin invasion from source against target. False without Nexerelin or on failure. */
+    public static boolean launchInvasion(com.fs.starfarer.api.campaign.econ.MarketAPI source,
+                                         com.fs.starfarer.api.campaign.econ.MarketAPI target) {
+        if (!isAvailable()) return false;
+        try {
+            return NexerelinBridge.launchInvasion(source, target);
+        } catch (Throwable t) {
+            log.warn("BOS: could not launch the foreclosure invasion: " + t);
+            return false;
+        }
+    }
+
+    /**
+     * Hands a market to another faction. Nexerelin's transfer handles everything that goes with it
+     * (submarkets, admin, notifications); without Nexerelin (only reached off-game in tests, since
+     * foreclosure auctions follow a Nexerelin invasion) the faction is simply switched.
+     */
+    public static void transferMarket(com.fs.starfarer.api.campaign.econ.MarketAPI market,
+                                      com.fs.starfarer.api.campaign.FactionAPI newOwner,
+                                      com.fs.starfarer.api.campaign.FactionAPI oldOwner) {
+        if (newOwner == null) return;
+        if (isAvailable()) {
+            try {
+                NexerelinBridge.transferMarket(market, newOwner, oldOwner);
+                return;
+            } catch (Throwable t) {
+                log.warn("BOS: Nexerelin market transfer failed, switching the faction directly: " + t);
+            }
+        }
+        market.setFactionId(newOwner.getId());
+        if (market.getPrimaryEntity() != null) market.getPrimaryEntity().setFaction(newOwner.getId());
+    }
+
     public static boolean areFactionsAtWar(String factionId1, String factionId2) {
         com.fs.starfarer.api.campaign.FactionAPI f1 = Global.getSector().getFaction(factionId1);
         com.fs.starfarer.api.campaign.FactionAPI f2 = Global.getSector().getFaction(factionId2);

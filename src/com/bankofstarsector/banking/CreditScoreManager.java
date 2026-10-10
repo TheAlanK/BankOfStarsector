@@ -24,6 +24,12 @@ public class CreditScoreManager implements Serializable {
     @SuppressWarnings("unused") private int loansPayedOffThisMonth;
     @SuppressWarnings("unused") private boolean hadDefaultThisMonth;
     private List<Integer> scoreHistory; // monthly, newest first; 0 = no score that month
+    /** 0.3.0: per month (parallel to scoreHistory), the factor that moved the score most, as "factor.key:delta"; "" = none. */
+    private List<String> scoreChanges;
+    /** 0.3.0: factor points at the last monthly report (payment, amounts, length, new credit, mix); null before the first. */
+    private float[] lastFactors;
+
+    private static final String[] FACTOR_KEYS = {"factor.payment", "factor.amounts", "factor.length", "factor.newCredit", "factor.mix"};
 
     private CreditBureau bureau;
 
@@ -119,13 +125,45 @@ public class CreditScoreManager implements Serializable {
         bureau().recordBankruptcy();
     }
 
+    /** A loan reached default: charged off on the report right away. */
+    public void onDefault(BankAccount loan) {
+        bureau().recordChargeOff(loan.accountId);
+    }
+
     /** Monthly reporting cycle (called at month end, after payments and before the bank cleans up closed loans). */
     public void advanceMonth(LoanManager lm) {
         bureau(lm).monthlyReport(lm);
         if (scoreHistory == null) scoreHistory = new ArrayList<Integer>();
-        Integer s = getReport().score;
+        if (scoreChanges == null) scoreChanges = new ArrayList<String>();
+        CreditBureau.Result r = getReport();
+        Integer s = r.score;
+        float[] factors = {r.payment, r.amounts, r.length, r.newCredit, r.mix};
+        // Compared with the last report (not the live result), so mid-month events such as a new inquiry count.
+        boolean comparable = s != null && lastFactors != null && !scoreHistory.isEmpty() && scoreHistory.get(0) > 0;
+        scoreChanges.add(0, comparable ? biggestChange(lastFactors, factors) : "");
+        lastFactors = factors;
         scoreHistory.add(0, s != null ? s : 0);
         while (scoreHistory.size() > 12) scoreHistory.remove(scoreHistory.size() - 1);
+        while (scoreChanges.size() > scoreHistory.size()) scoreChanges.remove(scoreChanges.size() - 1);
+    }
+
+    private static String biggestChange(float[] before, float[] after) {
+        int best = -1;
+        float bestAbs = 0.5f; // ignore rounding noise
+        for (int i = 0; i < FACTOR_KEYS.length && i < before.length; i++) {
+            float d = Math.abs(after[i] - before[i]);
+            if (d > bestAbs) { bestAbs = d; best = i; }
+        }
+        return best < 0 ? "" : FACTOR_KEYS[best] + ":" + Math.round(after[best] - before[best]);
+    }
+
+    /**
+     * The factor that moved the score most at the report {@code monthsAgo} months back (0 = last
+     * report), as "factor.key:delta", or "" (no score, nothing changed, or older than this record).
+     */
+    public String getScoreChange(int monthsAgo) {
+        if (scoreChanges == null || monthsAgo < 0 || monthsAgo >= scoreChanges.size()) return "";
+        return scoreChanges.get(monthsAgo);
     }
 
     public List<Integer> getScoreHistory() {
@@ -140,6 +178,5 @@ public class CreditScoreManager implements Serializable {
     public void onPaymentMade(boolean onTime) {}
     public void onLoanPayoff() {}
     public void onPaymentMissed() {}
-    public void onDefault() {}
     public void onRecoveryMonth() {}
 }

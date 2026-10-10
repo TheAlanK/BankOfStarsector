@@ -48,6 +48,19 @@ public class LoanManager implements Serializable {
         return getActiveLoans().size();
     }
 
+    /** Open loans that count toward the score bracket's loan limit (credit-builder loans do not). */
+    public int getLimitedLoanCount() {
+        int n = 0;
+        for (BankAccount loan : getActiveLoans()) if (!loan.loanType.isBuilder() && !loan.loanType.isRevolving()) n++;
+        // Colony-secured loans count: each is still a loan the player must service.
+        return n;
+    }
+
+    public boolean hasOpenBuilderLoan() {
+        for (BankAccount loan : getActiveLoans()) if (loan.loanType.isBuilder()) return true;
+        return false;
+    }
+
     public boolean hasDefaultedLoan() {
         for (BankAccount loan : getActiveLoans()) {
             if (loan.status == LoanStatus.DEFAULTED) return true;
@@ -57,9 +70,45 @@ public class LoanManager implements Serializable {
 
     public boolean canTakeLoan(LoanType type, int creditScore, int maxLoans) {
         if (creditScore < type.minCreditScore) return false;
-        if (getActiveLoanCount() >= maxLoans) return false;
+        if (getLimitedLoanCount() >= maxLoans) return false;
         if (type.getMaxAmountForScore(creditScore) <= 0) return false;
         return true;
+    }
+
+    /**
+     * Why the player can't take this loan type right now, as a string key; null if they can.
+     * The single place the terminal and the tests ask.
+     */
+    public String whyNot(LoanType type, BankData data) {
+        CreditScoreManager csm = data.getCreditScoreManager();
+        int score = csm.getScore();
+        if (type.isSecured()) {
+            if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
+            if (!data.getBankruptcyManager().canTakeLoanType(type)) return "terminal.loans.reasonBankruptcy";
+            if (score < type.minCreditScore) return "terminal.loans.reasonScore";
+            if (getLimitedLoanCount() >= csm.getMaxLoans()) return "terminal.loans.reasonMax";
+            return pledgeableColonies().isEmpty() ? "terminal.secured.reasonNoColony" : null;
+        }
+        if (type.isRevolving()) {
+            if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
+            if (!data.getBankruptcyManager().canTakeLoanType(type)) return "terminal.loans.reasonBankruptcy";
+            if (getCreditLine() != null) return "terminal.line.reasonOpen";
+            if (lineLimitFor(csm) <= 0f) return "terminal.line.reasonScore";
+            return null;
+        }
+        if (type.isBuilder()) {
+            // Costs the bank nothing, so it stays open to rebuild credit, even after bankruptcy.
+            if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
+            if (csm.hasScore() && score >= BankSettings.BUILDER_MAX_SCORE) return "terminal.loans.reasonBuilderScore";
+            if (hasOpenBuilderLoan()) return "terminal.loans.reasonBuilderOpen";
+            return null;
+        }
+        if (!data.getBankruptcyManager().canTakeLoanType(type)) return "terminal.loans.reasonBankruptcy";
+        if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
+        if (!canTakeLoan(type, score, csm.getMaxLoans())) {
+            return score < type.minCreditScore ? "terminal.loans.reasonScore" : "terminal.loans.reasonMax";
+        }
+        return null;
     }
 
     public BankAccount takeLoan(LoanType type, float amount, float effectiveRate) {
@@ -69,10 +118,16 @@ public class LoanManager implements Serializable {
         // Application = hard inquiry; the account goes on the credit report.
         BankData.get().getCreditScoreManager().onLoanOpened(loan);
 
-        Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
-
-        BankData.get().addTransaction("LOAN", amount,
-            com.bankofstarsector.core.Str.f("txd.loan", type.getDisplayName(), formatCredits(amount)));
+        if (type.isBuilder()) {
+            // The money stays at the bank; the player only pays the installments.
+            loan.heldFunds = amount;
+            BankData.get().addTransaction("LOAN", 0f,
+                com.bankofstarsector.core.Str.f("txd.builder", formatCredits(amount)));
+        } else {
+            Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
+            BankData.get().addTransaction("LOAN", amount,
+                com.bankofstarsector.core.Str.f("txd.loan", type.getDisplayName(), formatCredits(amount)));
+        }
 
         return loan;
     }
@@ -103,6 +158,20 @@ public class LoanManager implements Serializable {
         loan.amountPastDue = Math.max(0f, loan.amountPastDue - amount);
 
         boolean forced = "SEIZURE".equals(txType) || "GARNISH".equals(txType);
+        if (loan.loanType.isRevolving()) loan.paidSinceStatement += amount;
+        if (loan.loanType.isRevolving() && loan.remainingBalance <= 1f && loan.creditLimit > 0f && !(forced && wasLate)) {
+            // A credit line paid down to zero stays open.
+            loan.remainingBalance = 0f;
+            loan.amountPastDue = 0f;
+            if (wasLate) {
+                loan.status = LoanStatus.ACTIVE;
+                loan.daysOverdue = 0;
+                loan.monthlyRate = loan.baseMonthlyRate;
+                data.getCollectionManager().onLoanResolved(loan.accountId);
+            }
+            data.addTransaction(txType, -amount, com.bankofstarsector.core.Str.f("txd.payment", loan.loanType.getDisplayName()));
+            return;
+        }
         if (loan.remainingBalance <= 1f) {
             loan.remainingBalance = 0;
             loan.amountPastDue = 0;
@@ -110,11 +179,14 @@ public class LoanManager implements Serializable {
             if (forced && wasLate) {
                 // Closed by enforcement, not by the borrower: no payoff credit.
                 loan.status = LoanStatus.SEIZED;
+                if (loan.loanType.isSecured()) data.getForeclosureManager().onLoanClosed(loan);
                 data.addTransaction("SEIZED", -amount, com.bankofstarsector.core.Str.f("txd.seized", loan.loanType.getDisplayName()));
             } else {
                 loan.status = LoanStatus.PAID_OFF;
                 data.getCreditScoreManager().onLoanPayoff();
                 data.addTransaction("PAYOFF", -amount, com.bankofstarsector.core.Str.f("txd.payoff", loan.loanType.getDisplayName()));
+                releaseHeldFunds(loan);
+                if (loan.loanType.isSecured()) data.getForeclosureManager().onLoanClosed(loan);
             }
             return;
         }
@@ -155,6 +227,10 @@ public class LoanManager implements Serializable {
             if (loan.status != LoanStatus.ACTIVE) {
                 loan.monthlyRate = engine.calculateOverdueRate(loan.baseMonthlyRate, Math.max(1, loan.daysOverdue / 30));
             }
+            if (loan.loanType.isRevolving()) {
+                billed += billCreditLine(loan);
+                continue;
+            }
             float interest = loan.remainingBalance * loan.monthlyRate;
             loan.remainingBalance += interest;
 
@@ -171,6 +247,25 @@ public class LoanManager implements Serializable {
             billed += installment;
         }
         return billed;
+    }
+
+    /**
+     * Monthly statement of a credit line. Interest is charged only when the previous statement was not
+     * paid in full (the grace period); then a minimum payment is billed like an installment.
+     */
+    private float billCreditLine(BankAccount line) {
+        boolean graceKept = line.paidSinceStatement >= line.statementBalance - 1f;
+        float interest = graceKept ? 0f : line.remainingBalance * line.monthlyRate;
+        line.remainingBalance += interest;
+        line.lastInterest = interest;
+        line.statementBalance = line.remainingBalance;
+        line.paidSinceStatement = 0f;
+        float minimum = BankAccount.lineMinimum(line.remainingBalance, interest);
+        minimum = Math.max(0f, Math.min(minimum, line.remainingBalance - line.amountPastDue));
+        line.amountPastDue += minimum;
+        line.currentBill = minimum;
+        line.monthsElapsed++;
+        return minimum;
     }
 
     /**
@@ -191,6 +286,102 @@ public class LoanManager implements Serializable {
             data.addTransaction("MISSED", 0,
                 com.bankofstarsector.core.Str.f("txd.missed", formatCredits(late), loan.loanType.getDisplayName()));
         }
+    }
+
+    /**
+     * Month end, after missed payments are marked: credit lines paid on time earn a limit increase
+     * every few statements; a late payment resets that and cuts the limit (never below the balance).
+     */
+    public void reviewCreditLines(CreditScoreManager csm) {
+        BankData data = BankData.get();
+        for (BankAccount line : getActiveLoans()) {
+            if (!line.loanType.isRevolving() || line.monthsElapsed <= 0 || line.creditLimit <= 0f) continue;
+            if (line.getLateAmount() > 1f) {
+                line.onTimeStreak = 0;
+                float cut = Math.max(line.remainingBalance, line.creditLimit * (1f - BankSettings.LINE_LATE_CUT_PCT));
+                if (cut < line.creditLimit - 1f) {
+                    line.creditLimit = cut;
+                    data.addTransaction("LIMIT", 0f, com.bankofstarsector.core.Str.f("txd.lineCut", formatCredits(cut)));
+                }
+                continue;
+            }
+            line.onTimeStreak++;
+            if (BankSettings.LINE_INCREASE_MONTHS > 0 && line.onTimeStreak % BankSettings.LINE_INCREASE_MONTHS == 0) {
+                float cap = lineLimitFor(csm) * BankSettings.LINE_MAX_MULTIPLIER;
+                float raised = Math.min(cap, line.creditLimit * (1f + BankSettings.LINE_INCREASE_PCT));
+                if (raised > line.creditLimit + 1f) {
+                    line.creditLimit = raised;
+                    data.addTransaction("LIMIT", 0f, com.bankofstarsector.core.Str.f("txd.lineIncrease", formatCredits(raised)));
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ credit line
+
+    /** The player's open credit line, or null. */
+    public BankAccount getCreditLine() {
+        for (BankAccount loan : getActiveLoans()) if (loan.loanType.isRevolving()) return loan;
+        return null;
+    }
+
+    /** Starting limit the player's score qualifies for (0 = not offered). */
+    public static float lineLimitFor(CreditScoreManager csm) {
+        if (!csm.hasScore()) return 0f;
+        int score = csm.getScore();
+        if (score >= 750) return BankSettings.LINE_LIMIT_EXCELLENT;
+        if (score >= 650) return BankSettings.LINE_LIMIT_GOOD;
+        if (score >= BankSettings.LINE_MIN_SCORE) return BankSettings.LINE_LIMIT_FAIR;
+        return 0f;
+    }
+
+    /** Opens a credit line: a hard inquiry and a new revolving account on the credit report. */
+    public BankAccount openCreditLine(BankData data) {
+        if (whyNot(LoanType.CREDIT_LINE, data) != null) return null;
+        CreditScoreManager csm = data.getCreditScoreManager();
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.CREDIT_LINE, csm.getScore());
+        BankAccount line = BankAccount.createLoan(LoanType.CREDIT_LINE, 0f, rate,
+            Global.getSector().getClock().getTimestamp());
+        line.creditLimit = lineLimitFor(csm);
+        line.autopayFull = true; // no interest unless the player chooses to carry a balance
+        getLoans().add(line);
+        csm.onLoanOpened(line);
+        data.addTransaction("LINE", 0f, com.bankofstarsector.core.Str.f("txd.lineOpened", formatCredits(line.creditLimit)));
+        return line;
+    }
+
+    /** Draws money from the credit line. Not allowed while it is late or closed to draws. */
+    public boolean drawCreditLine(String accountId, float amount) {
+        BankAccount line = findLoan(accountId);
+        BankData data = BankData.get();
+        if (line == null || !line.loanType.isRevolving() || !line.isOpenLoan()) return false;
+        if (line.status != LoanStatus.ACTIVE || data.getCollectionManager().isBankingRestricted()) return false;
+        amount = Math.min(amount, line.getAvailableCredit());
+        if (amount < 1f) return false;
+        line.remainingBalance += amount;
+        Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
+        data.addTransaction("DRAW", amount, com.bankofstarsector.core.Str.f("txd.lineDraw", formatCredits(amount)));
+        return true;
+    }
+
+    /** Pays what is left of the last statement (avoids next month's interest). */
+    public boolean payStatement(String accountId) {
+        BankAccount line = findLoan(accountId);
+        if (line == null || !line.loanType.isRevolving()) return false;
+        float due = Math.max(line.getStatementRemaining(), line.amountPastDue);
+        return due > 0f && makePayment(accountId, due);
+    }
+
+    /** Closes a credit line with no balance. */
+    public boolean closeCreditLine(String accountId) {
+        BankAccount line = findLoan(accountId);
+        if (line == null || !line.loanType.isRevolving() || !line.isOpenLoan()) return false;
+        if (line.remainingBalance > 1f || line.status != LoanStatus.ACTIVE) return false;
+        line.remainingBalance = 0f;
+        line.amountPastDue = 0f;
+        line.status = LoanStatus.PAID_OFF;
+        BankData.get().addTransaction("LINE", 0f, com.bankofstarsector.core.Str.get("txd.lineClosed"));
+        return true;
     }
 
     /** Installments due right now that are not late yet (payable without penalty). */
@@ -220,11 +411,85 @@ public class LoanManager implements Serializable {
             loan.daysOverdue++;
             if (loan.daysOverdue >= BankSettings.DEFAULT_THRESHOLD_DAYS && loan.status != LoanStatus.DEFAULTED) {
                 loan.status = LoanStatus.DEFAULTED;
-                BankData.get().getCreditScoreManager().onDefault();
+                if (loan.loanType.isRevolving()) loan.creditLimit = 0f; // closed to new draws for good
+                BankData.get().getCreditScoreManager().onDefault(loan);
                 BankData.get().addTransaction("DEFAULT", 0, com.bankofstarsector.core.Str.f("txd.default", loan.loanType.getDisplayName()));
+                applyHeldFunds(loan); // a credit-builder loan is settled from its own deposit first
                 BankData.get().getAssetSeizureManager().seizeInvestments(BankData.get());
             }
         }
+    }
+
+    // ------------------------------------------------------------------ colony-secured loans
+
+    /** Player colonies that can be pledged: big enough and not already securing a loan. */
+    public List<com.fs.starfarer.api.campaign.econ.MarketAPI> pledgeableColonies() {
+        List<com.fs.starfarer.api.campaign.econ.MarketAPI> out = new ArrayList<com.fs.starfarer.api.campaign.econ.MarketAPI>();
+        for (com.fs.starfarer.api.campaign.econ.MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
+            if (!m.isPlayerOwned() || m.getSize() < BankSettings.SECURED_MIN_COLONY_SIZE) continue;
+            if (isPledged(m.getId())) continue;
+            out.add(m);
+        }
+        return out;
+    }
+
+    public boolean isPledged(String marketId) {
+        for (BankAccount loan : getActiveLoans()) if (marketId.equals(loan.collateralMarketId)) return true;
+        return false;
+    }
+
+    /** Largest loan this colony can secure: a share of its appraisal, capped by the loan type's maximum. */
+    public static float securedMaxFor(com.fs.starfarer.api.campaign.econ.MarketAPI market) {
+        return Math.min(LoanType.SECURED.maxAmount, ColonyAppraisal.of(market).total * BankSettings.SECURED_LTV);
+    }
+
+    /** Signs a colony-secured loan: the colony gets a lien, the money is paid out. */
+    public BankAccount takeSecuredLoan(com.fs.starfarer.api.campaign.econ.MarketAPI market, float amount, float effectiveRate) {
+        BankData data = BankData.get();
+        if (whyNot(LoanType.SECURED, data) != null || !market.isPlayerOwned() || isPledged(market.getId())) return null;
+        if (amount > securedMaxFor(market) + 1f) return null;
+        ColonyAppraisal appraisal = ColonyAppraisal.of(market);
+        BankAccount loan = takeLoan(LoanType.SECURED, amount, effectiveRate);
+        loan.collateralMarketId = market.getId();
+        loan.collateralName = market.getName();
+        loan.collateralAppraisal = appraisal.total;
+        data.getForeclosureManager().onLoanSigned(loan, market);
+        return loan;
+    }
+
+    /** Payoff of a credit-builder loan: the held money goes to the player. */
+    private void releaseHeldFunds(BankAccount loan) {
+        if (loan.heldFunds <= 0f) return;
+        float held = loan.heldFunds;
+        loan.heldFunds = 0f;
+        Global.getSector().getPlayerFleet().getCargo().getCredits().add(held);
+        BankData.get().addTransaction("RELEASE", held,
+            com.bankofstarsector.core.Str.f("txd.builderReleased", formatCredits(held)));
+    }
+
+    /**
+     * Default or bankruptcy of a credit-builder loan: the bank keeps what the loan still owes from the
+     * held money and returns any excess to the player.
+     */
+    public void applyHeldFunds(BankAccount loan) {
+        if (loan.heldFunds <= 0f) return;
+        float held = loan.heldFunds;
+        loan.heldFunds = 0f;
+        float used = Math.min(held, loan.remainingBalance);
+        float excess = held - used;
+        if (excess > 0f) {
+            Global.getSector().getPlayerFleet().getCargo().getCredits().add(excess);
+            BankData.get().addTransaction("RELEASE", excess,
+                com.bankofstarsector.core.Str.f("txd.builderReleased", formatCredits(excess)));
+        }
+        if (used > 0f) applyPayment(loan, used, "SEIZURE");
+    }
+
+    /** Credit-builder money held at the bank: the player's, released at payoff. */
+    public float getTotalHeldFunds() {
+        float total = 0f;
+        for (BankAccount loan : getActiveLoans()) total += loan.heldFunds;
+        return total;
     }
 
     public float getTotalDebt() {

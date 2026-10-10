@@ -19,3 +19,4 @@ bos_branchVisit,DialogOptionSelected,$option == bos_branchVisit,BOSBranch visit,
 bos_branchPay,DialogOptionSelected,$option == bos_branchPay,BOSBranch payPastDue,,,
 bos_branchTerminal,DialogOptionSelected,$option == bos_branchTerminal,BOSBranch terminal,,,
 bos_branchBack,DialogOptionSelected,$option == bos_branchBack,FireAll PopulateOptions,,,
+bos_branchAction,DialogOptionSelected,BOSBranch isAction,BOSBranch action,,,"Loan and investment screens: every option named bos_br:... (see BOSBranch)"

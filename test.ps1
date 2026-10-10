@@ -2,12 +2,14 @@
 #   1. builds the jar (no install)
 #   2. SandboxCheck: replays Starsector's script class-loader policy over every referenced class
 #   3. LinkCheck:    loads + links every class against the game's jars on the game's own JRE
-#   4. BankSim:      runs the loan lifecycle month by month against a stubbed sector
-#   5. -Smoke:       launches the real game with -DlaunchDirect and scans starsector.log for errors
+#   4. SaveCompat:   compares every field this mod writes into saves with tests/save-fields.baseline
+#   5. BankSim:      runs the loan lifecycle month by month against a stubbed sector
+#   6. -Smoke:       launches the real game with -DlaunchDirect and scans starsector.log for errors
 param(
     [string]$StarsectorDir = 'E:\Games\Starsector',
     [string]$Jdk = $env:JAVA_HOME,
     [switch]$Smoke,
+    [switch]$UpdateSaveBaseline,
     [int]$SmokeTimeoutSec = 600
 )
 $ErrorActionPreference = 'Stop'
@@ -35,7 +37,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed' }
 function Run($name, [scriptblock]$cmd, [string]$okPattern) {
     Write-Host "`n=== $name"
     $lines = & $cmd 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch 'log4j:WARN' }
-    $lines | Where-Object { $_ -cmatch 'PASS|FAIL|BLOCKED|SANDBOX|STRINGS|FORMAT|calls checked|keys used|linked|ALL SCEN|^\[|Exception' } | ForEach-Object { Write-Host $_ }
+    $lines | Where-Object { $_ -cmatch 'PASS|FAIL|BLOCKED|SANDBOX|STRINGS|FORMAT|calls checked|keys used|linked|ALL SCEN|SAVE|saved classes|^\[|Exception|^  New fields' } | ForEach-Object { Write-Host $_ }
     if (-not ($lines -match $okPattern) -or ($lines -cmatch '^\s*FAIL |BLOCKED in')) { $script:failed++ ; Write-Host "!!! $name FAILED" -ForegroundColor Red }
 }
 
@@ -43,6 +45,9 @@ Run 'Sandbox policy' { & $gameJava -cp $out SandboxCheck $jar } 'SANDBOX OK'
 Run 'Link against game jars' { & $gameJava -cp $out LinkCheck $jar $core @optional } 'failures 0'
 Run 'Format-string safety' { & $gameJava -cp $out FormatSafetyCheck (Join-Path $ModDir 'src') } 'FORMAT SAFETY OK'
 Run 'Translation tables' { & $gameJava -cp "$out;$cp" StringsCheck $ModDir } 'STRINGS OK'
+$baseline = Join-Path $ModDir 'tests\save-fields.baseline'
+if ($UpdateSaveBaseline) { & $gameJava -cp "$out;$cp" SaveCompatCheck $baseline update 2>&1 | ForEach-Object { Write-Host "$_" } }
+Run 'Save compatibility' { & $gameJava -cp "$out;$cp" SaveCompatCheck $baseline } 'SAVE COMPAT OK'
 Run 'Loan lifecycle simulation' { & $gameJava "-Dbos.mod=$ModDir" -cp "$out;$cp" BankSim } 'ALL SCENARIOS PASSED'
 
 if ($Smoke) {

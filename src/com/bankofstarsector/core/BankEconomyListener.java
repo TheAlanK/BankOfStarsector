@@ -61,9 +61,17 @@ public class BankEconomyListener implements EconomyTickListener {
         // 2a. Default judgment: investments held by the bank are seized first
         float seized = data.getAssetSeizureManager().seizeInvestments(data);
 
-        // 2b. Garnishment on colony income while still in default
+        // 2b. Receivership: a defaulted colony-secured loan takes its colony's whole income
+        java.util.Map<String, Float> receivership = new java.util.LinkedHashMap<String, Float>();
+        float receivershipTotal = data.getForeclosureManager().collectReceivership(data, receivership);
+        if (receivershipTotal > 0f) {
+            getReceivershipNode(report).upkeep += receivershipTotal;
+            available -= receivershipTotal;
+        }
+
+        // 2c. Garnishment on (the rest of the) colony income while still in default
         FDNode colonies = report.getNode(MonthlyReport.OUTPOSTS);
-        float colonyNet = colonies.totalIncome - colonies.totalUpkeep;
+        float colonyNet = colonies.totalIncome - colonies.totalUpkeep - receivershipTotal;
         float garnish = data.getAssetSeizureManager().computeGarnishment(data, colonyNet);
         if (garnish > 0f) {
             getGarnishNode(report).upkeep += garnish;
@@ -82,8 +90,11 @@ public class BankEconomyListener implements EconomyTickListener {
                 }
             });
             for (BankAccount loan : open) {
-                if (loan.amountPastDue <= 0f || available <= 0f) continue;
-                float pay = Math.min(loan.amountPastDue, available);
+                // A credit line on "full statement" autopay clears its whole balance, so no interest accrues.
+                float due = loan.loanType.isRevolving() && loan.autopayFull && loan.status == LoanStatus.ACTIVE
+                    ? loan.remainingBalance : loan.amountPastDue;
+                if (due <= 0f || available <= 0f) continue;
+                float pay = Math.min(due, available);
                 available -= pay;
                 autopaid += pay;
                 lm.applyPayment(loan, pay, "AUTOPAY");
@@ -91,8 +102,16 @@ public class BankEconomyListener implements EconomyTickListener {
             if (autopaid > 0f) getLoanNode(report).upkeep += autopaid;
         }
 
+        // 3b. Fleet insurance premium (a missed premium lapses the policy)
+        float premium = data.getInsuranceManager().monthEnd(data, available);
+        if (premium > 0f) {
+            getInsuranceNode(report).upkeep += premium;
+            available -= premium;
+        }
+
         // 4. Whatever is still unpaid is a missed payment
         lm.markMissedPayments();
+        lm.reviewCreditLines(data.getCreditScoreManager());
         float stillDue = lm.getTotalLate();
         float dueNextMonth = lm.getTotalCurrentBills();
 
@@ -132,6 +151,33 @@ public class BankEconomyListener implements EconomyTickListener {
             node.name = com.bankofstarsector.core.Str.get("report.installments");
             node.icon = crest();
             node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.installments.tooltip"));
+        }
+        return node;
+    }
+
+    private static FDNode getInsuranceNode(MonthlyReport report) {
+        FDNode fleetNode = report.getNode(MonthlyReport.FLEET);
+        if (fleetNode.name == null) {
+            fleetNode.name = "Fleet";
+            fleetNode.custom = MonthlyReport.FLEET;
+            fleetNode.tooltipCreator = report.getMonthlyReportTooltip();
+        }
+        FDNode node = report.getNode(fleetNode, "bos_insurance");
+        if (node.name == null) {
+            node.name = com.bankofstarsector.core.Str.get("report.insurance");
+            node.icon = crest();
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.insurance.tooltip"));
+        }
+        return node;
+    }
+
+    private static FDNode getReceivershipNode(MonthlyReport report) {
+        FDNode colonies = report.getNode(MonthlyReport.OUTPOSTS);
+        FDNode node = report.getNode(colonies, "bos_receivership");
+        if (node.name == null) {
+            node.name = com.bankofstarsector.core.Str.get("report.receivership");
+            node.icon = crest();
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.receivership.tooltip"));
         }
         return node;
     }

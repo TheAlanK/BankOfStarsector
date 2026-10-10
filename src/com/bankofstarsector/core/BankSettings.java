@@ -45,6 +45,50 @@ public class BankSettings {
     public static int CLOSED_ACCOUNT_MONTHS = 120;    // closed accounts in good standing stay 10 years
     public static int BANKRUPTCY_RECORD_MONTHS = 120; // public record
 
+    // Credit-builder loan: the money stays at the bank until the loan is paid off
+    public static float BUILDER_MIN_AMOUNT = 10000f;
+    public static float BUILDER_MAX_AMOUNT = 50000f;
+    public static int BUILDER_TERM_MONTHS = 12;
+    public static float BUILDER_RATE = 0.01f;         // monthly; fixed, it is secured by its own funds
+    public static int BUILDER_MAX_SCORE = 500;        // offered to files with no score or a score below this
+
+    // Revolving credit line: draw and repay up to a limit, billed monthly with a minimum payment
+    public static float LINE_RATE = 0.02f;            // monthly base rate, before credit and war adjustments
+    public static int LINE_MIN_SCORE = 500;
+    public static float LINE_LIMIT_FAIR = 50000f;     // starting limit by bracket (500-649 / 650-749 / 750+)
+    public static float LINE_LIMIT_GOOD = 200000f;
+    public static float LINE_LIMIT_EXCELLENT = 500000f;
+    public static float LINE_MIN_PAYMENT_PCT = 0.01f; // minimum payment: interest + this share of the balance
+    public static float LINE_MIN_PAYMENT_FLOOR = 1000f;
+    public static int LINE_INCREASE_MONTHS = 6;       // on-time statements between limit increases
+    public static float LINE_INCREASE_PCT = 0.20f;
+    public static float LINE_MAX_MULTIPLIER = 2f;     // increases stop at this multiple of the bracket's limit
+    public static float LINE_LATE_CUT_PCT = 0.25f;    // limit cut after a late payment (never below the balance)
+
+    // Colony-secured loan: a colony as collateral; receivership, foreclosure and auction on default
+    public static float SECURED_LTV = 0.6f;           // largest loan: this share of the colony's appraisal
+    public static float SECURED_RATE_DISCOUNT = 0.25f; // cheaper than unsecured credit
+    public static int SECURED_MIN_COLONY_SIZE = 4;
+    public static float RECEIVERSHIP_STABILITY_PENALTY = 3f;
+    public static int FORECLOSURE_DELAY_DAYS = 60;    // in receivership this long (Nexerelin) -> foreclosure war
+    public static int FORECLOSURE_RETRY_DAYS = 60;    // a new invasion if the last one failed
+    public static float FORECLOSURE_RELATION = -0.65f; // the PBC's relation to the player during foreclosure
+    public static float AUCTION_RESERVE_PCT = 0.7f;   // lowest sale price, share of the appraisal
+    public static float APPRAISAL_SIZE_BASE = 100000f; // development value of a size-3 colony
+    public static float APPRAISAL_SIZE_GROWTH = 2.5f; // x per size above 3
+    public static float APPRAISAL_RESOURCE_TIER_VALUE = 60000f;
+    public static float APPRAISAL_INCOME_MONTHS = 12f;
+    public static float APPRAISAL_IMPROVED_BONUS = 0.25f;
+
+    // Fleet insurance
+    public static float INSURANCE_RATE_STANDARD = 0.008f;      // monthly, on the insured value
+    public static float INSURANCE_RATE_COMPREHENSIVE = 0.013f;
+    public static int INSURANCE_WAITING_DAYS = 30;              // new policy, and ships new to the fleet
+    public static int INSURANCE_SETTLE_DAYS = 2;                // claims wait for post-battle recovery
+    public static float INSURANCE_MONTHLY_CAP_PCT = 0.5f;       // payouts per month, share of the insured value
+    public static float INSURANCE_CLAIM_LOAD = 0.25f;           // premium +25% per claim paid in 12 months...
+    public static float INSURANCE_MAX_CLAIMS_FACTOR = 2f;       // ...up to double
+
 
     // Collection
     public static int OVERDUE_PHASE1_DAYS = 30;
@@ -89,6 +133,42 @@ public class BankSettings {
             SCORE_MISSED_PAYMENT = i(j, "scoreMissedPayment", SCORE_MISSED_PAYMENT);
             SCORE_DEFAULT = i(j, "scoreDefault", SCORE_DEFAULT);
             MIN_SCORING_MONTHS = i(j, "minScoringMonths", MIN_SCORING_MONTHS);
+            BUILDER_MIN_AMOUNT = f(j, "builderMinAmount", BUILDER_MIN_AMOUNT);
+            BUILDER_MAX_AMOUNT = f(j, "builderMaxAmount", BUILDER_MAX_AMOUNT);
+            BUILDER_TERM_MONTHS = i(j, "builderTermMonths", BUILDER_TERM_MONTHS);
+            BUILDER_RATE = f(j, "builderRate", BUILDER_RATE);
+            BUILDER_MAX_SCORE = i(j, "builderMaxScore", BUILDER_MAX_SCORE);
+            LINE_RATE = f(j, "lineRate", LINE_RATE);
+            LINE_MIN_SCORE = i(j, "lineMinScore", LINE_MIN_SCORE);
+            LINE_LIMIT_FAIR = f(j, "lineLimitFair", LINE_LIMIT_FAIR);
+            LINE_LIMIT_GOOD = f(j, "lineLimitGood", LINE_LIMIT_GOOD);
+            LINE_LIMIT_EXCELLENT = f(j, "lineLimitExcellent", LINE_LIMIT_EXCELLENT);
+            LINE_MIN_PAYMENT_PCT = f(j, "lineMinPaymentPct", LINE_MIN_PAYMENT_PCT);
+            LINE_MIN_PAYMENT_FLOOR = f(j, "lineMinPaymentFloor", LINE_MIN_PAYMENT_FLOOR);
+            LINE_INCREASE_MONTHS = i(j, "lineIncreaseMonths", LINE_INCREASE_MONTHS);
+            LINE_INCREASE_PCT = f(j, "lineIncreasePct", LINE_INCREASE_PCT);
+            LINE_MAX_MULTIPLIER = f(j, "lineMaxMultiplier", LINE_MAX_MULTIPLIER);
+            LINE_LATE_CUT_PCT = f(j, "lineLateCutPct", LINE_LATE_CUT_PCT);
+            SECURED_LTV = f(j, "securedLtv", SECURED_LTV);
+            SECURED_RATE_DISCOUNT = f(j, "securedRateDiscount", SECURED_RATE_DISCOUNT);
+            SECURED_MIN_COLONY_SIZE = i(j, "securedMinColonySize", SECURED_MIN_COLONY_SIZE);
+            RECEIVERSHIP_STABILITY_PENALTY = f(j, "receivershipStabilityPenalty", RECEIVERSHIP_STABILITY_PENALTY);
+            FORECLOSURE_DELAY_DAYS = i(j, "foreclosureDelayDays", FORECLOSURE_DELAY_DAYS);
+            FORECLOSURE_RETRY_DAYS = i(j, "foreclosureRetryDays", FORECLOSURE_RETRY_DAYS);
+            FORECLOSURE_RELATION = f(j, "foreclosureRelation", FORECLOSURE_RELATION);
+            AUCTION_RESERVE_PCT = f(j, "auctionReservePct", AUCTION_RESERVE_PCT);
+            APPRAISAL_SIZE_BASE = f(j, "appraisalSizeBase", APPRAISAL_SIZE_BASE);
+            APPRAISAL_SIZE_GROWTH = f(j, "appraisalSizeGrowth", APPRAISAL_SIZE_GROWTH);
+            APPRAISAL_RESOURCE_TIER_VALUE = f(j, "appraisalResourceTierValue", APPRAISAL_RESOURCE_TIER_VALUE);
+            APPRAISAL_INCOME_MONTHS = f(j, "appraisalIncomeMonths", APPRAISAL_INCOME_MONTHS);
+            APPRAISAL_IMPROVED_BONUS = f(j, "appraisalImprovedBonus", APPRAISAL_IMPROVED_BONUS);
+            INSURANCE_RATE_STANDARD = f(j, "insuranceRateStandard", INSURANCE_RATE_STANDARD);
+            INSURANCE_RATE_COMPREHENSIVE = f(j, "insuranceRateComprehensive", INSURANCE_RATE_COMPREHENSIVE);
+            INSURANCE_WAITING_DAYS = i(j, "insuranceWaitingDays", INSURANCE_WAITING_DAYS);
+            INSURANCE_SETTLE_DAYS = i(j, "insuranceSettleDays", INSURANCE_SETTLE_DAYS);
+            INSURANCE_MONTHLY_CAP_PCT = f(j, "insuranceMonthlyCapPct", INSURANCE_MONTHLY_CAP_PCT);
+            INSURANCE_CLAIM_LOAD = f(j, "insuranceClaimLoad", INSURANCE_CLAIM_LOAD);
+            INSURANCE_MAX_CLAIMS_FACTOR = f(j, "insuranceMaxClaimsFactor", INSURANCE_MAX_CLAIMS_FACTOR);
             INQUIRY_DEDUPE_DAYS = i(j, "inquiryDedupeDays", INQUIRY_DEDUPE_DAYS);
             DEROGATORY_MONTHS = i(j, "derogatoryMonths", DEROGATORY_MONTHS);
             CLOSED_ACCOUNT_MONTHS = i(j, "closedAccountMonths", CLOSED_ACCOUNT_MONTHS);

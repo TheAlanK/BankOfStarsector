@@ -6,6 +6,19 @@ bos_warSurchargePerWar,War surcharge per war,Double,0.05,,Loan rates rise by thi
 bos_warSurchargeMax,War surcharge cap,Double,0.25,,Maximum total war surcharge on loan rates.,0,1,Interest
 bos_overduePenaltyPerMonth,Penalty interest per month overdue,Double,0.5,,Overdue loans accrue base rate x (1 + this x months overdue).,0,3,Interest
 bos_marketDisruptionModifier,Market disruption weight,Double,0.1,,How strongly disrupted industries raise loan rates and drag investment returns.,0,1,Interest
+bos_builderHeader,Credit builder,Header,Credit-builder loan,,,,,Interest
+bos_builderMaxAmount,Credit builder: maximum,Double,50000,,Largest credit-builder loan. The money stays at the bank until the loan is paid off.,10000,500000,Interest
+bos_builderTermMonths,Credit builder: term (months),Int,12,,Months to repay a credit-builder loan.,6,36,Interest
+bos_builderRate,Credit builder: monthly rate,Double,0.01,,Fixed monthly interest of a credit-builder loan.,0,0.1,Interest
+bos_lineHeader,Credit line,Header,Credit line,,,,,Interest
+bos_lineRate,Credit line: monthly rate,Double,0.02,,Base monthly interest of the credit line before credit-score and war adjustments.,0,0.2,Interest
+bos_lineLimitFair,Credit line: limit (fair score),Double,50000,,Starting limit for a 500-649 score.,0,10000000,Interest
+bos_lineLimitGood,Credit line: limit (good score),Double,200000,,Starting limit for a 650-749 score.,0,10000000,Interest
+bos_lineLimitExcellent,Credit line: limit (excellent score),Double,500000,,Starting limit for a 750+ score.,0,10000000,Interest
+bos_securedHeader,Colony-secured loans,Header,Colony-secured loans,,,,,Collection
+bos_securedLtv,Loan-to-value,Double,0.6,,Largest colony-secured loan as a share of the colony's appraisal.,0.1,0.9,Collection
+bos_foreclosureDelayDays,Days before foreclosure,Int,60,,Days a defaulted colony stays in receivership before the PBC forecloses (Nexerelin only).,15,365,Collection
+bos_receivershipStabilityPenalty,Receivership stability penalty,Double,3,,Stability lost by a colony in receivership.,0,10,Collection
 bos_collectionHeader,Collection,Header,Debt collection,,,,,Collection
 bos_overduePhase1Days,Days until banking is restricted,Int,30,,Days overdue before new loans are suspended and penalty interest applies.,7,180,Collection
 bos_overduePhase2Days,Days until a collection fleet,Int,60,,Days overdue before a PBC Collection Fleet is dispatched.,14,365,Collection
@@ -20,3 +33,7 @@ bos_bankruptcyDebtReduction,Debt forgiven,Double,0.8,,Share of outstanding debt 
 bos_bankruptcyNoLoansMonths,Months without loans,Int,24,,Months after filing before loans are offered again.,0,120,Bankruptcy
 bos_bankruptcyNoInvestMonths,Months without investing,Int,12,,Months after filing before investing is allowed again.,0,120,Bankruptcy
 bos_earlyWithdrawalPenalty,Early withdrawal penalty,Double,0.5,,Share of accumulated returns lost when withdrawing a locked investment early.,0,1,Bankruptcy
+bos_insuranceHeader,Fleet insurance,Header,Fleet insurance,,,,,Insurance
+bos_insuranceRateStandard,Standard premium rate,Double,0.008,,Monthly premium of the Standard policy as a share of the insured value.,0,0.1,Insurance
+bos_insuranceRateComprehensive,Comprehensive premium rate,Double,0.013,,Monthly premium of the Comprehensive policy as a share of the insured value.,0,0.1,Insurance
+bos_insuranceWaitingDays,Waiting period (days),Int,30,,No claims in a new policy's first days, nor for ships that joined the fleet more recently.,0,180,Insurance

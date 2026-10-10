@@ -22,11 +22,54 @@ public final class BankSnapshot {
     private static volatile BankSnapshot latest = null;
 
     public final String date;
-    public final float netWorth, credits, debt, invested, late, dueNow, warSurcharge, disruption, sovereignDebt;
+    public final float netWorth, credits, debt, invested, held, late, dueNow, warSurcharge, disruption, sovereignDebt;
     public final boolean autopay, restricted;
     public final int score;
     public final String bracket, bankruptcyState, bankruptcyLabel, scoreText;
     public final List<Line> loans;
+    /** Score at each monthly report, newest first (0 = no score), and what moved it ("factor.key:delta" or ""). */
+    public final List<Integer> scoreHistory;
+    public final List<String> scoreChanges;
+    /** Installment loans: projected repayment if paid on time (parallel to the loans list's order). */
+    public final List<Schedule> schedules;
+    /** Colonies pledged for colony-secured loans and their state (lien, receivership, foreclosure). */
+    public final List<Collateral> collateral;
+    /** Fleet insurance: plan display name (null = none), premium for the current fleet, state. */
+    public final String insurancePlan;
+    public final float insurancePremium, insuranceCoverage, insuranceDeductible, fleetValue;
+    public final boolean insuranceLapsed;
+    public final int insuranceWaitingDays, insuranceClaims12, insurancePending;
+    public final List<String[]> recentClaims; // {ship, payout, outcome text}
+
+    public static final class Collateral {
+        public final String loan, colony, state;
+        public final float appraisal;
+
+        Collateral(String loan, String colony, float appraisal, String state) {
+            this.loan = loan;
+            this.colony = colony;
+            this.appraisal = appraisal;
+            this.state = state;
+        }
+    }
+
+    public static final class Schedule {
+        public final String name;
+        public final int monthsLeft;
+        public final float nextPayment, remainingInterest, remainingTotal;
+
+        Schedule(String name, LoanSchedule s) {
+            this.name = name;
+            this.monthsLeft = s.rows.size();
+            this.nextPayment = s.firstPayment;
+            this.remainingInterest = s.totalInterest;
+            this.remainingTotal = s.totalPaid;
+        }
+    }
+    /** Credit line (0.3.0); lineId is null when the player has none. */
+    public final String lineId;
+    public final float lineBalance, lineLimit, lineAvailable, lineUtilization, lineMinimumDue, lineStatementDue, lineLastInterest;
+    public final boolean lineAutopayFull, lineLate;
     public final List<Line> investments;
 
     /** One row in a list: label, value, and whether it should be shown as a problem. */
@@ -50,7 +93,8 @@ public final class BankSnapshot {
         credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         debt = lm.getTotalDebt();
         invested = im.getTotalValue();
-        netWorth = credits + invested - debt;
+        held = lm.getTotalHeldFunds();
+        netWorth = data.getNetWorth();
         late = lm.getTotalLate();
         dueNow = lm.getTotalCurrentBills();
         autopay = data.isAutopayEnabled();
@@ -65,12 +109,66 @@ public final class BankSnapshot {
         bankruptcyLabel = com.bankofstarsector.collection.BankruptcyManager.stateName(data.getBankruptcyManager().getState());
 
         List<Line> l = new ArrayList<Line>();
+        List<Schedule> sch = new ArrayList<Schedule>();
+        List<Collateral> coll = new ArrayList<Collateral>();
         for (BankAccount loan : lm.getActiveLoans()) {
-            l.add(new Line(loan.loanType.getDisplayName(),
-                LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay(),
-                loan.status != LoanStatus.ACTIVE));
+            if (loan.loanType.isRevolving()) continue; // shown in its own card
+            LoanSchedule projected = LoanSchedule.remaining(loan);
+            sch.add(new Schedule(loan.loanType.getDisplayName(), projected));
+            String detail = LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay()
+                + " | " + com.bankofstarsector.core.Str.f("nexus.monthsLeft", projected.rows.size());
+            if (loan.heldFunds > 0f) detail += " | " + com.bankofstarsector.core.Str.f("nexus.loanHeld", LoanManager.formatCredits(loan.heldFunds));
+            boolean foreclosureTrouble = false;
+            if (loan.loanType.isSecured() && loan.collateralMarketId != null) {
+                int stage = data.getForeclosureManager().getStage(loan);
+                String key = stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_FORECLOSURE ? "nexus.foreclosure"
+                    : stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP ? "nexus.receivership" : "nexus.collateral";
+                detail += " | " + com.bankofstarsector.core.Str.f(key, loan.collateralName);
+                foreclosureTrouble = stage != com.bankofstarsector.collection.ForeclosureManager.STAGE_NONE;
+                coll.add(new Collateral(loan.loanType.getDisplayName(), loan.collateralName, loan.collateralAppraisal,
+                    stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_FORECLOSURE ? "foreclosure"
+                        : stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP ? "receivership" : "lien"));
+            }
+            l.add(new Line(loan.loanType.getDisplayName(), detail, loan.status != LoanStatus.ACTIVE || foreclosureTrouble));
         }
         loans = Collections.unmodifiableList(l);
+        schedules = Collections.unmodifiableList(sch);
+        collateral = Collections.unmodifiableList(coll);
+
+        InsuranceManager ins = data.getInsuranceManager();
+        InsurancePlan plan = ins.getPlan();
+        insurancePlan = plan != null ? plan.getDisplayName() : null;
+        insurancePremium = plan != null ? ins.premiumFor(plan, data) : 0f;
+        insuranceCoverage = plan != null ? plan.coverage : 0f;
+        insuranceDeductible = plan != null ? plan.deductible : 0f;
+        insuranceLapsed = ins.isLapsed();
+        insuranceWaitingDays = ins.waitingDaysLeft();
+        insuranceClaims12 = ins.paidClaimsLast12Months();
+        insurancePending = ins.getPending().size();
+        fleetValue = InsuranceManager.fleetValue();
+        List<String[]> rc = new ArrayList<String[]>();
+        for (int i = 0; i < ins.getClaims().size() && i < 5; i++) {
+            InsuranceManager.Claim c = ins.getClaims().get(i);
+            rc.add(new String[]{c.shipName, String.valueOf(c.payout), com.bankofstarsector.core.Str.get(c.outcome)});
+        }
+        recentClaims = Collections.unmodifiableList(rc);
+        CreditScoreManager csm = data.getCreditScoreManager();
+        scoreHistory = Collections.unmodifiableList(new ArrayList<Integer>(csm.getScoreHistory()));
+        List<String> ch = new ArrayList<String>();
+        for (int i = 0; i < scoreHistory.size(); i++) ch.add(csm.getScoreChange(i));
+        scoreChanges = Collections.unmodifiableList(ch);
+
+        BankAccount line = lm.getCreditLine();
+        lineId = line != null ? line.accountId : null;
+        lineBalance = line != null ? line.remainingBalance : 0f;
+        lineLimit = line != null ? line.creditLimit : 0f;
+        lineAvailable = line != null ? line.getAvailableCredit() : 0f;
+        lineUtilization = line != null ? line.getUtilization() : 0f;
+        lineMinimumDue = line != null ? line.amountPastDue : 0f;
+        lineStatementDue = line != null ? line.getStatementRemaining() : 0f;
+        lineLastInterest = line != null ? line.lastInterest : 0f;
+        lineAutopayFull = line != null && line.autopayFull;
+        lineLate = line != null && line.getLateAmount() > 1f;
 
         List<Line> inv = new ArrayList<Line>();
         for (BankAccount a : im.getActiveInvestments()) {
@@ -105,6 +203,7 @@ public final class BankSnapshot {
             o.put("credits", credits);
             o.put("debt", debt);
             o.put("invested", invested);
+            o.put("heldFunds", held);
             o.put("pastDue", late);
             o.put("dueByMonthEnd", dueNow);
             o.put("autopay", autopay);
@@ -118,6 +217,45 @@ public final class BankSnapshot {
             JSONArray ls = new JSONArray();
             for (Line x : loans) ls.put(new JSONObject().put("name", x.label).put("detail", x.detail).put("problem", x.bad));
             o.put("loans", ls);
+            JSONArray ss = new JSONArray();
+            for (Schedule x : schedules) {
+                ss.put(new JSONObject().put("name", x.name).put("monthsLeft", x.monthsLeft).put("nextPayment", x.nextPayment)
+                    .put("remainingInterest", x.remainingInterest).put("remainingTotal", x.remainingTotal));
+            }
+            o.put("loanSchedules", ss);
+            JSONArray cs = new JSONArray();
+            for (Collateral x : collateral) {
+                cs.put(new JSONObject().put("loan", x.loan).put("colony", x.colony).put("appraisal", x.appraisal).put("state", x.state));
+            }
+            o.put("collateral", cs);
+            JSONObject in = new JSONObject();
+            in.put("plan", insurancePlan != null ? (Object) insurancePlan : JSONObject.NULL);
+            in.put("premium", insurancePremium).put("coverage", insuranceCoverage).put("deductible", insuranceDeductible)
+                .put("lapsed", insuranceLapsed).put("waitingDaysLeft", insuranceWaitingDays)
+                .put("claimsPaid12Months", insuranceClaims12).put("pendingClaims", insurancePending).put("fleetValue", fleetValue);
+            JSONArray rcs = new JSONArray();
+            for (String[] c : recentClaims) rcs.put(new JSONObject().put("ship", c[0]).put("payout", Float.parseFloat(c[1])).put("outcome", c[2]));
+            in.put("recentClaims", rcs);
+            o.put("insurance", in);
+            JSONArray hs = new JSONArray();
+            for (int i = 0; i < scoreHistory.size(); i++) {
+                String c = scoreChanges.get(i);
+                int colon = c.lastIndexOf(':');
+                JSONObject h = new JSONObject().put("monthsAgo", i)
+                    .put("score", scoreHistory.get(i) > 0 ? (Object) scoreHistory.get(i) : JSONObject.NULL);
+                if (colon > 0) h.put("factor", c.substring("factor.".length(), colon)).put("factorChange", Integer.parseInt(c.substring(colon + 1)));
+                hs.put(h);
+            }
+            o.put("scoreHistory", hs);
+            if (lineId == null) {
+                o.put("creditLine", JSONObject.NULL);
+            } else {
+                o.put("creditLine", new JSONObject()
+                    .put("balance", lineBalance).put("limit", lineLimit).put("available", lineAvailable)
+                    .put("utilization", lineUtilization).put("minimumDue", lineMinimumDue)
+                    .put("statementDue", lineStatementDue).put("lastInterest", lineLastInterest)
+                    .put("autopayFullStatement", lineAutopayFull).put("late", lineLate));
+            }
             JSONArray is = new JSONArray();
             for (Line x : investments) is.put(new JSONObject().put("name", x.label).put("detail", x.detail).put("loss", x.bad));
             o.put("investments", is);

@@ -1,0 +1,3 @@
+name,id,tags,planetary,decivRemove,script,desc,icon,order
+PBC Lien,bos_lien,,FALSE,TRUE,com.bankofstarsector.condition.BOSLienCondition,"This colony secures a Persean Banking Confederation loan.",graphics/factions/crest_pbc.png,2000
+PBC Receivership,bos_receivership,,FALSE,TRUE,com.bankofstarsector.condition.BOSReceivershipCondition,"Confederation administrators collect this colony's income for a defaulted loan.",graphics/icons/markets/blockade.png,2001

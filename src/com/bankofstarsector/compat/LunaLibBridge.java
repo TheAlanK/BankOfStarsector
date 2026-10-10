@@ -31,12 +31,28 @@ final class LunaLibBridge {
         BankSettings.BANKRUPTCY_NO_LOANS_MONTHS = i("bos_bankruptcyNoLoansMonths", BankSettings.BANKRUPTCY_NO_LOANS_MONTHS);
         BankSettings.BANKRUPTCY_NO_INVEST_MONTHS = i("bos_bankruptcyNoInvestMonths", BankSettings.BANKRUPTCY_NO_INVEST_MONTHS);
         BankSettings.EARLY_WITHDRAWAL_PENALTY = f("bos_earlyWithdrawalPenalty", BankSettings.EARLY_WITHDRAWAL_PENALTY);
+        BankSettings.BUILDER_MAX_AMOUNT = f("bos_builderMaxAmount", BankSettings.BUILDER_MAX_AMOUNT);
+        BankSettings.BUILDER_TERM_MONTHS = i("bos_builderTermMonths", BankSettings.BUILDER_TERM_MONTHS);
+        BankSettings.BUILDER_RATE = f("bos_builderRate", BankSettings.BUILDER_RATE);
+        BankSettings.LINE_RATE = f("bos_lineRate", BankSettings.LINE_RATE);
+        BankSettings.SECURED_LTV = f("bos_securedLtv", BankSettings.SECURED_LTV);
+        BankSettings.INSURANCE_RATE_STANDARD = f("bos_insuranceRateStandard", BankSettings.INSURANCE_RATE_STANDARD);
+        BankSettings.INSURANCE_RATE_COMPREHENSIVE = f("bos_insuranceRateComprehensive", BankSettings.INSURANCE_RATE_COMPREHENSIVE);
+        BankSettings.INSURANCE_WAITING_DAYS = i("bos_insuranceWaitingDays", BankSettings.INSURANCE_WAITING_DAYS);
+        BankSettings.FORECLOSURE_DELAY_DAYS = i("bos_foreclosureDelayDays", BankSettings.FORECLOSURE_DELAY_DAYS);
+        BankSettings.RECEIVERSHIP_STABILITY_PENALTY = f("bos_receivershipStabilityPenalty", BankSettings.RECEIVERSHIP_STABILITY_PENALTY);
+        BankSettings.LINE_LIMIT_FAIR = f("bos_lineLimitFair", BankSettings.LINE_LIMIT_FAIR);
+        BankSettings.LINE_LIMIT_GOOD = f("bos_lineLimitGood", BankSettings.LINE_LIMIT_GOOD);
+        BankSettings.LINE_LIMIT_EXCELLENT = f("bos_lineLimitExcellent", BankSettings.LINE_LIMIT_EXCELLENT);
         // Keep the escalation ladder ordered even if the player sets odd values.
         if (BankSettings.OVERDUE_PHASE2_DAYS <= BankSettings.OVERDUE_PHASE1_DAYS) {
             BankSettings.OVERDUE_PHASE2_DAYS = BankSettings.OVERDUE_PHASE1_DAYS + 1;
         }
         if (BankSettings.DEFAULT_THRESHOLD_DAYS <= BankSettings.OVERDUE_PHASE2_DAYS) {
             BankSettings.DEFAULT_THRESHOLD_DAYS = BankSettings.OVERDUE_PHASE2_DAYS + 1;
+        }
+        if (BankSettings.BUILDER_MAX_AMOUNT < BankSettings.BUILDER_MIN_AMOUNT) {
+            BankSettings.BUILDER_MAX_AMOUNT = BankSettings.BUILDER_MIN_AMOUNT;
         }
         if (BankSettings.COLLECTION_FLEET_MAX_FP < BankSettings.COLLECTION_FLEET_MIN_FP) {
             BankSettings.COLLECTION_FLEET_MAX_FP = BankSettings.COLLECTION_FLEET_MIN_FP;

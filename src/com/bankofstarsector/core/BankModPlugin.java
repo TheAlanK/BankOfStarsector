@@ -16,7 +16,7 @@ public class BankModPlugin extends BaseModPlugin {
     private static final Logger log = Global.getLogger(BankModPlugin.class);
 
     public static final String MOD_ID = "bank_of_starsector";
-    public static final String VERSION = "0.2.1-beta";
+    public static final String VERSION = "0.3.0-beta";
 
     @Override
     public void onApplicationLoad() throws Exception {
@@ -57,6 +57,7 @@ public class BankModPlugin extends BaseModPlugin {
 
         Global.getSector().addTransientScript(new BankCampaignScript());
         Global.getSector().getListenerManager().addListener(new BankEconomyListener(), true);
+        Global.getSector().addTransientListener(new BankBattleListener());
 
         registerIntelPlugin();
 

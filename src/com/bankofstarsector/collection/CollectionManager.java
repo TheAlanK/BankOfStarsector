@@ -73,7 +73,11 @@ public class CollectionManager implements Serializable {
             if (days > BankSettings.OVERDUE_PHASE1_DAYS && phase2Notified.add(loan.accountId)) {
                 notify(loan, 2);
             }
-            if (days > BankSettings.OVERDUE_PHASE2_DAYS && !phase3FleetDispatched.contains(loan.accountId)
+            // No fleet for a credit-builder loan: the bank already holds its money.
+            // A colony-secured loan goes through receivership and foreclosure instead (ForeclosureManager).
+            boolean securedByColony = loan.loanType.isSecured() && loan.collateralMarketId != null;
+            if (days > BankSettings.OVERDUE_PHASE2_DAYS && !loan.loanType.isBuilder() && !securedByColony
+                    && !phase3FleetDispatched.contains(loan.accountId)
                     && !retryCooldown.containsKey(loan.accountId)) {
                 phase3FleetDispatched.add(loan.accountId);
                 dispatchCollectionFleet(loan);

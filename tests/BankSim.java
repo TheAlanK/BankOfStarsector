@@ -40,6 +40,27 @@ public class BankSim {
         scenarioInstantRepayExploitBlocked();
         scenarioLatePaymentHurtsAndFades();
         scenarioRateShopping();
+        scenarioCreditBuilder();
+        scenarioCreditBuilderDefault();
+        scenarioCreditBuilderEligibility();
+        scenarioCreditLineEligibility();
+        scenarioCreditLineUtilization();
+        scenarioCreditLineGracePeriod();
+        scenarioCreditLineMissedMinimum();
+        scenarioCreditLineLimitIncrease();
+        scenarioCreditLineChurnAndClose();
+        scenarioQuoteMatchesBilling();
+        scenarioQuoteTextFormats();
+        scenarioScheduleMatchesBilling();
+        scenarioScoreChartExplainsChange();
+        scenarioColonyAppraisal();
+        scenarioSecuredLoanSigning();
+        scenarioReceivership();
+        scenarioForeclosureAndAuction();
+        scenarioCollateralLoss();
+        scenarioInsurancePremium();
+        scenarioInsuranceClaims();
+        scenarioInsuranceLapseAndCap();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -181,6 +202,468 @@ public class BankSim {
 
     // ------------------------------------------------------------------ credit bureau scenarios
 
+    // ------------------------------------------------------------------ credit-builder loan (0.3.0)
+
+    static void scenarioCreditBuilder() {
+        reset(100_000f);
+        BankData data = BankData.get();
+        LoanManager lm = data.getLoanManager();
+        check("[builder] offered to a thin file", lm.whyNot(LoanType.BUILDER, data) == null);
+        BankAccount b = lm.takeLoan(LoanType.BUILDER, 30_000f,
+            data.getInterestEngine().calculateEffectiveLoanRate(LoanType.BUILDER, data.getCreditScoreManager().getScore()));
+        check("[builder] money is held at the bank, not paid out",
+            Math.abs(credits.get() - 100_000f) < 1f && Math.abs(b.heldFunds - 30_000f) < 1f);
+        check("[builder] net worth unchanged: the held money is still the player's", Math.abs(data.getNetWorth() - 100_000f) < 1f);
+        check("[builder] fixed rate and configured term",
+            Math.abs(b.monthlyRate - BankSettings.BUILDER_RATE) < 1e-6 && b.termMonths == BankSettings.BUILDER_TERM_MONTHS);
+        check("[builder] does not count toward the loan limit", lm.whyNot(LoanType.EMERGENCY, data) == null);
+        check("[builder] only one at a time", "terminal.loans.reasonBuilderOpen".equals(lm.whyNot(LoanType.BUILDER, data)));
+
+        months(6);
+        Integer s6 = score();
+        float before = credits.get();
+        float balance = b.remainingBalance;
+        boolean paid = lm.payOff(b.accountId);
+        float after = credits.get();
+        boolean again = lm.payOff(b.accountId);
+        System.out.printf("[builder] score after 6 months: %s | payoff of %.0f released %.0f (credits %.0f -> %.0f) | status %s%n",
+            s6, balance, after - before + balance, before, after, b.status);
+        check("[builder] six months of history make the file scoreable", s6 != null);
+        check("[builder] payoff releases the held money", paid && b.status == LoanStatus.PAID_OFF
+            && Math.abs(after - (before - balance + 30_000f)) < 1f && b.heldFunds == 0f);
+        check("[builder] released only once", !again && Math.abs(credits.get() - after) < 1f);
+    }
+
+    static void scenarioCreditBuilderDefault() {
+        reset(0f);
+        BankData data = BankData.get();
+        LoanManager lm = data.getLoanManager();
+        data.setAutopayEnabled(false);
+        BankAccount b = lm.takeLoan(LoanType.BUILDER, 30_000f, BankSettings.BUILDER_RATE);
+        credits.set(0f);
+        int day = 0;
+        while (b.heldFunds > 0f && day < 240) { advanceDays(1); day++; if (day % 30 == 0) monthEnd(); }
+        advanceDays(30); monthEnd(); // next reporting cycle
+        CreditBureau.Result rep = data.getCreditScoreManager().getReport();
+        System.out.printf("[builder default] after %d days: status %s, balance left %.0f, held %.0f, fleet %s, charge-offs %d, repossessions %d%n",
+            day, b.status, b.remainingBalance, b.heldFunds, data.getCollectionManager().hasActiveCollection(b.accountId),
+            rep.chargeOffs, rep.repossessions);
+        check("[builder default] the deposit pays the debt", b.heldFunds == 0f && b.remainingBalance < 30_000f * 0.1f);
+        check("[builder default] no Collection Fleet is sent", !data.getCollectionManager().hasActiveCollection(b.accountId));
+        check("[builder default] reported as a charge-off, not a repossession", rep.chargeOffs >= 1 && rep.repossessions == 0);
+    }
+
+    static void scenarioCreditBuilderEligibility() {
+        // A good score doesn't need it.
+        reset(10_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(8);
+        Integer good = score();
+        String whyGood = data.getLoanManager().whyNot(LoanType.BUILDER, data);
+
+        // After bankruptcy it is the only loan offered.
+        reset(0f);
+        data = BankData.get();
+        data.setAutopayEnabled(false);
+        data.getLoanManager().takeLoan(LoanType.EMERGENCY, 40_000f, 0.08f);
+        credits.set(0f);
+        int day = 0;
+        while (!data.getBankruptcyManager().canFileBankruptcy(data) && day < 240) { advanceDays(1); day++; if (day % 30 == 0) monthEnd(); }
+        data.getBankruptcyManager().fileBankruptcy(data);
+        String whyBuilder = data.getLoanManager().whyNot(LoanType.BUILDER, data);
+        String whySmall = data.getLoanManager().whyNot(LoanType.SMALL, data);
+        System.out.printf("[builder eligibility] score %s -> %s | after bankruptcy: builder %s, small %s%n",
+            good, whyGood, whyBuilder, whySmall);
+        check("[builder eligibility] not offered once the score is good",
+            good != null && good >= BankSettings.BUILDER_MAX_SCORE && "terminal.loans.reasonBuilderScore".equals(whyGood));
+        check("[builder eligibility] offered during the bankruptcy lockout, unlike other loans",
+            whyBuilder == null && "terminal.loans.reasonBankruptcy".equals(whySmall));
+    }
+
+    // ------------------------------------------------------------------ revolving credit line (0.3.0)
+
+    /** A file with ~8 months of on-time history and a good score (650-749). */
+    static BankData scoredFile(float cash) {
+        reset(cash);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(8);
+        return data;
+    }
+
+    static void scenarioCreditLineEligibility() {
+        reset(1_000_000f);
+        BankData data = BankData.get();
+        String thin = data.getLoanManager().whyNot(LoanType.CREDIT_LINE, data);
+        data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        int inq = data.getCreditScoreManager().getReport().inquiries12;
+        Integer score = score();
+        BankAccount line = lm.openCreditLine(data);
+        String second = lm.whyNot(LoanType.CREDIT_LINE, data);
+        System.out.printf("[line] thin file: %s | score %s -> limit %.0f, rate %.2f%%/mo | second line: %s%n",
+            thin, score, line == null ? 0f : line.creditLimit, line == null ? 0f : line.monthlyRate * 100, second);
+        check("[line] not offered to a thin file", "terminal.line.reasonScore".equals(thin));
+        check("[line] good score gets the good-bracket limit", line != null && Math.abs(line.creditLimit - BankSettings.LINE_LIMIT_GOOD) < 1f);
+        check("[line] opening is a hard inquiry", data.getCreditScoreManager().getReport().inquiries12 == inq + 1);
+        check("[line] only one credit line", "terminal.line.reasonOpen".equals(second));
+        check("[line] does not count toward the loan limit", lm.getLimitedLoanCount() == 1);
+    }
+
+    static Integer lineScoreAt(float utilization, float payDownTo) {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        line.autopayFull = false;
+        lm.drawCreditLine(line.accountId, line.creditLimit * utilization);
+        months(2);
+        if (payDownTo >= 0f) {
+            lm.makePayment(line.accountId, Math.max(0f, line.remainingBalance - line.creditLimit * payDownTo));
+            months(1);
+        }
+        return score();
+    }
+
+    static void scenarioCreditLineUtilization() {
+        Integer low = lineScoreAt(0.10f, -1f);
+        Integer high = lineScoreAt(0.90f, -1f);
+        Integer lowLater = lineScoreAt(0.10f, 0.10f);
+        Integer recovered = lineScoreAt(0.90f, 0.10f);
+        CreditBureau.Result r = BankData.get().getCreditScoreManager().getReport();
+        System.out.printf("[line utilization] 10%%: %s | 90%%: %s | a month after paying 90%% down to 10%%: %s (10%% throughout: %s), utilization now %.0f%%%n",
+            low, high, recovered, lowLater, r.utilization * 100);
+        check("[line utilization] high utilization costs many points", low != null && high != null && low - high >= 40);
+        check("[line utilization] paying it down recovers at the next report (no memory)",
+            recovered != null && lowLater != null && Math.abs(lowLater - recovered) <= 10);
+    }
+
+    static void scenarioCreditLineGracePeriod() {
+        // Full statement paid every month: never any interest.
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        float interestFull = 0f;
+        for (int m = 0; m < 3; m++) {
+            lm.drawCreditLine(line.accountId, 50_000f);
+            months(1);
+            interestFull += line.lastInterest;
+        }
+        // Only the minimum paid: interest from the second statement on.
+        data = scoredFile(10_000_000f);
+        lm = data.getLoanManager();
+        BankAccount carried = lm.openCreditLine(data);
+        carried.autopayFull = false;
+        lm.drawCreditLine(carried.accountId, 50_000f);
+        months(1);
+        float first = carried.lastInterest;
+        months(1);
+        float second = carried.lastInterest;
+        System.out.printf("[line grace] statement paid in full x3: interest %.0f | minimum only: first statement %.0f, second %.0f (balance %.0f)%n",
+            interestFull, first, second, carried.remainingBalance);
+        check("[line grace] paying the statement in full charges no interest", interestFull < 1f && line.remainingBalance < 1f);
+        check("[line grace] carrying a balance charges interest", first < 1f && second > 500f);
+    }
+
+    static void scenarioCreditLineMissedMinimum() {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        float limit0 = line.creditLimit;
+        data.setAutopayEnabled(false);
+        // Keep the installment loan current by hand; leave the credit line unpaid.
+        lm.drawCreditLine(line.accountId, 100_000f);
+        credits.set(0f);
+        for (int m = 0; m < 3; m++) {
+            advanceDays(30);
+            monthEnd();
+            credits.set(10_000_000f);
+            for (BankAccount loan : lm.getActiveLoans()) if (!loan.loanType.isRevolving() && loan.amountPastDue > 0f) lm.payPastDue(loan.accountId);
+            credits.set(0f);
+        }
+        CreditBureau.Result r = data.getCreditScoreManager().getReport();
+        credits.set(1_000_000f);
+        boolean drew = lm.drawCreditLine(line.accountId, 10_000f);
+        System.out.printf("[line missed] status %s, days overdue %d, late30 %d, restricted %s, limit %.0f -> %.0f, draw allowed: %s%n",
+            line.status, line.daysOverdue, r.late30, data.getCollectionManager().isBankingRestricted(), limit0, line.creditLimit, drew);
+        check("[line missed] an unpaid minimum is reported 30 days late", r.late30 >= 1);
+        check("[line missed] collection starts (banking restricted)", data.getCollectionManager().isBankingRestricted());
+        check("[line missed] no draws while late", !drew);
+        check("[line missed] limit cut after the late payment, not below the balance",
+            line.creditLimit < limit0 && line.creditLimit >= line.remainingBalance - 1f);
+    }
+
+    static void scenarioCreditLineLimitIncrease() {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        float limit0 = line.creditLimit;
+        for (int m = 0; m < BankSettings.LINE_INCREASE_MONTHS; m++) {
+            lm.drawCreditLine(line.accountId, 20_000f);
+            months(1);
+        }
+        System.out.printf("[line increase] after %d on-time statements: limit %.0f -> %.0f%n",
+            BankSettings.LINE_INCREASE_MONTHS, limit0, line.creditLimit);
+        check("[line increase] limit raised after on-time statements",
+            Math.abs(line.creditLimit - limit0 * (1f + BankSettings.LINE_INCREASE_PCT)) < 1f);
+    }
+
+    static void scenarioCreditLineChurnAndClose() {
+        BankData data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        months(1);
+        CreditBureau.Tradeline t = data.getCreditScoreManager().getBureau().find(line.accountId);
+        int onTime0 = t.monthsOnTime;
+        int inq0 = data.getCreditScoreManager().getReport().inquiries12;
+        for (int i = 0; i < 10; i++) {
+            lm.drawCreditLine(line.accountId, line.getAvailableCredit());
+            lm.makePayment(line.accountId, line.remainingBalance);
+        }
+        months(1);
+        int onTime1 = t.monthsOnTime;
+        boolean closedWithBalance;
+        lm.drawCreditLine(line.accountId, 10_000f);
+        closedWithBalance = lm.closeCreditLine(line.accountId);
+        lm.makePayment(line.accountId, line.remainingBalance);
+        boolean closed = lm.closeCreditLine(line.accountId);
+        months(1);
+        System.out.printf("[line churn] 10 draw/repay cycles: on-time months %d -> %d, inquiries %d -> %d | close with balance: %s, close at zero: %s, tradeline open: %s%n",
+            onTime0, onTime1, inq0, data.getCreditScoreManager().getReport().inquiries12, closedWithBalance, closed, t.isOpen());
+        check("[line churn] many draws and repayments add one month of history, like any month", onTime1 == onTime0 + 1);
+        check("[line churn] draws are not inquiries", data.getCreditScoreManager().getReport().inquiries12 == inq0);
+        check("[line close] a line with a balance can't be closed", !closedWithBalance);
+        check("[line close] closing at zero closes the account on the report", closed && !t.isOpen());
+    }
+
+    // ------------------------------------------------------------------ quotes before signing (0.3.0)
+
+    static void scenarioQuoteMatchesBilling() {
+        Object[][] cases = {
+            {LoanType.EMERGENCY, 40_000f, 0.08f},
+            {LoanType.CORPORATE, 400_000f, 0.06f},
+            {LoanType.BUILDER, 30_000f, BankSettings.BUILDER_RATE},
+        };
+        for (Object[] c : cases) {
+            LoanType type = (LoanType) c[0];
+            float amount = (Float) c[1], rate = (Float) c[2];
+            LoanSchedule quote = LoanSchedule.project(amount, rate, type.getTermMonths());
+            reset(5_000_000f);
+            BankAccount loan = BankData.get().getLoanManager().takeLoan(type, amount, rate);
+            float start = credits.get();
+            float first = -1f;
+            int months = 0;
+            while (loan.status != LoanStatus.PAID_OFF && months < 60) {
+                float before = credits.get();
+                advanceDays(30);
+                monthEnd();
+                if (first < 0f) first = before - credits.get();
+                months++;
+            }
+            // A credit-builder payoff releases the held amount back to the player.
+            float paid = start - credits.get() + (type.isBuilder() ? amount : 0f);
+            System.out.printf("[quote] %s %.0f: quoted first %.0f, total %.0f, %d months | billed first %.0f, total %.0f, %d months%n",
+                type.name(), amount, quote.firstPayment, quote.totalPaid, quote.rows.size(), first, paid, months);
+            check("[quote] " + type.name() + ": quoted installment and total match what is billed",
+                Math.abs(quote.firstPayment - first) < 1f && Math.abs(quote.totalPaid - paid) < 2f && quote.rows.size() == months);
+        }
+    }
+
+    static void scenarioQuoteTextFormats() {
+        int bad = 0, lines = 0;
+        for (String lang : new String[]{"en", "pt_BR"}) {
+            Str.load(lang);
+            List<com.bankofstarsector.ui.Quote.Line> all = new ArrayList<com.bankofstarsector.ui.Quote.Line>();
+            for (LoanType t : LoanType.values()) if (!t.isRevolving()) all.addAll(com.bankofstarsector.ui.Quote.loan(t, 50_000f, 0.05f));
+            for (InvestmentType t : InvestmentType.values()) all.addAll(com.bankofstarsector.ui.Quote.investment(t, 100_000f));
+            all.addAll(com.bankofstarsector.ui.Quote.securedLoan("Alpha", 3_000_000f, 1_000_000f, 0.02f));
+            for (com.bankofstarsector.ui.Quote.Line l : all) {
+                lines++;
+                String format = Str.get(l.key);
+                int slots = format.split("%s", -1).length - 1;
+                String stray = format.replace("%s", "");
+                if (slots != l.args.length || stray.contains("%")) {
+                    System.out.println("  bad quote line (" + lang + "): " + format + " with " + l.args.length + " args");
+                    bad++;
+                }
+            }
+        }
+        Str.load("en");
+        System.out.printf("[quote text] %d lines checked in en and pt_BR, %d bad%n", lines, bad);
+        check("[quote text] every quote line has one argument per %s and no literal percent sign", bad == 0);
+    }
+
+    // ------------------------------------------------------------------ amortization table and score chart (0.3.0)
+
+    static void scenarioScheduleMatchesBilling() {
+        reset(5_000_000f);
+        BankAccount loan = BankData.get().getLoanManager().takeLoan(LoanType.CORPORATE, 400_000f, 0.06f);
+        months(4);
+        LoanSchedule rest = LoanSchedule.remaining(loan);
+        float start = credits.get();
+        int months = 0;
+        while (loan.status != LoanStatus.PAID_OFF && months < 60) { months(1); months++; }
+        float paid = start - credits.get();
+        System.out.printf("[schedule] after 4 months: projected %d installments, %.0f to pay | billed %d, %.0f%n",
+            rest.rows.size(), rest.totalPaid, months, paid);
+        check("[schedule] the remaining schedule matches what is billed", rest.rows.size() == months && Math.abs(rest.totalPaid - paid) < 2f);
+        check("[schedule] interest + principal add up to each payment",
+            Math.abs(rest.rows.get(0).interest + rest.rows.get(0).principal - rest.rows.get(0).payment) < 0.01f);
+    }
+
+    static void scenarioScoreChartExplainsChange() {
+        reset(5_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(3);
+        String thin = data.getCreditScoreManager().getScoreChange(0);
+        data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        line.autopayFull = false;
+        months(2);
+        lm.drawCreditLine(line.accountId, line.creditLimit * 0.9f);
+        months(1);
+        CreditScoreManager csm = data.getCreditScoreManager();
+        String change = csm.getScoreChange(0);
+        List<Integer> h = csm.getScoreHistory();
+        System.out.printf("[score chart] thin month: '%s' | after maxing the line: %s -> %s, main factor %s%n",
+            thin, h.get(1), h.get(0), change);
+        check("[score chart] no explanation while there is no score", thin.isEmpty());
+        check("[score chart] maxing out the credit line is explained by amounts owed",
+            change.startsWith("factor.amounts:-") && h.get(0) < h.get(1));
+    }
+
+    // ------------------------------------------------------------------ fleet insurance (0.3.0)
+
+    static final List<Object> fleetMembers = new ArrayList<Object>();
+
+    static com.fs.starfarer.api.fleet.FleetMemberAPI ship(final String id, final float baseValue) {
+        Object m = Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+            new Class<?>[]{com.fs.starfarer.api.fleet.FleetMemberAPI.class}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method mt, Object[] a) {
+                    String n = mt.getName();
+                    if (n.equals("getId") || n.equals("getShipName")) return id;
+                    if (n.equals("getBaseValue")) return baseValue;
+                    if (n.equals("hashCode")) return id.hashCode();
+                    if (n.equals("equals")) return proxy == a[0];
+                    if (n.equals("toString")) return "ship:" + id;
+                    return defaultFor(mt.getReturnType());
+                }
+            });
+        fleetMembers.add(m);
+        return (com.fs.starfarer.api.fleet.FleetMemberAPI) m;
+    }
+
+    static void lose(com.fs.starfarer.api.fleet.FleetMemberAPI m, boolean recovered) {
+        if (!recovered) fleetMembers.remove(m);
+        BankData.get().getInsuranceManager().onShipsLost(java.util.Collections.singletonList(m));
+    }
+
+    static void scenarioInsurancePremium() {
+        reset(10_000_000f);
+        BankData data = BankData.get();
+        ship("a", 500_000f);
+        ship("b", 1_000_000f);
+        InsuranceManager ins = data.getInsuranceManager();
+        float thin = ins.premiumFor(InsurancePlan.STANDARD, data);           // no score: credit x1.5
+        float comprehensive = ins.premiumFor(InsurancePlan.COMPREHENSIVE, data);
+        data = scoredFile(10_000_000f);
+        ship("a", 500_000f);
+        ship("b", 1_000_000f);
+        ins = data.getInsuranceManager();
+        float good = ins.premiumFor(InsurancePlan.STANDARD, data);           // 650-749: x1.0
+        ship("c", 1_500_000f);
+        float bigger = ins.premiumFor(InsurancePlan.STANDARD, data);
+        System.out.printf("[insurance premium] 1.5M fleet: no score %.0f, good score %.0f, comprehensive (no score) %.0f | 3M fleet %.0f%n",
+            thin, good, comprehensive, bigger);
+        check("[insurance premium] 0.8% x 60% x fleet value at a good score", Math.abs(good - 0.008f * 0.6f * 1_500_000f) < 1f);
+        check("[insurance premium] worse credit pays more (credit-based insurance score)", Math.abs(thin / good - 1.5f) < 0.01f);
+        check("[insurance premium] follows the fleet's value", Math.abs(bigger / good - 2f) < 0.01f);
+        check("[insurance premium] comprehensive cover costs more", comprehensive > thin);
+    }
+
+    static void scenarioInsuranceClaims() {
+        BankData data = scoredFile(10_000_000f);
+        InsuranceManager ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI a = ship("a", 500_000f);
+        com.fs.starfarer.api.fleet.FleetMemberAPI b = ship("b", 1_000_000f);
+        com.fs.starfarer.api.fleet.FleetMemberAPI c = ship("c", 800_000f);
+        advanceDays(1); // the ships are seen in the fleet
+        ins.buy(InsurancePlan.STANDARD, data);
+
+        lose(c, false);                                  // inside the policy's waiting period
+        advanceDays(3);
+        String early = ins.getClaims().get(0).outcome;
+
+        months(1);                                        // premium paid; waiting period over
+        float before = credits.get();
+        lose(a, false);
+        advanceDays(3);
+        float paid = credits.get() - before;
+
+        lose(b, true);                                    // disabled, then recovered after the battle
+        advanceDays(3);
+        int claimsAfterRecovery = ins.getClaims().size();
+
+        com.fs.starfarer.api.fleet.FleetMemberAPI fresh = ship("fresh", 600_000f);
+        advanceDays(5);
+        lose(fresh, false);                               // bought 5 days before the loss
+        advanceDays(3);
+        String newShip = ins.getClaims().get(0).outcome;
+
+        System.out.printf("[insurance claims] loss in waiting period: %s | covered loss of 500k paid %.0f | recovered ship: %d claims | 5-day-old ship: %s | claims factor x%.2f%n",
+            early, paid, claimsAfterRecovery, newShip, ins.claimsFactor());
+        check("[insurance claims] no claims in the policy's waiting period", "claim.reason.waiting".equals(early));
+        check("[insurance claims] a covered loss pays coverage x value - deductible", Math.abs(paid - (0.6f * 500_000f - 10_000f)) < 1f);
+        check("[insurance claims] a ship recovered after the battle is not a loss", claimsAfterRecovery == 2);
+        check("[insurance claims] ships new to the fleet are not covered yet", "claim.reason.newShip".equals(newShip));
+        check("[insurance claims] each paid claim raises the premium", Math.abs(ins.claimsFactor() - 1.25f) < 1e-4);
+    }
+
+    static void scenarioInsuranceLapseAndCap() {
+        // Monthly cap: three 1M ships, insured value 1.8M, cap 0.9M a month.
+        BankData data = scoredFile(10_000_000f);
+        InsuranceManager ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI x = ship("x", 1_000_000f);
+        com.fs.starfarer.api.fleet.FleetMemberAPI y = ship("y", 1_000_000f);
+        ship("z", 1_000_000f);
+        advanceDays(1);
+        ins.buy(InsurancePlan.STANDARD, data);
+        months(2);
+        float before = credits.get();
+        lose(x, false);
+        lose(y, false);
+        advanceDays(3);
+        float paid = credits.get() - before;
+        String second = ins.getClaims().get(0).outcome;
+
+        // Lapse: no money at month end.
+        data = scoredFile(10_000_000f);
+        ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI old = ship("old", 500_000f);
+        ship("other", 500_000f);
+        advanceDays(1);
+        ins.buy(InsurancePlan.STANDARD, data);
+        months(2);
+        credits.set(0f);
+        data.setAutopayEnabled(false);
+        months(1);
+        boolean lapsed = ins.isLapsed();
+        lose(old, false);
+        advanceDays(3);
+        String lapsedClaim = ins.getClaims().get(0).outcome;
+        credits.set(0f);
+        months(1);
+        boolean cancelled = !ins.hasPolicy();
+        System.out.printf("[insurance limits] two 1M losses in a month: paid %.0f (second: %s) | unpaid premium: lapsed %s, claim %s, second miss cancels: %s%n",
+            paid, second, lapsed, lapsedClaim, cancelled);
+        check("[insurance limits] payouts stop at the monthly cap (50% of the insured value)", Math.abs(paid - 900_000f) < 1f
+            && "claim.reason.partial".equals(second));
+        check("[insurance limits] an unpaid premium suspends the cover", lapsed && "claim.reason.lapsed".equals(lapsedClaim));
+        check("[insurance limits] a second unpaid premium cancels the policy", cancelled);
+    }
+
     static Integer score() {
         return BankData.get().getCreditScoreManager().getReport().score;
     }
@@ -304,6 +787,10 @@ public class BankSim {
 
     static void reset(float startCredits) {
         persistent.clear();
+        colonies.clear();
+        factions.clear();
+        relations.clear();
+        fleetMembers.clear();
         credits.set(startCredits);
         now = 1_000_000_000L;
     }
@@ -333,6 +820,315 @@ public class BankSim {
         if (!ok) failures++;
     }
 
+    // ------------------------------------------------------------------ fake colonies and factions
+
+    static final Map<String, Colony> colonies = new LinkedHashMap<String, Colony>();
+    static final Map<String, Object> factions = new HashMap<String, Object>();
+    static final Map<String, Float> relations = new HashMap<String, Float>();
+
+    /** A market the tests can shape: size, hazard, income, conditions, industries, owner. */
+    static final class Colony {
+        String id, name, factionId;
+        int size;
+        float hazard = 1f, netIncome;
+        boolean inEconomy = true;
+        final Set<String> conditions = new LinkedHashSet<String>();
+        final List<float[]> industries = new ArrayList<float[]>(); // {buildCost, improved 0/1}
+        com.fs.starfarer.api.campaign.econ.MarketAPI proxy;
+    }
+
+    static Colony colony(String id, String factionId, int size, float netIncome) {
+        final Colony c = new Colony();
+        c.id = id; c.name = id; c.factionId = factionId; c.size = size; c.netIncome = netIncome;
+        c.proxy = (com.fs.starfarer.api.campaign.econ.MarketAPI) Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+            new Class<?>[]{com.fs.starfarer.api.campaign.econ.MarketAPI.class}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method m, Object[] a) throws Throwable {
+                    String n = m.getName();
+                    if (n.equals("getId")) return c.id;
+                    if (n.equals("getName")) return c.name;
+                    if (n.equals("getFactionId")) return c.factionId;
+                    if (n.equals("setFactionId")) { c.factionId = (String) a[0]; return null; }
+                    if (n.equals("getFaction")) return faction(c.factionId);
+                    if (n.equals("isPlayerOwned")) return "player".equals(c.factionId);
+                    if (n.equals("getSize")) return c.size;
+                    if (n.equals("getHazardValue")) return c.hazard;
+                    if (n.equals("getNetIncome")) return c.netIncome;
+                    if (n.equals("isInEconomy")) return c.inEconomy;
+                    if (n.equals("isHidden")) return false;
+                    if (n.equals("hasCondition")) return c.conditions.contains((String) a[0]);
+                    if (n.equals("addCondition") && a[0] instanceof String) { c.conditions.add((String) a[0]); return a[0]; }
+                    if (n.equals("removeCondition")) { c.conditions.remove((String) a[0]); return null; }
+                    if (n.equals("getConditions")) {
+                        List<Object> out = new ArrayList<Object>();
+                        for (final String cid : c.conditions) out.add(withId(com.fs.starfarer.api.campaign.econ.MarketConditionAPI.class, cid));
+                        return out;
+                    }
+                    if (n.equals("getIndustries")) {
+                        List<Object> out = new ArrayList<Object>();
+                        for (float[] ind : c.industries) out.add(industry(ind[0], ind[1] > 0f));
+                        return out;
+                    }
+                    if (n.equals("hashCode")) return System.identityHashCode(proxy);
+                    if (n.equals("equals")) return proxy == a[0];
+                    if (n.equals("toString")) return "market:" + c.id;
+                    if (n.equals("getStarSystem") || n.equals("getLocationInHyperspace")) return null;
+                    return defaultFor(m.getReturnType());
+                }
+            });
+        colonies.put(id, c);
+        return c;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <T> T withId(Class<T> type, final String id) {
+        return (T) Proxy.newProxyInstance(BankSim.class.getClassLoader(), new Class<?>[]{type}, new InvocationHandler() {
+            public Object invoke(Object proxy, Method m, Object[] a) {
+                if (m.getName().equals("getId")) return id;
+                return defaultFor(m.getReturnType());
+            }
+        });
+    }
+
+    static Object industry(final float buildCost, final boolean improved) {
+        return Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+            new Class<?>[]{com.fs.starfarer.api.campaign.econ.Industry.class}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method m, Object[] a) {
+                    if (m.getName().equals("getBuildCost")) return buildCost;
+                    if (m.getName().equals("isImproved")) return improved;
+                    if (m.getName().equals("getAICoreId") || m.getName().equals("getSpecialItem")) return null;
+                    return defaultFor(m.getReturnType());
+                }
+            });
+    }
+
+    static com.fs.starfarer.api.campaign.FactionAPI faction(final String id) {
+        Object f = factions.get(id);
+        if (f == null) {
+            f = Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+                new Class<?>[]{com.fs.starfarer.api.campaign.FactionAPI.class}, new InvocationHandler() {
+                    public Object invoke(Object proxy, Method m, Object[] a) {
+                        String n = m.getName();
+                        if (n.equals("getId") || n.equals("getDisplayName")) return id;
+                        if (n.equals("isPlayerFaction")) return "player".equals(id);
+                        if (n.equals("getRelationship")) return relation(id, (String) a[0]);
+                        if (n.equals("setRelationship") && a[0] instanceof String) {
+                            relations.put(key(id, (String) a[0]), ((Number) a[1]).floatValue());
+                            return null;
+                        }
+                        if (n.equals("isHostileTo")) {
+                            String other = a[0] instanceof String ? (String) a[0]
+                                : ((com.fs.starfarer.api.campaign.FactionAPI) a[0]).getId();
+                            return relation(id, other) <= -0.5f;
+                        }
+                        if (n.equals("hashCode")) return id.hashCode();
+                        if (n.equals("equals")) return proxy == a[0];
+                        if (n.equals("toString")) return "faction:" + id;
+                        return defaultFor(m.getReturnType());
+                    }
+                });
+            factions.put(id, f);
+        }
+        return (com.fs.starfarer.api.campaign.FactionAPI) f;
+    }
+
+    static String key(String a, String b) { return a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a; }
+
+    static float relation(String a, String b) {
+        Float r = relations.get(key(a, b));
+        return r == null ? 0f : r;
+    }
+
+    // ------------------------------------------------------------------ colony-secured loans (0.3.0)
+
+    /** Alpha: size 6, 100k/month, rich ore + adequate farmland + habitable, two industries (one improved). */
+    static Colony alpha() {
+        Colony c = colony("alpha", "player", 6, 100_000f);
+        c.conditions.add("ore_rich");
+        c.conditions.add("farmland_adequate");
+        c.conditions.add("habitable");
+        c.industries.add(new float[]{150_000f, 1f});
+        c.industries.add(new float[]{300_000f, 0f});
+        return c;
+    }
+
+    /** The PBC and two bidders with real territory; pirates (never bidders) and a faction hostile to the PBC. */
+    static void sectorFactions() {
+        colony("pbc_hq", "pbc", 6, 0f);
+        colony("heg_capital", "hegemony", 7, 0f);
+        colony("tt_hub", "tritachyon", 5, 0f);
+        colony("pirate_den", "pirates", 5, 0f);
+        colony("church_world", "luddic_church", 6, 0f);
+        relations.put(key("luddic_church", "pbc"), -0.6f);
+    }
+
+    static void scenarioColonyAppraisal() {
+        reset(0f);
+        Colony c = alpha();
+        ColonyAppraisal a = ColonyAppraisal.of(c.proxy);
+        // development 100k x 2.5^3 = 1,562,500; structures 150k x 1.25 + 300k = 487,500;
+        // resources (4 + 2 + 2) x 60k = 480,000; income 12 x 100k = 1,200,000; hazard 100% -> x1.0
+        float expected = 1_562_500f + 487_500f + 480_000f + 1_200_000f;
+        c.hazard = 2f;
+        ColonyAppraisal hazardous = ColonyAppraisal.of(c.proxy);
+        System.out.printf("[appraisal] development %.0f, structures %.0f, resources %.0f, income %.0f, x%.2f = %.0f | hazard 200%%: %.0f | max loan %.0f%n",
+            a.development, a.structures, a.resources, a.income, a.hazardMult, a.total, hazardous.total,
+            LoanManager.securedMaxFor(colonies.get("alpha").proxy));
+        check("[appraisal] development, structures, resources and income add up", Math.abs(a.total - expected) < 1f);
+        check("[appraisal] a hazardous world is worth less", Math.abs(hazardous.total - expected * 0.5f) < 1f);
+    }
+
+    static void scenarioSecuredLoanSigning() {
+        BankData data = scoredFile(1_000_000f);
+        Colony c = alpha();
+        LoanManager lm = data.getLoanManager();
+        int score = data.getCreditScoreManager().getScore();
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, score);
+        float unsecured = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.MEGACORP, score);
+        float before = credits.get();
+        float max = LoanManager.securedMaxFor(c.proxy);
+        BankAccount tooMuch = lm.takeSecuredLoan(c.proxy, max * 1.5f, rate);
+        BankAccount loan = lm.takeSecuredLoan(c.proxy, 1_000_000f, rate);
+        BankAccount twice = lm.takeSecuredLoan(c.proxy, 100_000f, rate);
+        System.out.printf("[secured] rate %.2f%% vs megacorp %.2f%% | paid out %.0f | lien: %s | second pledge: %s%n",
+            rate * 100, unsecured * 100, credits.get() - before, c.conditions.contains("bos_lien"), twice);
+        check("[secured] cheaper than unsecured credit", rate < unsecured);
+        check("[secured] can't borrow more than the loan-to-value allows", tooMuch == null);
+        check("[secured] signing pays out and puts a lien on the colony", loan != null
+            && Math.abs(credits.get() - before - 1_000_000f) < 1f && c.conditions.contains("bos_lien")
+            && "alpha".equals(loan.collateralMarketId));
+        check("[secured] a colony secures one loan at a time", twice == null);
+        credits.set(10_000_000f);
+        lm.payOff(loan.accountId);
+        check("[secured] paying off releases the lien", loan.status == LoanStatus.PAID_OFF && !c.conditions.contains("bos_lien"));
+    }
+
+    /** A defaulted colony-secured loan on Alpha (autopay off, no credits). */
+    static BankAccount defaultedSecuredLoan(BankData data, Colony c) {
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        BankAccount loan = data.getLoanManager().takeSecuredLoan(c.proxy, 1_000_000f, rate);
+        data.setAutopayEnabled(false);
+        credits.set(0f);
+        int day = 0;
+        while (loan.status != LoanStatus.DEFAULTED && day < 240) { advanceDays(1); day++; if (day % 30 == 0) monthEnd(); }
+        advanceDays(1);
+        return loan;
+    }
+
+    static float garnishedThisMonth(BankData data) {
+        float total = 0f;
+        for (BankData.TransactionRecord t : data.getTransactionHistory()) if ("GARNISH".equals(t.type)) total -= t.amount;
+        return total;
+    }
+
+    static void scenarioReceivership() {
+        BankData data = scoredFile(1_000_000f);
+        Colony c = alpha();
+        BankAccount loan = defaultedSecuredLoan(data, c);
+        com.bankofstarsector.collection.ForeclosureManager fm = data.getForeclosureManager();
+        int stage = fm.getStage(loan);
+        boolean marked = c.conditions.contains("bos_receivership");
+        boolean fleet = data.getCollectionManager().hasActiveCollection(loan.accountId);
+        float garnishedBefore = garnishedThisMonth(data);
+        advanceDays(29);
+        monthEnd();
+        float taken = garnishedThisMonth(data) - garnishedBefore;
+        advanceDays(BankSettings.FORECLOSURE_DELAY_DAYS + 30);
+        int stageLater = fm.getStage(loan);
+        float pbcRel = relation("pbc", "player");
+        credits.set(10_000_000f);
+        data.getLoanManager().payPastDue(loan.accountId);
+        advanceDays(1);
+        System.out.printf("[receivership] stage %d, condition %s, fleet %s | month end took %.0f of the colony's income | without Nexerelin after %d days: stage %d, PBC relation %.2f | paid: status %s, stage %d, condition %s%n",
+            stage, marked, fleet, taken, BankSettings.FORECLOSURE_DELAY_DAYS + 30,
+            stageLater, pbcRel, loan.status, fm.getStage(loan), c.conditions.contains("bos_receivership"));
+        check("[receivership] default puts the colony in receivership (condition on the colony)",
+            stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP && marked);
+        check("[receivership] no Collection Fleet for a loan secured by a colony", !fleet);
+        check("[receivership] the colony's whole income goes to the loan", Math.abs(taken - 100_000f) < 1f);
+        check("[receivership] without Nexerelin there is no foreclosure war",
+            stageLater == com.bankofstarsector.collection.ForeclosureManager.STAGE_RECEIVERSHIP && pbcRel > -0.5f);
+        check("[receivership] paying the amount due lifts it", loan.status == LoanStatus.ACTIVE
+            && fm.getStage(loan) == com.bankofstarsector.collection.ForeclosureManager.STAGE_NONE
+            && !c.conditions.contains("bos_receivership") && c.conditions.contains("bos_lien"));
+    }
+
+    static void setNexerelin(boolean on) throws Exception {
+        java.lang.reflect.Field f = com.bankofstarsector.compat.NexerelinCompat.class.getDeclaredField("available");
+        f.setAccessible(true);
+        f.set(null, on ? Boolean.TRUE : null);
+    }
+
+    static void scenarioForeclosureAndAuction() throws Exception {
+        setNexerelin(true); // invasion classes are not on the test classpath: the launch fails and is reported as such
+        try {
+            BankData data = scoredFile(1_000_000f);
+            sectorFactions();
+            relations.put(key("pbc", "player"), 0.2f);
+            Colony c = alpha();
+            BankAccount loan = defaultedSecuredLoan(data, c);
+            com.bankofstarsector.collection.ForeclosureManager fm = data.getForeclosureManager();
+            advanceDays(BankSettings.FORECLOSURE_DELAY_DAYS + 1);
+            int stage = fm.getStage(loan);
+            float warRel = relation("pbc", "player");
+
+            // The PBC takes the colony; the next day it is auctioned.
+            float owed = loan.remainingBalance;
+            float appraisal = ColonyAppraisal.of(c.proxy).total;
+            c.factionId = "pbc";
+            float before = credits.get();
+            advanceDays(1);
+            float surplus = credits.get() - before;
+            System.out.printf("[foreclosure] stage %d, PBC relation %.2f during | auction: %s now owns alpha, owed %.0f, appraisal %.0f, returned %.0f, loan %s, relation after %.2f, conditions %s%n",
+                stage, warRel, c.factionId, owed, appraisal, surplus, loan.status, relation("pbc", "player"), c.conditions);
+            check("[foreclosure] unpaid receivership turns into a foreclosure war (Nexerelin)",
+                stage == com.bankofstarsector.collection.ForeclosureManager.STAGE_FORECLOSURE && warRel <= -0.5f);
+            check("[auction] the PBC never keeps the colony; a major faction not hostile to it buys it",
+                ("hegemony".equals(c.factionId) || "tritachyon".equals(c.factionId)));
+            check("[auction] the price pays the loan and the surplus goes to the player",
+                loan.status == LoanStatus.SEIZED && surplus >= appraisal * BankSettings.AUCTION_RESERVE_PCT - owed - 1f);
+            check("[auction] relations go back to what they were", Math.abs(relation("pbc", "player") - 0.2f) < 1e-4);
+            check("[auction] lien and receivership are gone", c.conditions.isEmpty() || !c.conditions.contains("bos_lien")
+                && !c.conditions.contains("bos_receivership"));
+
+            List<com.bankofstarsector.collection.ForeclosureManager.Bid> bids =
+                com.bankofstarsector.collection.ForeclosureManager.collectBids(c.proxy, appraisal, new Random(1));
+            StringBuilder who = new StringBuilder();
+            for (com.bankofstarsector.collection.ForeclosureManager.Bid b : bids) who.append(b.faction.getId()).append(' ');
+            System.out.println("[auction] bidders: " + who.toString().trim());
+            boolean noPirates = true, noHostile = true;
+            for (com.bankofstarsector.collection.ForeclosureManager.Bid b : bids) {
+                if ("pirates".equals(b.faction.getId())) noPirates = false;
+                if ("luddic_church".equals(b.faction.getId())) noHostile = false;
+            }
+            check("[auction] pirates and factions hostile to the PBC don't bid", noPirates && noHostile && bids.size() == 2);
+        } finally {
+            setNexerelin(false);
+        }
+    }
+
+    static void scenarioCollateralLoss() {
+        // Captured by another faction while current: the loan simply continues, unsecured.
+        BankData data = scoredFile(1_000_000f);
+        Colony c = alpha();
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        BankAccount captured = data.getLoanManager().takeSecuredLoan(c.proxy, 500_000f, rate);
+        c.factionId = "hegemony";
+        advanceDays(1);
+        boolean unsecured = captured.collateralMarketId == null && captured.status == LoanStatus.ACTIVE;
+
+        // Abandoned while current: the whole balance falls due.
+        data = scoredFile(1_000_000f);
+        c = alpha();
+        BankAccount abandoned = data.getLoanManager().takeSecuredLoan(c.proxy, 500_000f, rate);
+        c.inEconomy = false;
+        advanceDays(1);
+        System.out.printf("[collateral] captured: unsecured %s | abandoned: status %s, due now %.0f of %.0f%n",
+            unsecured, abandoned.status, abandoned.amountPastDue, abandoned.remainingBalance);
+        check("[collateral] captured by another faction: the loan continues unsecured", unsecured);
+        check("[collateral] abandoned: the whole balance is due at once (default)",
+            abandoned.status == LoanStatus.DEFAULTED && abandoned.amountPastDue >= abandoned.remainingBalance - 1f);
+    }
+
     // ------------------------------------------------------------------ deep stubs
 
     @SuppressWarnings("unchecked")
@@ -352,6 +1148,18 @@ public class BankSim {
                     return new org.json.JSONObject(new String(java.nio.file.Files.readAllBytes(pth), "UTF-8"));
                 }
                 if (n.equals("isModEnabled")) return false;
+                if (n.equals("getFaction") && a != null && a.length == 1 && a[0] instanceof String) return faction((String) a[0]);
+                if (n.equals("getPlayerFaction")) return faction("player");
+                if (n.equals("getMarket") && a != null && a.length == 1 && a[0] instanceof String) {
+                    Colony c = colonies.get((String) a[0]);
+                    return c != null && c.inEconomy ? c.proxy : null;
+                }
+                if (n.equals("getMembersListCopy")) return new ArrayList<Object>(fleetMembers);
+                if (n.equals("getMarketsCopy")) {
+                    List<Object> out = new ArrayList<Object>();
+                    for (Colony c : colonies.values()) if (c.inEconomy) out.add(c.proxy);
+                    return out;
+                }
                 if (n.equals("addMessage")) { messages.add(String.valueOf(a[0])); return null; }
                 if (n.equals("toString")) return "stub:" + type.getSimpleName();
                 if (n.equals("hashCode")) return System.identityHashCode(proxy);

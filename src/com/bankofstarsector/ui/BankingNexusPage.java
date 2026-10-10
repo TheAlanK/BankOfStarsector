@@ -34,6 +34,11 @@ public class BankingNexusPage implements NexusPage {
     private JPanel mainPanel;
     private JLabel dateLabel;
     private JLabel netWorthLabel;
+    private JLabel heldLabel;
+    private JLabel trendLabel, changeLabel;
+    private JLabel insPlanLabel, insPremiumLabel, insStatusLabel, insFleetLabel, insClaimsLabel;
+    private JLabel lineBalanceLabel, lineLimitLabel, lineAvailableLabel, lineUtilLabel, lineMinLabel, lineStatementLabel, lineAutopayLabel;
+    private JButton payStatementButton;
     private JLabel creditsLabel;
     private JLabel debtLabel;
     private JLabel investLabel;
@@ -81,6 +86,7 @@ public class BankingNexusPage implements NexusPage {
         creditsLabel = addLabelRow(overviewCard, Str.get("nexus.credits"), "--");
         debtLabel = addLabelRow(overviewCard, Str.get("nexus.debt"), "--");
         investLabel = addLabelRow(overviewCard, Str.get("nexus.investments"), "--");
+        heldLabel = addLabelRow(overviewCard, Str.get("nexus.held"), "--");
         dueLabel = addLabelRow(overviewCard, Str.get("nexus.dueNow"), "--");
         pastDueLabel = addLabelRow(overviewCard, Str.get("nexus.pastDue"), "--");
         autopayLabel = addLabelRow(overviewCard, Str.get("nexus.autopay"), "--");
@@ -103,9 +109,40 @@ public class BankingNexusPage implements NexusPage {
         mainPanel.add(overviewCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
+        JPanel lineCard = createCard(Str.get("nexus.card.line"));
+        lineBalanceLabel = addLabelRow(lineCard, Str.get("nexus.lineBalance"), "--");
+        lineLimitLabel = addLabelRow(lineCard, Str.get("nexus.lineLimit"), "--");
+        lineAvailableLabel = addLabelRow(lineCard, Str.get("nexus.lineAvailable"), "--");
+        lineUtilLabel = addLabelRow(lineCard, Str.get("nexus.lineUtilization"), "--");
+        lineMinLabel = addLabelRow(lineCard, Str.get("nexus.lineMinimum"), "--");
+        lineStatementLabel = addLabelRow(lineCard, Str.get("nexus.lineStatement"), "--");
+        lineAutopayLabel = addLabelRow(lineCard, Str.get("nexus.lineAutopay"), "--");
+        JPanel lineActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 4));
+        lineActions.setBackground(CARD_BG);
+        lineActions.setAlignmentX(Component.LEFT_ALIGNMENT);
+        payStatementButton = new JButton(Str.get("nexus.payStatement"));
+        payStatementButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) { sendPayStatement(); }
+        });
+        lineActions.add(payStatementButton);
+        lineCard.add(lineActions);
+        mainPanel.add(lineCard);
+        mainPanel.add(Box.createVerticalStrut(8));
+
+        JPanel insCard = createCard(Str.get("nexus.card.insurance"));
+        insPlanLabel = addLabelRow(insCard, Str.get("nexus.insPlan"), "--");
+        insPremiumLabel = addLabelRow(insCard, Str.get("nexus.insPremium"), "--");
+        insStatusLabel = addLabelRow(insCard, Str.get("nexus.insStatus"), "--");
+        insFleetLabel = addLabelRow(insCard, Str.get("nexus.insFleet"), "--");
+        insClaimsLabel = addLabelRow(insCard, Str.get("nexus.insClaims"), "--");
+        mainPanel.add(insCard);
+        mainPanel.add(Box.createVerticalStrut(8));
+
         JPanel scoreCard = createCard(Str.get("nexus.card.score"));
         scoreLabel = addLabelRow(scoreCard, Str.get("nexus.score"), "--");
         bracketLabel = addLabelRow(scoreCard, Str.get("nexus.bracket"), "--");
+        trendLabel = addLabelRow(scoreCard, Str.get("nexus.trend"), "--");
+        changeLabel = addLabelRow(scoreCard, Str.get("nexus.lastChange"), "--");
         mainPanel.add(scoreCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
@@ -154,6 +191,7 @@ public class BankingNexusPage implements NexusPage {
         set(creditsLabel, formatCredits(s.credits), TEXT_PRIMARY);
         set(debtLabel, formatCredits(s.debt), s.debt > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(investLabel, formatCredits(s.invested), POSITIVE);
+        set(heldLabel, formatCredits(s.held), s.held > 0 ? POSITIVE : TEXT_SECONDARY);
         set(dueLabel, formatCredits(s.dueNow), s.dueNow > 1 ? GOLD : TEXT_PRIMARY);
         set(pastDueLabel, formatCredits(s.late), s.late > 1 ? NEGATIVE : TEXT_PRIMARY);
         set(autopayLabel, Str.get(s.autopay ? "common.on" : "common.off"), s.autopay ? POSITIVE : NEGATIVE);
@@ -163,6 +201,52 @@ public class BankingNexusPage implements NexusPage {
         set(bracketLabel, s.bracket + ("NONE".equals(s.bankruptcyState) ? "" : " | " + Str.f("nexus.bankruptcy", s.bankruptcyLabel)),
             getScoreColor(s.score));
         fillList(loansPanel, s.loans, Str.get("terminal.loans.none"));
+        if (s.insurancePlan == null) {
+            set(insPlanLabel, Str.get("nexus.insNone"), TEXT_SECONDARY);
+            set(insPremiumLabel, "--", TEXT_SECONDARY);
+            set(insStatusLabel, "--", TEXT_SECONDARY);
+        } else {
+            set(insPlanLabel, s.insurancePlan + String.format(" (%.0f%%, -%s)", s.insuranceCoverage * 100, formatCredits(s.insuranceDeductible)), TEXT_PRIMARY);
+            set(insPremiumLabel, formatCredits(s.insurancePremium), GOLD);
+            String status = s.insuranceLapsed ? Str.get("nexus.insLapsed")
+                : s.insuranceWaitingDays > 0 ? Str.f("nexus.insWaiting", s.insuranceWaitingDays) : Str.get("nexus.insActive");
+            set(insStatusLabel, status, s.insuranceLapsed ? NEGATIVE : s.insuranceWaitingDays > 0 ? GOLD : POSITIVE);
+        }
+        set(insFleetLabel, formatCredits(s.fleetValue), TEXT_PRIMARY);
+        set(insClaimsLabel, Str.f("nexus.insClaimsValue", s.insuranceClaims12, s.insurancePending), TEXT_PRIMARY);
+
+        StringBuilder trend = new StringBuilder();
+        for (int i = Math.min(5, s.scoreHistory.size() - 1); i >= 0; i--) {
+            if (trend.length() > 0) trend.append(" > ");
+            trend.append(s.scoreHistory.get(i) > 0 ? String.valueOf(s.scoreHistory.get(i)) : "--");
+        }
+        set(trendLabel, trend.length() > 0 ? trend.toString() : "--", TEXT_PRIMARY);
+        String change = s.scoreChanges.isEmpty() ? "" : s.scoreChanges.get(0);
+        int colon = change.lastIndexOf(':');
+        if (colon > 0) {
+            int delta = Integer.parseInt(change.substring(colon + 1));
+            set(changeLabel, Str.get(change.substring(0, colon)) + " " + (delta > 0 ? "+" : "") + delta, delta >= 0 ? POSITIVE : NEGATIVE);
+        } else {
+            set(changeLabel, "--", TEXT_SECONDARY);
+        }
+        if (s.lineId == null) {
+            String none = Str.get("nexus.lineNone");
+            set(lineBalanceLabel, none, TEXT_SECONDARY);
+            for (JLabel l : new JLabel[]{lineLimitLabel, lineAvailableLabel, lineUtilLabel, lineMinLabel, lineStatementLabel, lineAutopayLabel}) {
+                set(l, "--", TEXT_SECONDARY);
+            }
+            payStatementButton.setEnabled(false);
+        } else {
+            Color uc = s.lineUtilization <= 0.3f ? POSITIVE : s.lineUtilization <= 0.75f ? GOLD : NEGATIVE;
+            set(lineBalanceLabel, formatCredits(s.lineBalance), s.lineBalance > 0 ? TEXT_PRIMARY : TEXT_SECONDARY);
+            set(lineLimitLabel, formatCredits(s.lineLimit), TEXT_PRIMARY);
+            set(lineAvailableLabel, formatCredits(s.lineAvailable), POSITIVE);
+            set(lineUtilLabel, String.format("%.0f%%", s.lineUtilization * 100), uc);
+            set(lineMinLabel, formatCredits(s.lineMinimumDue), s.lineLate ? NEGATIVE : s.lineMinimumDue > 1 ? GOLD : TEXT_PRIMARY);
+            set(lineStatementLabel, formatCredits(s.lineStatementDue), s.lineStatementDue > 1 ? GOLD : TEXT_PRIMARY);
+            set(lineAutopayLabel, Str.get(s.lineAutopayFull ? "terminal.line.autopayFull" : "terminal.line.autopayMin"), TEXT_PRIMARY);
+            payStatementButton.setEnabled(s.lineStatementDue + s.lineMinimumDue > 1);
+        }
         fillList(investmentsPanel, s.investments, Str.get("terminal.invest.none"));
         set(warSurchargeLabel, String.format("+%.0f%%", s.warSurcharge * 100), s.warSurcharge > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(disruptionLabel, String.format("%.1f%%", s.disruption * 100), s.disruption > 0 ? NEGATIVE : TEXT_PRIMARY);
@@ -182,6 +266,18 @@ public class BankingNexusPage implements NexusPage {
                 }
                 BankSnapshot.capture();
                 return "paid " + (int) paid;
+            }
+        });
+    }
+
+    private void sendPayStatement() {
+        final BankSnapshot s = shown;
+        if (s == null || s.lineId == null) return;
+        enqueue(new GameDataBridge.GameCommand() {
+            public String execute() {
+                boolean ok = BankData.get().getLoanManager().payStatement(s.lineId);
+                BankSnapshot.capture();
+                return "statement " + ok;
             }
         });
     }

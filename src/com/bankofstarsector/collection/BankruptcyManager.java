@@ -65,6 +65,9 @@ public class BankruptcyManager implements Serializable {
 
         log.info("BOS: Player filing bankruptcy!");
 
+        // Credit-builder loans are settled from their own deposit before anything else.
+        for (BankAccount loan : data.getLoanManager().getActiveLoans()) data.getLoanManager().applyHeldFunds(loan);
+
         // Reduce all outstanding debt to 20%
         for (BankAccount loan : data.getLoanManager().getActiveLoans()) {
             loan.remainingBalance *= (1f - BankSettings.BANKRUPTCY_DEBT_REDUCTION);
@@ -76,6 +79,12 @@ public class BankruptcyManager implements Serializable {
             // Restructured: the reduced balance is repaid over a fresh term.
             loan.principal = loan.remainingBalance;
             loan.monthsElapsed = 0;
+            if (loan.loanType.isRevolving()) {
+                // Bankruptcy closes credit lines to new draws; the reduced balance is paid down by minimums.
+                loan.creditLimit = 0f;
+                loan.statementBalance = 0f;
+                loan.paidSinceStatement = 0f;
+            }
         }
 
         // Liquidate investments at 50% value
@@ -167,6 +176,7 @@ public class BankruptcyManager implements Serializable {
     }
 
     public boolean canTakeLoanType(LoanType type) {
+        if (type.isBuilder()) return true; // built to rebuild credit, so allowed during recovery
         if (!canTakeLoans()) return false;
         if (state == BankruptcyState.RECOVERY) {
             // During recovery, only Emergency and Small loans

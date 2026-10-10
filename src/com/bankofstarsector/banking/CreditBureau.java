@@ -36,7 +36,8 @@ public class CreditBureau implements Serializable {
     // Factor maxima (sum 550 = 850 - 300), proportional to the FICO weights.
     public static final float PAYMENT_MAX = 192f, AMOUNTS_MAX = 165f, LENGTH_MAX = 83f, NEW_MAX = 55f, MIX_MAX = 55f;
 
-    public enum Category { PERSONAL, BUSINESS, LINE }
+    /** LINE is the sovereign installment loan (kept for saves); REVOLVING is the credit line (0.3.0). */
+    public enum Category { PERSONAL, BUSINESS, LINE, REVOLVING, SECURED }
 
     public enum EventType { LATE_30, LATE_60, LATE_90, LATE_120, CHARGE_OFF, REPOSSESSION }
 
@@ -45,6 +46,8 @@ public class CreditBureau implements Serializable {
             case CORPORATE:
             case MEGACORP: return Category.BUSINESS;
             case SOVEREIGN: return Category.LINE;
+            case CREDIT_LINE: return Category.REVOLVING;
+            case SECURED: return Category.SECURED;
             default: return Category.PERSONAL;
         }
     }
@@ -65,6 +68,8 @@ public class CreditBureau implements Serializable {
         public int monthsOnTime;
         public boolean pastDueNow;
         public boolean chargedOff;
+        /** Revolving accounts (0.3.0): the reported credit limit. */
+        public float creditLimit;
         public List<Event> events = new ArrayList<Event>();
 
         public boolean isOpen() { return closedTs == 0L; }
@@ -109,6 +114,11 @@ public class CreditBureau implements Serializable {
         public int openAccounts, closedAccounts, monthsOnTime, inquiries12, accountsOpened12;
         public int late30, late60, late90, late120, chargeOffs, repossessions;
         public float oldestMonths, averageMonths, balanceRatio;
+        /** Revolving utilization (statement balance / limit of open credit lines). Only meaningful when hasRevolving(). */
+        public float utilization, revolvingBalance, revolvingLimit;
+
+        /** Not a -1 sentinel: a Result cached in an older save loads these fields as 0. */
+        public boolean hasRevolving() { return revolvingLimit > 0f || revolvingBalance > 0f; }
         public boolean bankruptcyOnFile, pastDueNow;
     }
 
@@ -153,6 +163,7 @@ public class CreditBureau implements Serializable {
         t.category = categoryOf(loan.loanType);
         t.originalAmount = loan.principal;
         t.reportedBalance = loan.remainingBalance;
+        t.creditLimit = loan.creditLimit;
         t.openedTs = loan.createdTimestamp != 0L ? loan.createdTimestamp : now();
         tradelines.add(t);
         recompute();
@@ -160,6 +171,18 @@ public class CreditBureau implements Serializable {
 
     public void recordBankruptcy() {
         bankruptcyTs = now();
+        recompute();
+    }
+
+    /**
+     * Default: the lender reports the charge-off when it happens. Recording it at the next monthly
+     * report instead would miss defaults that a seizure or a deposit settles before month end.
+     */
+    public void recordChargeOff(String accountId) {
+        Tradeline t = find(accountId);
+        if (t == null || t.chargedOff) return;
+        t.chargedOff = true;
+        t.events.add(new Event(EventType.CHARGE_OFF, now()));
         recompute();
     }
 
@@ -179,17 +202,30 @@ public class CreditBureau implements Serializable {
                 t.pastDueNow = false;
                 if (loan != null && loan.status == LoanStatus.SEIZED) {
                     t.closedByEnforcement = true;
-                    t.events.add(new Event(EventType.REPOSSESSION, ts));
+                    if (loan.loanType.isBuilder()) {
+                        // Settled from its own deposit after default: lenders report a charge-off.
+                        if (!t.chargedOff) t.events.add(new Event(EventType.CHARGE_OFF, ts));
+                        t.chargedOff = true;
+                    } else {
+                        t.events.add(new Event(EventType.REPOSSESSION, ts));
+                    }
                 }
                 continue;
             }
             t.monthsReported++;
-            t.reportedBalance = loan.remainingBalance;
+            // Lenders report a credit line's statement balance, even if it is paid in full afterwards;
+            // only paying down before the statement lowers what the bureau sees.
+            t.reportedBalance = loan.loanType.isRevolving() ? loan.statementBalance : loan.remainingBalance;
+            t.creditLimit = loan.creditLimit;
             int d = loan.status == LoanStatus.ACTIVE ? 0 : loan.daysOverdue;
             t.pastDueNow = d >= 30;
-            if (loan.status == LoanStatus.DEFAULTED && !t.chargedOff) {
-                t.chargedOff = true;
-                t.events.add(new Event(EventType.CHARGE_OFF, ts));
+            if (loan.status == LoanStatus.DEFAULTED) {
+                // Normally already recorded at the default (recordChargeOff); this covers older saves.
+                // A charged-off account then reports its balance, not a new late mark every month.
+                if (!t.chargedOff) {
+                    t.chargedOff = true;
+                    t.events.add(new Event(EventType.CHARGE_OFF, ts));
+                }
             } else if (d >= 120) {
                 t.events.add(new Event(EventType.LATE_120, ts));
             } else if (d >= 90) {
@@ -309,13 +345,20 @@ public class CreditBureau implements Serializable {
         lost.put("reason.limitedPaymentHistory", PAYMENT_MAX - base);
 
         // ---- Amounts owed (30%)
-        float bal = 0f, orig = 0f;
+        // Installment loans are judged by balance vs original amount; credit lines by utilization
+        // (balance / limit), which weighs more and has no memory: paying it down helps at the next report.
+        float bal = 0f, orig = 0f, revBal = 0f, revLimit = 0f;
         int withBalance = 0;
         for (Tradeline t : tradelines) {
             if (t.isOpen()) {
                 r.openAccounts++;
-                bal += t.reportedBalance;
-                orig += t.originalAmount;
+                if (t.category == Category.REVOLVING) {
+                    revBal += t.reportedBalance;
+                    revLimit += t.creditLimit;
+                } else {
+                    bal += t.reportedBalance;
+                    orig += t.originalAmount;
+                }
                 if (t.reportedBalance > 1f) withBalance++;
             } else {
                 r.closedAccounts++;
@@ -331,9 +374,22 @@ public class CreditBureau implements Serializable {
             ratioPts = ratio <= 0.3f ? 165f : ratio <= 0.5f ? 150f : ratio <= 0.7f ? 130f
                 : ratio <= 0.85f ? 105f : ratio <= 0.95f ? 85f : 70f;
         }
+        float utilPts = -1f;
+        if (revLimit > 0f || revBal > 0f) {
+            float u = revLimit > 0f ? revBal / revLimit : 1f;
+            r.utilization = u;
+            r.revolvingBalance = revBal;
+            r.revolvingLimit = revLimit;
+            // 1-10% is best; 0% scores slightly lower (no recent revolving use), as in FICO.
+            utilPts = u <= 0f ? 155f : u <= 0.1f ? 165f : u <= 0.3f ? 150f : u <= 0.5f ? 120f
+                : u <= 0.75f ? 90f : u <= 0.9f ? 60f : 35f;
+        }
+        float utilWeight = utilPts < 0f ? 0f : orig > 0f ? 0.65f : 1f;
+        float amountsPts = utilWeight == 0f ? ratioPts : utilWeight * utilPts + (1f - utilWeight) * ratioPts;
         float countPenalty = withBalance >= 5 ? 30f : withBalance == 4 ? 20f : withBalance == 3 ? 10f : 0f;
-        r.amounts = clamp(ratioPts - countPenalty, 0f, AMOUNTS_MAX);
-        lost.put("reason.balanceRatio", AMOUNTS_MAX - ratioPts);
+        r.amounts = clamp(amountsPts - countPenalty, 0f, AMOUNTS_MAX);
+        lost.put("reason.balanceRatio", (1f - utilWeight) * (AMOUNTS_MAX - ratioPts));
+        lost.put("reason.utilization", utilWeight * (AMOUNTS_MAX - utilPts));
         lost.put("reason.tooManyBalances", countPenalty);
 
         // ---- Length of credit history (15%)
@@ -373,7 +429,12 @@ public class CreditBureau implements Serializable {
         // ---- Credit mix (10%)
         Set<Category> kinds = EnumSet.noneOf(Category.class);
         for (Tradeline t : tradelines) kinds.add(t.category);
-        r.mix = kinds.isEmpty() ? 0f : kinds.size() == 1 ? 25f : kinds.size() == 2 ? 42f : MIX_MAX;
+        // FICO rewards handling both installment and revolving credit; the top of the scale needs both.
+        boolean revolving = kinds.contains(Category.REVOLVING);
+        int installmentKinds = kinds.size() - (revolving ? 1 : 0);
+        if (kinds.isEmpty()) r.mix = 0f;
+        else if (!revolving) r.mix = installmentKinds == 1 ? 25f : installmentKinds == 2 ? 35f : 40f;
+        else r.mix = installmentKinds == 0 ? 25f : installmentKinds == 1 ? 45f : installmentKinds == 2 ? 50f : MIX_MAX;
         lost.put("reason.mix", MIX_MAX - r.mix);
 
         r.score = isScoreable()
