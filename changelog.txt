@@ -1,6 +1,11 @@
 Bank of Starsector
 
 0.3.0-beta (in development)
+- New: credit-builder loan. For files with no score or a score under 500 (also during bankruptcy recovery):
+  10k-50k held at the bank while you pay 12 installments at a fixed 1%/month, released when paid off.
+  Builds a credit file; doesn't count toward the loan limit; on default the bank keeps the deposit.
+- Fixed: defaults are reported to the credit bureau when they happen, and a charged-off loan no longer adds
+  a new late mark every month.
 - Internal: save compatibility guard (tests/SaveCompatCheck) and docs/SAVE_COMPAT.md.
 
 0.2.1-beta

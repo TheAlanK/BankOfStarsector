@@ -17,6 +17,7 @@ const com.bankofstarsector.banking.LoanStatus DEFAULTED
 const com.bankofstarsector.banking.LoanStatus OVERDUE
 const com.bankofstarsector.banking.LoanStatus PAID_OFF
 const com.bankofstarsector.banking.LoanStatus SEIZED
+const com.bankofstarsector.banking.LoanType BUILDER
 const com.bankofstarsector.banking.LoanType CORPORATE
 const com.bankofstarsector.banking.LoanType EMERGENCY
 const com.bankofstarsector.banking.LoanType MEGACORP
@@ -34,6 +35,7 @@ field com.bankofstarsector.banking.BankAccount createdTimestamp long
 field com.bankofstarsector.banking.BankAccount currentBill float
 field com.bankofstarsector.banking.BankAccount currentValue float
 field com.bankofstarsector.banking.BankAccount daysOverdue int
+field com.bankofstarsector.banking.BankAccount heldFunds float
 field com.bankofstarsector.banking.BankAccount investedAmount float
 field com.bankofstarsector.banking.BankAccount investmentType com.bankofstarsector.banking.InvestmentType
 field com.bankofstarsector.banking.BankAccount isLoan boolean

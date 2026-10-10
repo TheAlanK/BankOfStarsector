@@ -48,6 +48,18 @@ public class LoanManager implements Serializable {
         return getActiveLoans().size();
     }
 
+    /** Open loans that count toward the score bracket's loan limit (credit-builder loans do not). */
+    public int getLimitedLoanCount() {
+        int n = 0;
+        for (BankAccount loan : getActiveLoans()) if (!loan.loanType.isBuilder()) n++;
+        return n;
+    }
+
+    public boolean hasOpenBuilderLoan() {
+        for (BankAccount loan : getActiveLoans()) if (loan.loanType.isBuilder()) return true;
+        return false;
+    }
+
     public boolean hasDefaultedLoan() {
         for (BankAccount loan : getActiveLoans()) {
             if (loan.status == LoanStatus.DEFAULTED) return true;
@@ -57,9 +69,31 @@ public class LoanManager implements Serializable {
 
     public boolean canTakeLoan(LoanType type, int creditScore, int maxLoans) {
         if (creditScore < type.minCreditScore) return false;
-        if (getActiveLoanCount() >= maxLoans) return false;
+        if (getLimitedLoanCount() >= maxLoans) return false;
         if (type.getMaxAmountForScore(creditScore) <= 0) return false;
         return true;
+    }
+
+    /**
+     * Why the player can't take this loan type right now, as a string key; null if they can.
+     * The single place the terminal and the tests ask.
+     */
+    public String whyNot(LoanType type, BankData data) {
+        CreditScoreManager csm = data.getCreditScoreManager();
+        int score = csm.getScore();
+        if (type.isBuilder()) {
+            // Costs the bank nothing, so it stays open to rebuild credit, even after bankruptcy.
+            if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
+            if (csm.hasScore() && score >= BankSettings.BUILDER_MAX_SCORE) return "terminal.loans.reasonBuilderScore";
+            if (hasOpenBuilderLoan()) return "terminal.loans.reasonBuilderOpen";
+            return null;
+        }
+        if (!data.getBankruptcyManager().canTakeLoanType(type)) return "terminal.loans.reasonBankruptcy";
+        if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
+        if (!canTakeLoan(type, score, csm.getMaxLoans())) {
+            return score < type.minCreditScore ? "terminal.loans.reasonScore" : "terminal.loans.reasonMax";
+        }
+        return null;
     }
 
     public BankAccount takeLoan(LoanType type, float amount, float effectiveRate) {
@@ -69,10 +103,16 @@ public class LoanManager implements Serializable {
         // Application = hard inquiry; the account goes on the credit report.
         BankData.get().getCreditScoreManager().onLoanOpened(loan);
 
-        Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
-
-        BankData.get().addTransaction("LOAN", amount,
-            com.bankofstarsector.core.Str.f("txd.loan", type.getDisplayName(), formatCredits(amount)));
+        if (type.isBuilder()) {
+            // The money stays at the bank; the player only pays the installments.
+            loan.heldFunds = amount;
+            BankData.get().addTransaction("LOAN", 0f,
+                com.bankofstarsector.core.Str.f("txd.builder", formatCredits(amount)));
+        } else {
+            Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
+            BankData.get().addTransaction("LOAN", amount,
+                com.bankofstarsector.core.Str.f("txd.loan", type.getDisplayName(), formatCredits(amount)));
+        }
 
         return loan;
     }
@@ -115,6 +155,7 @@ public class LoanManager implements Serializable {
                 loan.status = LoanStatus.PAID_OFF;
                 data.getCreditScoreManager().onLoanPayoff();
                 data.addTransaction("PAYOFF", -amount, com.bankofstarsector.core.Str.f("txd.payoff", loan.loanType.getDisplayName()));
+                releaseHeldFunds(loan);
             }
             return;
         }
@@ -220,11 +261,47 @@ public class LoanManager implements Serializable {
             loan.daysOverdue++;
             if (loan.daysOverdue >= BankSettings.DEFAULT_THRESHOLD_DAYS && loan.status != LoanStatus.DEFAULTED) {
                 loan.status = LoanStatus.DEFAULTED;
-                BankData.get().getCreditScoreManager().onDefault();
+                BankData.get().getCreditScoreManager().onDefault(loan);
                 BankData.get().addTransaction("DEFAULT", 0, com.bankofstarsector.core.Str.f("txd.default", loan.loanType.getDisplayName()));
+                applyHeldFunds(loan); // a credit-builder loan is settled from its own deposit first
                 BankData.get().getAssetSeizureManager().seizeInvestments(BankData.get());
             }
         }
+    }
+
+    /** Payoff of a credit-builder loan: the held money goes to the player. */
+    private void releaseHeldFunds(BankAccount loan) {
+        if (loan.heldFunds <= 0f) return;
+        float held = loan.heldFunds;
+        loan.heldFunds = 0f;
+        Global.getSector().getPlayerFleet().getCargo().getCredits().add(held);
+        BankData.get().addTransaction("RELEASE", held,
+            com.bankofstarsector.core.Str.f("txd.builderReleased", formatCredits(held)));
+    }
+
+    /**
+     * Default or bankruptcy of a credit-builder loan: the bank keeps what the loan still owes from the
+     * held money and returns any excess to the player.
+     */
+    public void applyHeldFunds(BankAccount loan) {
+        if (loan.heldFunds <= 0f) return;
+        float held = loan.heldFunds;
+        loan.heldFunds = 0f;
+        float used = Math.min(held, loan.remainingBalance);
+        float excess = held - used;
+        if (excess > 0f) {
+            Global.getSector().getPlayerFleet().getCargo().getCredits().add(excess);
+            BankData.get().addTransaction("RELEASE", excess,
+                com.bankofstarsector.core.Str.f("txd.builderReleased", formatCredits(excess)));
+        }
+        if (used > 0f) applyPayment(loan, used, "SEIZURE");
+    }
+
+    /** Credit-builder money held at the bank: the player's, released at payoff. */
+    public float getTotalHeldFunds() {
+        float total = 0f;
+        for (BankAccount loan : getActiveLoans()) total += loan.heldFunds;
+        return total;
     }
 
     public float getTotalDebt() {

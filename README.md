@@ -6,6 +6,7 @@ A Starsector mod that adds the **Persean Banking Confederation (PBC)**, a powerf
 
 ### Banking System
 - **Loans**: 5 tiers from Emergency (50k) to Sovereign (5M). Each loan is repaid in **monthly installments** (interest plus an even share of the principal).
+- **Credit-builder loan**: for captains with no credit score or a low one (under 500), including during bankruptcy recovery. You borrow 10k–50k, but the money stays at the bank while you pay the installments (12 months, 1%/month fixed); when the loan is paid off, the money is yours. Each month paid on time builds your credit file. It doesn't count toward your loan limit, and if it defaults the bank simply keeps the deposit (no Collection Fleet), but the charge-off still goes on your credit report.
 - **Autopay**: installments appear in the vanilla **monthly income report** under *Fleet → PBC loan installments* and are settled with the rest of your monthly finances. You can turn autopay off in the terminal.
 - **Grace period**: an installment only becomes late if it is still unpaid at the *next* month end, so you always get a month to pay manually.
 - **Investments**: savings accounts, government bonds, commodity futures, venture funds and military contracts.
@@ -93,6 +94,8 @@ None required.
 ## Changelog
 
 ### 0.3.0-beta (in development)
+- **New:** credit-builder loan, the realistic way to start (or rebuild) a credit file.
+- **Fix:** a default is put on the credit report when it happens, so a seizure that settles it before month end no longer hides it; a charged-off loan no longer adds a new late mark every month.
 - **Internal:** a test now fails the build if a change would break loading existing saves ([docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)).
 
 ### 0.2.1-beta

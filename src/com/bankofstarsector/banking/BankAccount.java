@@ -28,6 +28,8 @@ public class BankAccount implements Serializable {
     public float currentBill;
     public int missedPayments;
     public LoanStatus status;
+    /** Credit-builder loans (0.3.0): loan money held at the bank until payoff. 0 for other loans and in older saves. */
+    public float heldFunds;
 
     // Investment fields
     public InvestmentType investmentType;
@@ -51,7 +53,7 @@ public class BankAccount implements Serializable {
         account.remainingBalance = amount;
         account.monthlyRate = effectiveRate;
         account.baseMonthlyRate = effectiveRate;
-        account.termMonths = type.termMonths;
+        account.termMonths = type.getTermMonths();
         account.monthsElapsed = 0;
         account.daysOverdue = 0;
         account.amountPastDue = 0f;

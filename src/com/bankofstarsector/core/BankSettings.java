@@ -45,6 +45,13 @@ public class BankSettings {
     public static int CLOSED_ACCOUNT_MONTHS = 120;    // closed accounts in good standing stay 10 years
     public static int BANKRUPTCY_RECORD_MONTHS = 120; // public record
 
+    // Credit-builder loan: the money stays at the bank until the loan is paid off
+    public static float BUILDER_MIN_AMOUNT = 10000f;
+    public static float BUILDER_MAX_AMOUNT = 50000f;
+    public static int BUILDER_TERM_MONTHS = 12;
+    public static float BUILDER_RATE = 0.01f;         // monthly; fixed, it is secured by its own funds
+    public static int BUILDER_MAX_SCORE = 500;        // offered to files with no score or a score below this
+
 
     // Collection
     public static int OVERDUE_PHASE1_DAYS = 30;
@@ -89,6 +96,11 @@ public class BankSettings {
             SCORE_MISSED_PAYMENT = i(j, "scoreMissedPayment", SCORE_MISSED_PAYMENT);
             SCORE_DEFAULT = i(j, "scoreDefault", SCORE_DEFAULT);
             MIN_SCORING_MONTHS = i(j, "minScoringMonths", MIN_SCORING_MONTHS);
+            BUILDER_MIN_AMOUNT = f(j, "builderMinAmount", BUILDER_MIN_AMOUNT);
+            BUILDER_MAX_AMOUNT = f(j, "builderMaxAmount", BUILDER_MAX_AMOUNT);
+            BUILDER_TERM_MONTHS = i(j, "builderTermMonths", BUILDER_TERM_MONTHS);
+            BUILDER_RATE = f(j, "builderRate", BUILDER_RATE);
+            BUILDER_MAX_SCORE = i(j, "builderMaxScore", BUILDER_MAX_SCORE);
             INQUIRY_DEDUPE_DAYS = i(j, "inquiryDedupeDays", INQUIRY_DEDUPE_DAYS);
             DEROGATORY_MONTHS = i(j, "derogatoryMonths", DEROGATORY_MONTHS);
             CLOSED_ACCOUNT_MONTHS = i(j, "closedAccountMonths", CLOSED_ACCOUNT_MONTHS);

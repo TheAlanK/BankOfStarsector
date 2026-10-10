@@ -22,7 +22,7 @@ public final class BankSnapshot {
     private static volatile BankSnapshot latest = null;
 
     public final String date;
-    public final float netWorth, credits, debt, invested, late, dueNow, warSurcharge, disruption, sovereignDebt;
+    public final float netWorth, credits, debt, invested, held, late, dueNow, warSurcharge, disruption, sovereignDebt;
     public final boolean autopay, restricted;
     public final int score;
     public final String bracket, bankruptcyState, bankruptcyLabel, scoreText;
@@ -50,7 +50,8 @@ public final class BankSnapshot {
         credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         debt = lm.getTotalDebt();
         invested = im.getTotalValue();
-        netWorth = credits + invested - debt;
+        held = lm.getTotalHeldFunds();
+        netWorth = data.getNetWorth();
         late = lm.getTotalLate();
         dueNow = lm.getTotalCurrentBills();
         autopay = data.isAutopayEnabled();
@@ -66,9 +67,9 @@ public final class BankSnapshot {
 
         List<Line> l = new ArrayList<Line>();
         for (BankAccount loan : lm.getActiveLoans()) {
-            l.add(new Line(loan.loanType.getDisplayName(),
-                LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay(),
-                loan.status != LoanStatus.ACTIVE));
+            String detail = LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay();
+            if (loan.heldFunds > 0f) detail += " | " + com.bankofstarsector.core.Str.f("nexus.loanHeld", LoanManager.formatCredits(loan.heldFunds));
+            l.add(new Line(loan.loanType.getDisplayName(), detail, loan.status != LoanStatus.ACTIVE));
         }
         loans = Collections.unmodifiableList(l);
 
@@ -105,6 +106,7 @@ public final class BankSnapshot {
             o.put("credits", credits);
             o.put("debt", debt);
             o.put("invested", invested);
+            o.put("heldFunds", held);
             o.put("pastDue", late);
             o.put("dueByMonthEnd", dueNow);
             o.put("autopay", autopay);

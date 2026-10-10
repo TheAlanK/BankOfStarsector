@@ -11,6 +11,7 @@ import com.fs.starfarer.api.ui.*;
 import com.fs.starfarer.api.util.Misc;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -118,6 +119,10 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             Misc.getDGSCredits(lm.getTotalDebt()));
         info.addPara(Str.get("terminal.overview.totalInvestments"), opad, Misc.getPositiveHighlightColor(),
             Misc.getDGSCredits(im.getTotalValue()));
+        if (lm.getTotalHeldFunds() > 0f) {
+            info.addPara(Str.get("terminal.overview.held"), opad, Misc.getPositiveHighlightColor(),
+                Misc.getDGSCredits(lm.getTotalHeldFunds()));
+        }
 
         info.addSpacer(opad);
         heading(info, "terminal.credit.heading", opad);
@@ -230,6 +235,10 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
                 info.addPara(Str.get("terminal.loans.next"), 3f, Misc.getHighlightColor(),
                     Misc.getDGSCredits(loan.getMonthlyPayment()), "" + loan.monthsElapsed, "" + loan.termMonths);
+                if (loan.heldFunds > 0f) {
+                    info.addPara(Str.get("terminal.loans.held"), 3f, Misc.getPositiveHighlightColor(),
+                        Misc.getDGSCredits(loan.heldFunds));
+                }
 
                 if (loan.amountPastDue > 1f) {
                     info.addPara(Str.get("terminal.loans.due"), 3f,
@@ -254,42 +263,61 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         info.addSpacer(opad);
         heading(info, "terminal.loans.available", opad);
 
-        if (!data.getBankruptcyManager().canTakeLoans()) {
-            info.addPara(Str.get("terminal.loans.restrictedBankruptcy"), Misc.getNegativeHighlightColor(), opad);
-        } else if (data.getCollectionManager().isBankingRestricted()) {
+        boolean bankruptcyLock = !data.getBankruptcyManager().canTakeLoans();
+        if (data.getCollectionManager().isBankingRestricted()) {
             info.addPara(Str.get("terminal.loans.restrictedOverdue"), Misc.getNegativeHighlightColor(), opad);
-        } else {
-            for (LoanType type : LoanType.values()) {
-                boolean canTake = lm.canTakeLoan(type, csm.getScore(), csm.getMaxLoans())
-                    && data.getBankruptcyManager().canTakeLoanType(type);
-                float maxAmount = type.getMaxAmountForScore(csm.getScore());
-                float effectiveRate = engine.calculateEffectiveLoanRate(type, csm.getScore());
+            return;
+        }
+        if (bankruptcyLock) {
+            info.addPara(Str.get("terminal.loans.restrictedBankruptcy"), Misc.getNegativeHighlightColor(), opad);
+        }
 
-                Color typeColor = canTake ? Misc.getHighlightColor() : Misc.getGrayColor();
-                info.addPara("%s", opad, typeColor, type.getDisplayName());
+        // The credit-builder loan comes first, and is the only offer during the bankruptcy lockout.
+        List<LoanType> offers = new ArrayList<LoanType>();
+        offers.add(LoanType.BUILDER);
+        if (!bankruptcyLock) {
+            for (LoanType type : LoanType.values()) if (!type.isBuilder()) offers.add(type);
+        }
+        for (LoanType type : offers) {
+            String why = lm.whyNot(type, data);
+            // Players with a good score don't need it; don't clutter their list.
+            if (type.isBuilder() && "terminal.loans.reasonBuilderScore".equals(why)) continue;
+            boolean canTake = why == null;
+            float maxAmount = type.getMaxAmountForScore(csm.getScore());
+            float effectiveRate = engine.calculateEffectiveLoanRate(type, csm.getScore());
+
+            Color typeColor = canTake ? Misc.getHighlightColor() : Misc.getGrayColor();
+            info.addPara("%s", opad, typeColor, type.getDisplayName());
+            if (type.isBuilder()) {
+                info.addPara(Str.get("terminal.loans.builderTerms"), 3f, Misc.getGrayColor(),
+                    Misc.getDGSCredits(BankSettings.BUILDER_MIN_AMOUNT), Misc.getDGSCredits(maxAmount),
+                    pct(effectiveRate, "%.1f"), "" + type.getTermMonths(), "" + BankSettings.BUILDER_MAX_SCORE);
+            } else {
                 info.addPara(Str.get("terminal.loans.terms"), 3f, Misc.getGrayColor(),
                     Misc.getDGSCredits(maxAmount), pct(effectiveRate, "%.1f"),
-                    "" + type.termMonths, "" + type.minCreditScore);
-                info.addPara("  %s", 3f, Misc.getGrayColor(), type.getDescription());
-
-                if (canTake) {
-                    float[] pcts = {0.25f, 0.50f, 0.75f, 1.0f};
-                    for (float p : pcts) {
-                        float amount = maxAmount * p;
-                        info.addButton(Str.f("terminal.loans.take", Misc.getDGSCredits(amount)),
-                            "loan_take_" + type.name() + "_" + (int) (p * 100),
-                            Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
-                    }
-                } else {
-                    String reason;
-                    if (csm.getScore() < type.minCreditScore) reason = Str.get("terminal.loans.reasonScore");
-                    else if (!data.getBankruptcyManager().canTakeLoanType(type)) reason = Str.get("terminal.loans.reasonBankruptcy");
-                    else reason = Str.get("terminal.loans.reasonMax");
-                    info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), reason);
-                }
-                info.addSpacer(opad / 2);
+                    "" + type.getTermMonths(), "" + type.minCreditScore);
             }
+            info.addPara("  %s", 3f, Misc.getGrayColor(), type.getDescription());
+
+            if (canTake) {
+                float[] pcts = {0.25f, 0.50f, 0.75f, 1.0f};
+                for (float p : pcts) {
+                    float amount = loanAmount(type, maxAmount, p);
+                    info.addButton(Str.f("terminal.loans.take", Misc.getDGSCredits(amount)),
+                        "loan_take_" + type.name() + "_" + (int) (p * 100),
+                        Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
+                }
+            } else {
+                info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), Str.get(why));
+            }
+            info.addSpacer(opad / 2);
         }
+    }
+
+    /** Amount offered on a "take" button: a share of the maximum, never below the credit-builder minimum. */
+    private static float loanAmount(LoanType type, float maxAmount, float share) {
+        float amount = maxAmount * share;
+        return type.isBuilder() ? Math.max(BankSettings.BUILDER_MIN_AMOUNT, amount) : amount;
     }
 
     private void renderInvestments(TooltipMakerAPI info, float width, float opad) {
@@ -530,13 +558,11 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
             LoanType type = LoanType.valueOf(typeName);
             int score = data.getCreditScoreManager().getScore();
-            if (!data.getLoanManager().canTakeLoan(type, score, data.getCreditScoreManager().getMaxLoans())
-                    || !data.getBankruptcyManager().canTakeLoanType(type)
-                    || data.getCollectionManager().isBankingRestricted()) {
+            if (data.getLoanManager().whyNot(type, data) != null) {
                 ui.updateUIForItem(this);
                 return;
             }
-            float amount = type.getMaxAmountForScore(score) * (p / 100f);
+            float amount = loanAmount(type, type.getMaxAmountForScore(score), p / 100f);
             float effectiveRate = data.getInterestEngine().calculateEffectiveLoanRate(type, score);
             data.getLoanManager().takeLoan(type, amount, effectiveRate);
             ui.updateUIForItem(this);

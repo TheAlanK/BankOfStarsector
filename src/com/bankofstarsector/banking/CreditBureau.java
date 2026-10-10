@@ -164,6 +164,18 @@ public class CreditBureau implements Serializable {
     }
 
     /**
+     * Default: the lender reports the charge-off when it happens. Recording it at the next monthly
+     * report instead would miss defaults that a seizure or a deposit settles before month end.
+     */
+    public void recordChargeOff(String accountId) {
+        Tradeline t = find(accountId);
+        if (t == null || t.chargedOff) return;
+        t.chargedOff = true;
+        t.events.add(new Event(EventType.CHARGE_OFF, now()));
+        recompute();
+    }
+
+    /**
      * Monthly reporting cycle: every open account reports its balance and status; closures,
      * delinquencies, charge-offs and repossessions are recorded; old items age off.
      */
@@ -179,7 +191,13 @@ public class CreditBureau implements Serializable {
                 t.pastDueNow = false;
                 if (loan != null && loan.status == LoanStatus.SEIZED) {
                     t.closedByEnforcement = true;
-                    t.events.add(new Event(EventType.REPOSSESSION, ts));
+                    if (loan.loanType.isBuilder()) {
+                        // Settled from its own deposit after default: lenders report a charge-off.
+                        if (!t.chargedOff) t.events.add(new Event(EventType.CHARGE_OFF, ts));
+                        t.chargedOff = true;
+                    } else {
+                        t.events.add(new Event(EventType.REPOSSESSION, ts));
+                    }
                 }
                 continue;
             }
@@ -187,9 +205,13 @@ public class CreditBureau implements Serializable {
             t.reportedBalance = loan.remainingBalance;
             int d = loan.status == LoanStatus.ACTIVE ? 0 : loan.daysOverdue;
             t.pastDueNow = d >= 30;
-            if (loan.status == LoanStatus.DEFAULTED && !t.chargedOff) {
-                t.chargedOff = true;
-                t.events.add(new Event(EventType.CHARGE_OFF, ts));
+            if (loan.status == LoanStatus.DEFAULTED) {
+                // Normally already recorded at the default (recordChargeOff); this covers older saves.
+                // A charged-off account then reports its balance, not a new late mark every month.
+                if (!t.chargedOff) {
+                    t.chargedOff = true;
+                    t.events.add(new Event(EventType.CHARGE_OFF, ts));
+                }
             } else if (d >= 120) {
                 t.events.add(new Event(EventType.LATE_120, ts));
             } else if (d >= 90) {

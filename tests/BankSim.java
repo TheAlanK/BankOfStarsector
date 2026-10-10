@@ -40,6 +40,9 @@ public class BankSim {
         scenarioInstantRepayExploitBlocked();
         scenarioLatePaymentHurtsAndFades();
         scenarioRateShopping();
+        scenarioCreditBuilder();
+        scenarioCreditBuilderDefault();
+        scenarioCreditBuilderEligibility();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -180,6 +183,85 @@ public class BankSim {
     }
 
     // ------------------------------------------------------------------ credit bureau scenarios
+
+    // ------------------------------------------------------------------ credit-builder loan (0.3.0)
+
+    static void scenarioCreditBuilder() {
+        reset(100_000f);
+        BankData data = BankData.get();
+        LoanManager lm = data.getLoanManager();
+        check("[builder] offered to a thin file", lm.whyNot(LoanType.BUILDER, data) == null);
+        BankAccount b = lm.takeLoan(LoanType.BUILDER, 30_000f,
+            data.getInterestEngine().calculateEffectiveLoanRate(LoanType.BUILDER, data.getCreditScoreManager().getScore()));
+        check("[builder] money is held at the bank, not paid out",
+            Math.abs(credits.get() - 100_000f) < 1f && Math.abs(b.heldFunds - 30_000f) < 1f);
+        check("[builder] net worth unchanged: the held money is still the player's", Math.abs(data.getNetWorth() - 100_000f) < 1f);
+        check("[builder] fixed rate and configured term",
+            Math.abs(b.monthlyRate - BankSettings.BUILDER_RATE) < 1e-6 && b.termMonths == BankSettings.BUILDER_TERM_MONTHS);
+        check("[builder] does not count toward the loan limit", lm.whyNot(LoanType.EMERGENCY, data) == null);
+        check("[builder] only one at a time", "terminal.loans.reasonBuilderOpen".equals(lm.whyNot(LoanType.BUILDER, data)));
+
+        months(6);
+        Integer s6 = score();
+        float before = credits.get();
+        float balance = b.remainingBalance;
+        boolean paid = lm.payOff(b.accountId);
+        float after = credits.get();
+        boolean again = lm.payOff(b.accountId);
+        System.out.printf("[builder] score after 6 months: %s | payoff of %.0f released %.0f (credits %.0f -> %.0f) | status %s%n",
+            s6, balance, after - before + balance, before, after, b.status);
+        check("[builder] six months of history make the file scoreable", s6 != null);
+        check("[builder] payoff releases the held money", paid && b.status == LoanStatus.PAID_OFF
+            && Math.abs(after - (before - balance + 30_000f)) < 1f && b.heldFunds == 0f);
+        check("[builder] released only once", !again && Math.abs(credits.get() - after) < 1f);
+    }
+
+    static void scenarioCreditBuilderDefault() {
+        reset(0f);
+        BankData data = BankData.get();
+        LoanManager lm = data.getLoanManager();
+        data.setAutopayEnabled(false);
+        BankAccount b = lm.takeLoan(LoanType.BUILDER, 30_000f, BankSettings.BUILDER_RATE);
+        credits.set(0f);
+        int day = 0;
+        while (b.heldFunds > 0f && day < 240) { advanceDays(1); day++; if (day % 30 == 0) monthEnd(); }
+        advanceDays(30); monthEnd(); // next reporting cycle
+        CreditBureau.Result rep = data.getCreditScoreManager().getReport();
+        System.out.printf("[builder default] after %d days: status %s, balance left %.0f, held %.0f, fleet %s, charge-offs %d, repossessions %d%n",
+            day, b.status, b.remainingBalance, b.heldFunds, data.getCollectionManager().hasActiveCollection(b.accountId),
+            rep.chargeOffs, rep.repossessions);
+        check("[builder default] the deposit pays the debt", b.heldFunds == 0f && b.remainingBalance < 30_000f * 0.1f);
+        check("[builder default] no Collection Fleet is sent", !data.getCollectionManager().hasActiveCollection(b.accountId));
+        check("[builder default] reported as a charge-off, not a repossession", rep.chargeOffs >= 1 && rep.repossessions == 0);
+    }
+
+    static void scenarioCreditBuilderEligibility() {
+        // A good score doesn't need it.
+        reset(10_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(8);
+        Integer good = score();
+        String whyGood = data.getLoanManager().whyNot(LoanType.BUILDER, data);
+
+        // After bankruptcy it is the only loan offered.
+        reset(0f);
+        data = BankData.get();
+        data.setAutopayEnabled(false);
+        data.getLoanManager().takeLoan(LoanType.EMERGENCY, 40_000f, 0.08f);
+        credits.set(0f);
+        int day = 0;
+        while (!data.getBankruptcyManager().canFileBankruptcy(data) && day < 240) { advanceDays(1); day++; if (day % 30 == 0) monthEnd(); }
+        data.getBankruptcyManager().fileBankruptcy(data);
+        String whyBuilder = data.getLoanManager().whyNot(LoanType.BUILDER, data);
+        String whySmall = data.getLoanManager().whyNot(LoanType.SMALL, data);
+        System.out.printf("[builder eligibility] score %s -> %s | after bankruptcy: builder %s, small %s%n",
+            good, whyGood, whyBuilder, whySmall);
+        check("[builder eligibility] not offered once the score is good",
+            good != null && good >= BankSettings.BUILDER_MAX_SCORE && "terminal.loans.reasonBuilderScore".equals(whyGood));
+        check("[builder eligibility] offered during the bankruptcy lockout, unlike other loans",
+            whyBuilder == null && "terminal.loans.reasonBankruptcy".equals(whySmall));
+    }
 
     static Integer score() {
         return BankData.get().getCreditScoreManager().getReport().score;

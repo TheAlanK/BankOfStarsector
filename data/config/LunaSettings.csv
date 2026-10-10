@@ -6,6 +6,10 @@ bos_warSurchargePerWar,War surcharge per war,Double,0.05,,Loan rates rise by thi
 bos_warSurchargeMax,War surcharge cap,Double,0.25,,Maximum total war surcharge on loan rates.,0,1,Interest
 bos_overduePenaltyPerMonth,Penalty interest per month overdue,Double,0.5,,Overdue loans accrue base rate x (1 + this x months overdue).,0,3,Interest
 bos_marketDisruptionModifier,Market disruption weight,Double,0.1,,How strongly disrupted industries raise loan rates and drag investment returns.,0,1,Interest
+bos_builderHeader,Credit builder,Header,Credit-builder loan,,,,,Interest
+bos_builderMaxAmount,Credit builder: maximum,Double,50000,,Largest credit-builder loan. The money stays at the bank until the loan is paid off.,10000,500000,Interest
+bos_builderTermMonths,Credit builder: term (months),Int,12,,Months to repay a credit-builder loan.,6,36,Interest
+bos_builderRate,Credit builder: monthly rate,Double,0.01,,Fixed monthly interest of a credit-builder loan.,0,0.1,Interest
 bos_collectionHeader,Collection,Header,Debt collection,,,,,Collection
 bos_overduePhase1Days,Days until banking is restricted,Int,30,,Days overdue before new loans are suspended and penalty interest applies.,7,180,Collection
 bos_overduePhase2Days,Days until a collection fleet,Int,60,,Days overdue before a PBC Collection Fleet is dispatched.,14,365,Collection

@@ -119,6 +119,11 @@ public class CreditScoreManager implements Serializable {
         bureau().recordBankruptcy();
     }
 
+    /** A loan reached default: charged off on the report right away. */
+    public void onDefault(BankAccount loan) {
+        bureau().recordChargeOff(loan.accountId);
+    }
+
     /** Monthly reporting cycle (called at month end, after payments and before the bank cleans up closed loans). */
     public void advanceMonth(LoanManager lm) {
         bureau(lm).monthlyReport(lm);
@@ -140,6 +145,5 @@ public class CreditScoreManager implements Serializable {
     public void onPaymentMade(boolean onTime) {}
     public void onLoanPayoff() {}
     public void onPaymentMissed() {}
-    public void onDefault() {}
     public void onRecoveryMonth() {}
 }

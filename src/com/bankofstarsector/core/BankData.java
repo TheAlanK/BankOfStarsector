@@ -113,7 +113,8 @@ public class BankData implements Serializable {
         float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         float investments = investmentManager.getTotalValue();
         float debt = loanManager.getTotalDebt();
-        return credits + investments - debt;
+        float held = loanManager.getTotalHeldFunds(); // the player's money, held against a credit-builder loan
+        return credits + investments + held - debt;
     }
 
     public static class TransactionRecord implements Serializable {

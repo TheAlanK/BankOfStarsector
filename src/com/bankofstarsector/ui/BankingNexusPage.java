@@ -34,6 +34,7 @@ public class BankingNexusPage implements NexusPage {
     private JPanel mainPanel;
     private JLabel dateLabel;
     private JLabel netWorthLabel;
+    private JLabel heldLabel;
     private JLabel creditsLabel;
     private JLabel debtLabel;
     private JLabel investLabel;
@@ -81,6 +82,7 @@ public class BankingNexusPage implements NexusPage {
         creditsLabel = addLabelRow(overviewCard, Str.get("nexus.credits"), "--");
         debtLabel = addLabelRow(overviewCard, Str.get("nexus.debt"), "--");
         investLabel = addLabelRow(overviewCard, Str.get("nexus.investments"), "--");
+        heldLabel = addLabelRow(overviewCard, Str.get("nexus.held"), "--");
         dueLabel = addLabelRow(overviewCard, Str.get("nexus.dueNow"), "--");
         pastDueLabel = addLabelRow(overviewCard, Str.get("nexus.pastDue"), "--");
         autopayLabel = addLabelRow(overviewCard, Str.get("nexus.autopay"), "--");
@@ -154,6 +156,7 @@ public class BankingNexusPage implements NexusPage {
         set(creditsLabel, formatCredits(s.credits), TEXT_PRIMARY);
         set(debtLabel, formatCredits(s.debt), s.debt > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(investLabel, formatCredits(s.invested), POSITIVE);
+        set(heldLabel, formatCredits(s.held), s.held > 0 ? POSITIVE : TEXT_SECONDARY);
         set(dueLabel, formatCredits(s.dueNow), s.dueNow > 1 ? GOLD : TEXT_PRIMARY);
         set(pastDueLabel, formatCredits(s.late), s.late > 1 ? NEGATIVE : TEXT_PRIMARY);
         set(autopayLabel, Str.get(s.autopay ? "common.on" : "common.off"), s.autopay ? POSITIVE : NEGATIVE);
