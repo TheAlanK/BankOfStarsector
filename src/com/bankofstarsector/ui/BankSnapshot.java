@@ -27,6 +27,25 @@ public final class BankSnapshot {
     public final int score;
     public final String bracket, bankruptcyState, bankruptcyLabel, scoreText;
     public final List<Line> loans;
+    /** Score at each monthly report, newest first (0 = no score), and what moved it ("factor.key:delta" or ""). */
+    public final List<Integer> scoreHistory;
+    public final List<String> scoreChanges;
+    /** Installment loans: projected repayment if paid on time (parallel to the loans list's order). */
+    public final List<Schedule> schedules;
+
+    public static final class Schedule {
+        public final String name;
+        public final int monthsLeft;
+        public final float nextPayment, remainingInterest, remainingTotal;
+
+        Schedule(String name, LoanSchedule s) {
+            this.name = name;
+            this.monthsLeft = s.rows.size();
+            this.nextPayment = s.firstPayment;
+            this.remainingInterest = s.totalInterest;
+            this.remainingTotal = s.totalPaid;
+        }
+    }
     /** Credit line (0.3.0); lineId is null when the player has none. */
     public final String lineId;
     public final float lineBalance, lineLimit, lineAvailable, lineUtilization, lineMinimumDue, lineStatementDue, lineLastInterest;
@@ -70,13 +89,23 @@ public final class BankSnapshot {
         bankruptcyLabel = com.bankofstarsector.collection.BankruptcyManager.stateName(data.getBankruptcyManager().getState());
 
         List<Line> l = new ArrayList<Line>();
+        List<Schedule> sch = new ArrayList<Schedule>();
         for (BankAccount loan : lm.getActiveLoans()) {
             if (loan.loanType.isRevolving()) continue; // shown in its own card
-            String detail = LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay();
+            LoanSchedule projected = LoanSchedule.remaining(loan);
+            sch.add(new Schedule(loan.loanType.getDisplayName(), projected));
+            String detail = LoanManager.formatCredits(loan.remainingBalance) + " | " + loan.getStatusDisplay()
+                + " | " + com.bankofstarsector.core.Str.f("nexus.monthsLeft", projected.rows.size());
             if (loan.heldFunds > 0f) detail += " | " + com.bankofstarsector.core.Str.f("nexus.loanHeld", LoanManager.formatCredits(loan.heldFunds));
             l.add(new Line(loan.loanType.getDisplayName(), detail, loan.status != LoanStatus.ACTIVE));
         }
         loans = Collections.unmodifiableList(l);
+        schedules = Collections.unmodifiableList(sch);
+        CreditScoreManager csm = data.getCreditScoreManager();
+        scoreHistory = Collections.unmodifiableList(new ArrayList<Integer>(csm.getScoreHistory()));
+        List<String> ch = new ArrayList<String>();
+        for (int i = 0; i < scoreHistory.size(); i++) ch.add(csm.getScoreChange(i));
+        scoreChanges = Collections.unmodifiableList(ch);
 
         BankAccount line = lm.getCreditLine();
         lineId = line != null ? line.accountId : null;
@@ -137,6 +166,22 @@ public final class BankSnapshot {
             JSONArray ls = new JSONArray();
             for (Line x : loans) ls.put(new JSONObject().put("name", x.label).put("detail", x.detail).put("problem", x.bad));
             o.put("loans", ls);
+            JSONArray ss = new JSONArray();
+            for (Schedule x : schedules) {
+                ss.put(new JSONObject().put("name", x.name).put("monthsLeft", x.monthsLeft).put("nextPayment", x.nextPayment)
+                    .put("remainingInterest", x.remainingInterest).put("remainingTotal", x.remainingTotal));
+            }
+            o.put("loanSchedules", ss);
+            JSONArray hs = new JSONArray();
+            for (int i = 0; i < scoreHistory.size(); i++) {
+                String c = scoreChanges.get(i);
+                int colon = c.lastIndexOf(':');
+                JSONObject h = new JSONObject().put("monthsAgo", i)
+                    .put("score", scoreHistory.get(i) > 0 ? (Object) scoreHistory.get(i) : JSONObject.NULL);
+                if (colon > 0) h.put("factor", c.substring("factor.".length(), colon)).put("factorChange", Integer.parseInt(c.substring(colon + 1)));
+                hs.put(h);
+            }
+            o.put("scoreHistory", hs);
             if (lineId == null) {
                 o.put("creditLine", JSONObject.NULL);
             } else {

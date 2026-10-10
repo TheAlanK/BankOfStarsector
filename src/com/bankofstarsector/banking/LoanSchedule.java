@@ -47,9 +47,13 @@ public final class LoanSchedule {
         return project(principal, principal, monthlyRate, termMonths, 0);
     }
 
-    /** What is left of an open loan, from its current balance and elapsed months. */
+    /**
+     * What is left of an open loan, from its current balance and elapsed months, if every installment
+     * is paid on time from now on (so at the contract rate, not an overdue penalty rate).
+     */
     public static LoanSchedule remaining(BankAccount loan) {
-        return project(loan.principal, loan.remainingBalance, loan.monthlyRate, loan.termMonths, loan.monthsElapsed);
+        float rate = loan.baseMonthlyRate > 0f ? loan.baseMonthlyRate : loan.monthlyRate;
+        return project(loan.principal, loan.remainingBalance, rate, loan.termMonths, loan.monthsElapsed);
     }
 
     private static LoanSchedule project(float principal, float balance, float monthlyRate, int termMonths, int elapsed) {

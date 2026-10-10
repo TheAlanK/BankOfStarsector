@@ -35,6 +35,7 @@ public class BankingNexusPage implements NexusPage {
     private JLabel dateLabel;
     private JLabel netWorthLabel;
     private JLabel heldLabel;
+    private JLabel trendLabel, changeLabel;
     private JLabel lineBalanceLabel, lineLimitLabel, lineAvailableLabel, lineUtilLabel, lineMinLabel, lineStatementLabel, lineAutopayLabel;
     private JButton payStatementButton;
     private JLabel creditsLabel;
@@ -130,6 +131,8 @@ public class BankingNexusPage implements NexusPage {
         JPanel scoreCard = createCard(Str.get("nexus.card.score"));
         scoreLabel = addLabelRow(scoreCard, Str.get("nexus.score"), "--");
         bracketLabel = addLabelRow(scoreCard, Str.get("nexus.bracket"), "--");
+        trendLabel = addLabelRow(scoreCard, Str.get("nexus.trend"), "--");
+        changeLabel = addLabelRow(scoreCard, Str.get("nexus.lastChange"), "--");
         mainPanel.add(scoreCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
@@ -188,6 +191,20 @@ public class BankingNexusPage implements NexusPage {
         set(bracketLabel, s.bracket + ("NONE".equals(s.bankruptcyState) ? "" : " | " + Str.f("nexus.bankruptcy", s.bankruptcyLabel)),
             getScoreColor(s.score));
         fillList(loansPanel, s.loans, Str.get("terminal.loans.none"));
+        StringBuilder trend = new StringBuilder();
+        for (int i = Math.min(5, s.scoreHistory.size() - 1); i >= 0; i--) {
+            if (trend.length() > 0) trend.append(" > ");
+            trend.append(s.scoreHistory.get(i) > 0 ? String.valueOf(s.scoreHistory.get(i)) : "--");
+        }
+        set(trendLabel, trend.length() > 0 ? trend.toString() : "--", TEXT_PRIMARY);
+        String change = s.scoreChanges.isEmpty() ? "" : s.scoreChanges.get(0);
+        int colon = change.lastIndexOf(':');
+        if (colon > 0) {
+            int delta = Integer.parseInt(change.substring(colon + 1));
+            set(changeLabel, Str.get(change.substring(0, colon)) + " " + (delta > 0 ? "+" : "") + delta, delta >= 0 ? POSITIVE : NEGATIVE);
+        } else {
+            set(changeLabel, "--", TEXT_SECONDARY);
+        }
         if (s.lineId == null) {
             String none = Str.get("nexus.lineNone");
             set(lineBalanceLabel, none, TEXT_SECONDARY);

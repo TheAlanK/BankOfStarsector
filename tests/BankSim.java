@@ -51,6 +51,8 @@ public class BankSim {
         scenarioCreditLineChurnAndClose();
         scenarioQuoteMatchesBilling();
         scenarioQuoteTextFormats();
+        scenarioScheduleMatchesBilling();
+        scenarioScoreChartExplainsChange();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -480,6 +482,47 @@ public class BankSim {
         Str.load("en");
         System.out.printf("[quote text] %d lines checked in en and pt_BR, %d bad%n", lines, bad);
         check("[quote text] every quote line has one argument per %s and no literal percent sign", bad == 0);
+    }
+
+    // ------------------------------------------------------------------ amortization table and score chart (0.3.0)
+
+    static void scenarioScheduleMatchesBilling() {
+        reset(5_000_000f);
+        BankAccount loan = BankData.get().getLoanManager().takeLoan(LoanType.CORPORATE, 400_000f, 0.06f);
+        months(4);
+        LoanSchedule rest = LoanSchedule.remaining(loan);
+        float start = credits.get();
+        int months = 0;
+        while (loan.status != LoanStatus.PAID_OFF && months < 60) { months(1); months++; }
+        float paid = start - credits.get();
+        System.out.printf("[schedule] after 4 months: projected %d installments, %.0f to pay | billed %d, %.0f%n",
+            rest.rows.size(), rest.totalPaid, months, paid);
+        check("[schedule] the remaining schedule matches what is billed", rest.rows.size() == months && Math.abs(rest.totalPaid - paid) < 2f);
+        check("[schedule] interest + principal add up to each payment",
+            Math.abs(rest.rows.get(0).interest + rest.rows.get(0).principal - rest.rows.get(0).payment) < 0.01f);
+    }
+
+    static void scenarioScoreChartExplainsChange() {
+        reset(5_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(3);
+        String thin = data.getCreditScoreManager().getScoreChange(0);
+        data = scoredFile(10_000_000f);
+        LoanManager lm = data.getLoanManager();
+        BankAccount line = lm.openCreditLine(data);
+        line.autopayFull = false;
+        months(2);
+        lm.drawCreditLine(line.accountId, line.creditLimit * 0.9f);
+        months(1);
+        CreditScoreManager csm = data.getCreditScoreManager();
+        String change = csm.getScoreChange(0);
+        List<Integer> h = csm.getScoreHistory();
+        System.out.printf("[score chart] thin month: '%s' | after maxing the line: %s -> %s, main factor %s%n",
+            thin, h.get(1), h.get(0), change);
+        check("[score chart] no explanation while there is no score", thin.isEmpty());
+        check("[score chart] maxing out the credit line is explained by amounts owed",
+            change.startsWith("factor.amounts:-") && h.get(0) < h.get(1));
     }
 
     static Integer score() {

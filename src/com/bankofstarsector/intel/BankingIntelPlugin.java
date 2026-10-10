@@ -21,6 +21,8 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     private static final Color DARK_NAVY = new Color(20, 30, 60);
 
     private String currentTab = TAB_OVERVIEW;
+    /** Loan whose repayment schedule is expanded in the Loans tab. UI state only: not saved. */
+    private transient String expandedSchedule;
     private String pendingLoanType = null;   // kept for save compatibility
     private String pendingInvestType = null; // kept for save compatibility
 
@@ -268,6 +270,11 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 info.addButton(Str.f("terminal.loans.payOff", Misc.getDGSCredits(loan.remainingBalance)),
                     "loan_payoff_" + loan.accountId,
                     Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+                boolean expanded = loan.accountId.equals(expandedSchedule);
+                info.addButton(Str.get(expanded ? "terminal.loans.hideSchedule" : "terminal.loans.showSchedule"),
+                    "loan_schedule_" + loan.accountId,
+                    Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+                if (expanded) renderSchedule(info, loan, width, opad);
                 info.addSpacer(opad / 2);
             }
         }
@@ -324,6 +331,66 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             }
             info.addSpacer(opad / 2);
         }
+    }
+
+    /** Amortization table of an installment loan, projected as LoanManager bills it. */
+    private void renderSchedule(TooltipMakerAPI info, BankAccount loan, float width, float opad) {
+        LoanSchedule s = LoanSchedule.remaining(loan);
+        info.addPara(Str.get("terminal.loans.scheduleNote"), opad, Misc.getGrayColor(),
+            pct(loan.baseMonthlyRate, "%.1f"), Misc.getDGSCredits(loan.amountPastDue));
+        float col = Math.max(80f, Math.min(130f, (width - 60f) / 5f));
+        info.beginTable(Global.getSector().getFaction("pbc"), 20f,
+            Str.get("terminal.loans.colMonth"), col * 0.6f, Str.get("terminal.loans.colPayment"), col,
+            Str.get("terminal.loans.colInterest"), col, Str.get("terminal.loans.colPrincipal"), col,
+            Str.get("terminal.loans.colBalance"), col);
+        Color text = Misc.getTextColor(), neg = Misc.getNegativeHighlightColor(), hl = Misc.getHighlightColor();
+        for (LoanSchedule.Row r : s.rows) {
+            info.addRow(Alignment.MID, text, r.month + "/" + loan.termMonths,
+                Alignment.RMID, hl, Misc.getDGSCredits(r.payment),
+                Alignment.RMID, neg, Misc.getDGSCredits(r.interest),
+                Alignment.RMID, text, Misc.getDGSCredits(r.principal),
+                Alignment.RMID, text, Misc.getDGSCredits(r.balance));
+        }
+        info.addTable(Str.get("terminal.loans.scheduleEmpty"), 0, opad / 2);
+        info.addPara(Str.get("terminal.loans.scheduleTotals"), opad / 2, hl,
+            "" + s.rows.size(), Misc.getDGSCredits(s.totalInterest), Misc.getDGSCredits(s.totalPaid));
+    }
+
+    /** "factor.amounts:-12" -> "Amounts owed -12"; "" when there is nothing to explain. */
+    private static String describeChange(String change) {
+        int colon = change.lastIndexOf(':');
+        if (colon < 0) return "";
+        int delta = Integer.parseInt(change.substring(colon + 1));
+        return Str.get(change.substring(0, colon)) + " " + (delta > 0 ? "+" : "") + delta;
+    }
+
+    /** 12-month score chart: a text bar per monthly report, the change and its main factor. */
+    private void renderScoreChart(TooltipMakerAPI info, CreditScoreManager csm, float width, float opad) {
+        List<Integer> history = csm.getScoreHistory();
+        info.addSpacer(opad);
+        info.addSectionHeading(Str.f("terminal.credit.trend", history.size()),
+            Misc.getBasePlayerColor(), Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        float barW = Math.max(120f, width - 420f);
+        info.beginTable(Global.getSector().getFaction("pbc"), 20f,
+            Str.get("terminal.credit.chartWhen"), 90f, Str.get("terminal.credit.chartScore"), 60f,
+            "", barW, Str.get("terminal.credit.chartChange"), 60f, Str.get("terminal.credit.chartWhy"), 190f);
+        int bars = Math.max(10, (int) (barW / 7f));
+        for (int i = history.size() - 1; i >= 0; i--) {
+            int score = history.get(i);
+            int prev = i + 1 < history.size() ? history.get(i + 1) : 0;
+            String when = i == 0 ? Str.get("terminal.credit.chartLast") : Str.f("terminal.credit.chartAgo", i);
+            String change = score > 0 && prev > 0 ? (score >= prev ? "+" : "") + (score - prev) : "";
+            Color c = score > 0 ? scoreColor(score) : Misc.getGrayColor();
+            int n = score > 0 ? Math.round((score - CreditBureau.MIN_SCORE) / (float) (CreditBureau.MAX_SCORE - CreditBureau.MIN_SCORE) * bars) : 0;
+            StringBuilder bar = new StringBuilder();
+            for (int k = 0; k < n; k++) bar.append('|');
+            info.addRow(Alignment.LMID, Misc.getTextColor(), when,
+                Alignment.MID, c, score > 0 ? String.valueOf(score) : "--",
+                Alignment.LMID, c, bar.toString(),
+                Alignment.MID, score >= prev ? Misc.getPositiveHighlightColor() : Misc.getNegativeHighlightColor(), change,
+                Alignment.LMID, Misc.getGrayColor(), describeChange(csm.getScoreChange(i)));
+        }
+        info.addTable("", 0, opad / 2);
     }
 
     private static Color utilizationColor(float u) {
@@ -555,18 +622,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         info.addPara(Str.get("terminal.credit.poor"), opad, Misc.getNegativeHighlightColor(), Str.get("credit.bracket.poor"));
         info.addPara(Str.get("terminal.credit.none"), opad, Misc.getGrayColor(), Str.get("credit.bracket.none"));
 
-        List<Integer> history = csm.getScoreHistory();
-        if (!history.isEmpty()) {
-            info.addSpacer(opad);
-            info.addSectionHeading(Str.f("terminal.credit.trend", history.size()),
-                Misc.getBasePlayerColor(), Misc.getDarkPlayerColor(), Alignment.MID, opad);
-            StringBuilder trend = new StringBuilder();
-            for (int i = history.size() - 1; i >= 0; i--) {
-                if (trend.length() > 0) trend.append(" -> ");
-                trend.append(history.get(i) > 0 ? String.valueOf(history.get(i)) : "--");
-            }
-            info.addPara("%s", opad, Misc.getHighlightColor(), trend.toString());
-        }
+        if (!csm.getScoreHistory().isEmpty()) renderScoreChart(info, csm, width, opad);
 
         info.addSpacer(opad);
         heading(info, "terminal.credit.tips", opad);
@@ -646,6 +702,13 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
         if ("toggle_autopay".equals(id)) {
             data.setAutopayEnabled(!data.isAutopayEnabled());
+            ui.updateUIForItem(this);
+            return;
+        }
+
+        if (id.startsWith("loan_schedule_")) {
+            String accountId = id.substring("loan_schedule_".length());
+            expandedSchedule = accountId.equals(expandedSchedule) ? null : accountId;
             ui.updateUIForItem(this);
             return;
         }

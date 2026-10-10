@@ -13,6 +13,9 @@ Bank of Starsector
   total repaid, rate and term; before a locked investment, the lock and the early-withdrawal penalty.
 - New: the branch office takes loan applications and investments for any amount (slider), with the same
   terms shown before signing.
+- New: "Repayment schedule" on every loan (payment, interest, principal and balance per month, plus what is
+  still to pay); the Credit tab charts the last 12 monthly reports and names the factor behind each change.
+  NexusUI shows the score trend, the last change and months left per loan.
 - Changed: "Sovereign Credit Line" renamed "Sovereign Loan" (it is an installment loan).
 - Fixed: defaults are reported to the credit bureau when they happen, and a charged-off loan no longer adds
   a new late mark every month.

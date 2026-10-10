@@ -109,9 +109,11 @@ field com.bankofstarsector.banking.CreditBureau$Tradeline reportedBalance float
 field com.bankofstarsector.banking.CreditScoreManager bureau com.bankofstarsector.banking.CreditBureau
 field com.bankofstarsector.banking.CreditScoreManager creditScore int
 field com.bankofstarsector.banking.CreditScoreManager hadDefaultThisMonth boolean
+field com.bankofstarsector.banking.CreditScoreManager lastFactors float[]
 field com.bankofstarsector.banking.CreditScoreManager latePaymentsThisMonth int
 field com.bankofstarsector.banking.CreditScoreManager loansPayedOffThisMonth int
 field com.bankofstarsector.banking.CreditScoreManager onTimePaymentsThisMonth int
+field com.bankofstarsector.banking.CreditScoreManager scoreChanges java.util.List<java.lang.String>
 field com.bankofstarsector.banking.CreditScoreManager scoreHistory java.util.List<java.lang.Integer>
 field com.bankofstarsector.banking.InterestEngine random java.util.Random
 field com.bankofstarsector.banking.InvestmentManager investments java.util.List<com.bankofstarsector.banking.BankAccount>
