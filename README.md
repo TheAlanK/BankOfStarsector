@@ -92,6 +92,9 @@ None required.
 
 ## Changelog
 
+### 0.2.1-beta
+- **New:** Persean Banking Confederation lore ([LORE.md](LORE.md)), condensed into the in-game faction and planet descriptions (English and pt-BR).
+
 ### 0.2.0-beta
 - **New:** Brazilian Portuguese translation (automatic by system language), translatable faction/planet descriptions.
 - **New:** LunaLib settings menu and version checker file; release zip now has a stable `BankOfStarsector.zip` asset and includes `graphics/`.
