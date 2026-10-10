@@ -1,0 +1,14 @@
+{
+	"masterVersionFile":"https://raw.githubusercontent.com/TheAlanK/BankOfStarsector/main/bank_of_starsector.version",
+	"modName":"Bank of Starsector",
+	"modVersion":
+	{
+		"major":0,
+		"minor":2,
+		"patch":0,
+	},
+	"starsectorVersion":"0.98a-RC8",
+	# Stable asset name published by .github/workflows/release.yml on every tagged release
+	"directDownloadURL":"https://github.com/TheAlanK/BankOfStarsector/releases/latest/download/BankOfStarsector.zip",
+	"changelogURL":"https://raw.githubusercontent.com/TheAlanK/BankOfStarsector/main/changelog.txt",
+}

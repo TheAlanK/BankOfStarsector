@@ -3,6 +3,7 @@ package com.bankofstarsector.rulecmd;
 import com.bankofstarsector.banking.BankAccount;
 import com.bankofstarsector.core.BankData;
 import com.bankofstarsector.core.BankModPlugin;
+import com.bankofstarsector.core.Str;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.CoreInteractionListener;
 import com.fs.starfarer.api.campaign.CoreUITabId;
@@ -24,6 +25,7 @@ import java.util.Map;
  */
 public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListener {
 
+    public static final String OPT_VISIT = "bos_branchVisit";
     public static final String OPT_PAY = "bos_branchPay";
     public static final String OPT_TERMINAL = "bos_branchTerminal";
     public static final String OPT_BACK = "bos_branchBack";
@@ -34,6 +36,12 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
     @Override
     public boolean doesCommandAddOptions() { return true; }
 
+    /** Same slot the market menu used for the static rules.csv option (14). */
+    @Override
+    public int getOptionOrder(List<Token> params, Map<String, MemoryAPI> memoryMap) {
+        return 14;
+    }
+
     @Override
     public boolean execute(String ruleId, InteractionDialogAPI dialog, List<Token> params, Map<String, MemoryAPI> memoryMap) {
         if (dialog == null || params.isEmpty()) return false;
@@ -42,6 +50,12 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         String action = params.get(0).getString(memoryMap);
         BankData data = BankData.get();
         TextPanelAPI text = dialog.getTextPanel();
+
+        if ("addOption".equals(action)) {
+            // Market main menu entry, added from code so its label can be translated.
+            dialog.getOptionPanel().addOption(Str.get("branch.option"), OPT_VISIT);
+            return true;
+        }
 
         if ("payPastDue".equals(action)) {
             float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
@@ -54,28 +68,27 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
                     credits -= amount;
                 }
             }
-            if (paid > 0f) text.addPara("You settle %s in arrears at the counter.", Misc.getHighlightColor(), Misc.getDGSCredits(paid));
-            else text.addPara("You can't cover any past-due installment right now.", Misc.getNegativeHighlightColor());
+            if (paid > 0f) text.addPara(Str.get("branch.paid"), Misc.getHighlightColor(), Misc.getDGSCredits(paid));
+            else text.addPara(Str.get("branch.cannotPay"), Misc.getNegativeHighlightColor());
         } else if ("terminal".equals(action)) {
             dialog.getOptionPanel().clearOptions();
             dialog.getVisualPanel().showCore(CoreUITabId.INTEL, dialog.getInteractionTarget(), BankModPlugin.getTerminal(), this);
             return true;
         } else {
-            text.addPara("The Confederation branch office is all brass, marble and quiet keyboards. "
-                + "A teller in a gold-trimmed uniform pulls up your file.");
+            text.addPara(Str.get("branch.intro"));
         }
 
         float debt = data.getLoanManager().getTotalDebt();
         float pastDue = data.getLoanManager().getTotalPastDue();
-        text.addPara("Credit score: %s (%s). Outstanding debt: %s. Past due: %s.", Misc.getHighlightColor(),
+        text.addPara(Str.get("branch.summary"), Misc.getHighlightColor(),
             "" + data.getCreditScoreManager().getScore(), data.getCreditScoreManager().getBracket(),
             Misc.getDGSCredits(debt), Misc.getDGSCredits(pastDue));
 
         OptionPanelAPI options = dialog.getOptionPanel();
         options.clearOptions();
-        if (pastDue > 1f) options.addOption("Pay all past-due installments", OPT_PAY);
-        options.addOption("Use a banking terminal", OPT_TERMINAL);
-        options.addOption("Leave the branch", OPT_BACK);
+        if (pastDue > 1f) options.addOption(Str.get("branch.optPay"), OPT_PAY);
+        options.addOption(Str.get("branch.optTerminal"), OPT_TERMINAL);
+        options.addOption(Str.get("branch.optLeave"), OPT_BACK);
         options.setShortcut(OPT_BACK, org.lwjgl.input.Keyboard.KEY_ESCAPE, false, false, false, true);
         return true;
     }

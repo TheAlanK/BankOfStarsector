@@ -6,6 +6,7 @@ import com.bankofstarsector.collection.AssetSeizureManager;
 import com.bankofstarsector.collection.CollectionFleetScript;
 import com.bankofstarsector.core.BankData;
 import com.bankofstarsector.core.BankSettings;
+import com.bankofstarsector.core.Str;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.CampaignFleetAPI;
 import com.fs.starfarer.api.campaign.InteractionDialogAPI;
@@ -62,7 +63,7 @@ public class BOSCollection extends BaseCommandPlugin {
 
         if (loan == null || !loan.isOpenLoan() || loan.status == com.bankofstarsector.banking.LoanStatus.ACTIVE) {
             if (!"hail".equals(action)) return finish(dialog, memoryMap, fleet);
-            text.addPara("\"Our records show your account is in order, Captain. The Confederation thanks you for your business.\"");
+            text.addPara(Str.get("dialog.collection.inOrder"));
             settle(dialog, memoryMap, ruleId, fleet);
             showDone(dialog);
             return true;
@@ -73,12 +74,10 @@ public class BOSCollection extends BaseCommandPlugin {
                 dialog.getInteractionTarget().setActivePerson(fleet.getCommander());
                 dialog.getVisualPanel().showPersonInfo(fleet.getCommander(), true);
             }
-            text.addPara("\"Captain. This is an enforcement action of the Persean Banking Confederation regarding account "
-                + loan.accountId + ", your " + loan.loanType.displayName + ".\"");
-            text.addPara("Past due: %s. Outstanding balance: %s. Days overdue: %s.", hl,
+            text.addPara(Str.f("dialog.collection.hail1", loan.accountId, loan.loanType.getDisplayName()));
+            text.addPara(Str.get("dialog.collection.figures"), hl,
                 Misc.getDGSCredits(loan.amountPastDue), Misc.getDGSCredits(loan.remainingBalance), "" + loan.daysOverdue);
-            text.addPara("\"Settle the arrears now and we part as partners. Otherwise we are authorized to take "
-                + "collateral - or to take it by force.\"");
+            text.addPara(Str.get("dialog.collection.hail2"));
             showChoices(dialog, loan);
             return true;
         }
@@ -89,13 +88,13 @@ public class BOSCollection extends BaseCommandPlugin {
         if ("payPastDue".equals(action) || "payAll".equals(action)) {
             float amount = "payAll".equals(action) ? loan.remainingBalance : loan.amountPastDue;
             if (credits < amount) {
-                text.addPara("You don't have " + Misc.getDGSCredits(amount) + ".", bad);
+                text.addPara(Str.f("dialog.collection.noCredits", Misc.getDGSCredits(amount)), bad);
                 showChoices(dialog, loan);
                 return true;
             }
             lm.makePayment(loan.accountId, amount);
-            text.addPara("Transferred %s to the Confederation.", hl, Misc.getDGSCredits(amount));
-            text.addPara("\"A pleasure doing business. Fly safe, Captain.\"");
+            text.addPara(Str.get("dialog.collection.transferred"), hl, Misc.getDGSCredits(amount));
+            text.addPara(Str.get("dialog.collection.thanks"));
             settle(dialog, memoryMap, ruleId, fleet);
             showDone(dialog);
             return true;
@@ -104,19 +103,19 @@ public class BOSCollection extends BaseCommandPlugin {
         if ("surrender".equals(action)) {
             FleetMemberAPI ship = AssetSeizureManager.pickShipToSeize();
             if (ship == null) {
-                text.addPara("\"You have nothing we can accept as collateral.\"", bad);
+                text.addPara(Str.get("dialog.collection.noCollateral"), bad);
                 showChoices(dialog, loan);
                 return true;
             }
             float value = AssetSeizureManager.seizureValue(ship);
             data.getAssetSeizureManager().seizeShip(data, ship, loan);
-            text.addPara("A prize crew boards the %s. The Confederation credits %s against your debt.", hl,
+            text.addPara(Str.get("dialog.collection.seized"), hl,
                 ship.getShipName(), Misc.getDGSCredits(value));
             if (loan.status != com.bankofstarsector.banking.LoanStatus.ACTIVE) {
-                text.addPara("Still past due: %s. \"This covers part of it. We'll be in touch.\"", bad,
+                text.addPara(Str.get("dialog.collection.partial"), bad,
                     Misc.getDGSCredits(loan.amountPastDue));
             } else {
-                text.addPara("\"Your account is current. Good day, Captain.\"");
+                text.addPara(Str.get("dialog.collection.current"));
                 settle(dialog, memoryMap, ruleId, fleet);
             }
             showDone(dialog);
@@ -124,17 +123,17 @@ public class BOSCollection extends BaseCommandPlugin {
         }
 
         if ("refuse".equals(action)) {
-            text.addPara("\"Then the Confederation will recover its assets the hard way.\"", bad);
+            text.addPara(Str.get("dialog.collection.refused"), bad);
             Global.getSector().getPlayerFaction().adjustRelationship("pbc", BankSettings.COLLECTION_REFUSAL_REP_PENALTY);
-            text.addPara("Relations with the Persean Banking Confederation decreased.", bad);
+            text.addPara(Str.get("dialog.collection.repLoss"), bad);
             new MakeOtherFleetHostile().execute(ruleId, dialog, Misc.tokenize("true"), memoryMap);
             new MakeOtherFleetAggressive().execute(ruleId, dialog, Misc.tokenize("true"), memoryMap);
-            data.addTransaction("REFUSED", 0, "Refused a PBC Collection Fleet's demands");
+            data.addTransaction("REFUSED", 0, Str.get("txd.refused"));
             return finish(dialog, memoryMap, fleet);
         }
 
         if ("later".equals(action)) {
-            text.addPara("\"We'll be watching, Captain. Don't make us come looking.\"");
+            text.addPara(Str.get("dialog.collection.later"));
             return finish(dialog, memoryMap, fleet);
         }
 
@@ -147,25 +146,24 @@ public class BOSCollection extends BaseCommandPlugin {
         options.clearOptions();
         float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
 
-        options.addOption("Pay the past-due amount (" + Misc.getDGSCredits(loan.amountPastDue) + ")", OPT_PAY_PAST_DUE);
+        options.addOption(Str.f("dialog.collection.optPayDue", Misc.getDGSCredits(loan.amountPastDue)), OPT_PAY_PAST_DUE);
         if (credits < loan.amountPastDue) options.setEnabled(OPT_PAY_PAST_DUE, false);
 
-        options.addOption("Settle the entire debt (" + Misc.getDGSCredits(loan.remainingBalance) + ")", OPT_PAY_ALL);
+        options.addOption(Str.f("dialog.collection.optPayAll", Misc.getDGSCredits(loan.remainingBalance)), OPT_PAY_ALL);
         if (credits < loan.remainingBalance) options.setEnabled(OPT_PAY_ALL, false);
 
         FleetMemberAPI ship = AssetSeizureManager.pickShipToSeize();
         if (ship != null) {
-            options.addOption("Surrender the " + ship.getShipName() + " as collateral (worth "
-                + Misc.getDGSCredits(AssetSeizureManager.seizureValue(ship)) + ")", OPT_SURRENDER);
+            options.addOption(Str.f("dialog.collection.optSurrender", ship.getShipName(), Misc.getDGSCredits(AssetSeizureManager.seizureValue(ship))), OPT_SURRENDER);
         }
-        options.addOption("Refuse", OPT_REFUSE, Misc.getNegativeHighlightColor(), "They will open fire.");
-        options.addOption("\"I need more time.\"", OPT_LATER);
+        options.addOption(Str.get("dialog.collection.optRefuse"), OPT_REFUSE, Misc.getNegativeHighlightColor(), Str.get("dialog.collection.optRefuseTip"));
+        options.addOption(Str.get("dialog.collection.optLater"), OPT_LATER);
         options.setShortcut(OPT_LATER, org.lwjgl.input.Keyboard.KEY_ESCAPE, false, false, false, true);
     }
 
     private void showDone(InteractionDialogAPI dialog) {
         dialog.getOptionPanel().clearOptions();
-        dialog.getOptionPanel().addOption("Cut the comm link", OPT_DONE);
+        dialog.getOptionPanel().addOption(Str.get("dialog.cutComm"), OPT_DONE);
         dialog.getOptionPanel().setShortcut(OPT_DONE, org.lwjgl.input.Keyboard.KEY_ESCAPE, false, false, false, true);
     }
 

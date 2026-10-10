@@ -35,4 +35,13 @@ public enum LoanType {
         float scoreRatio = Math.min(1f, (creditScore - minCreditScore) / 200f);
         return maxAmount * (0.5f + 0.5f * scoreRatio);
     }
+
+    /** Localized name (see data/strings). The English field above stays for save compatibility. */
+    public String getDisplayName() {
+        return com.bankofstarsector.core.Str.get("loan." + name() + ".name");
+    }
+
+    public String getDescription() {
+        return com.bankofstarsector.core.Str.get("loan." + name() + ".desc");
+    }
 }

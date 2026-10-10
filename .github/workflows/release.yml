@@ -64,17 +64,22 @@ jobs:
           MOD_NAME="${{ steps.mod.outputs.name }}"
           VERSION="${{ steps.mod.outputs.version }}"
 
-          mkdir -p "${MOD_NAME}"
-          cp mod_info.json "${MOD_NAME}/"
-          cp -r jars/ "${MOD_NAME}/"
-          [ -d data ] && cp -r data/ "${MOD_NAME}/" || true
-          [ -f LICENSE ] && cp LICENSE "${MOD_NAME}/" || true
-          [ -f README.md ] && cp README.md "${MOD_NAME}/" || true
+          # Folder name inside the zip matches the installed folder name.
+          PKG="BankOfStarsector"
+          mkdir -p "${PKG}"
+          cp mod_info.json "${PKG}/"
+          cp -r jars/ "${PKG}/"
+          [ -d data ] && cp -r data/ "${PKG}/" || true
+          [ -d graphics ] && cp -r graphics/ "${PKG}/" || true
+          cp *.version "${PKG}/" 2>/dev/null || true
+          [ -f changelog.txt ] && cp changelog.txt "${PKG}/" || true
+          [ -f LICENSE ] && cp LICENSE "${PKG}/" || true
+          [ -f README.md ] && cp README.md "${PKG}/" || true
 
-          zip -r "${MOD_NAME}-${VERSION}.zip" "${MOD_NAME}/"
-          echo "Created ${MOD_NAME}-${VERSION}.zip"
+          zip -r "${PKG}-${VERSION}.zip" "${PKG}/"
+          # Stable name for the version checker's directDownloadURL (releases/latest/download/BankOfStarsector.zip)
+          cp "${PKG}-${VERSION}.zip" "${PKG}.zip"
           ls -la *.zip
-
       - name: Create GitHub Release
         if: steps.changes.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
@@ -90,7 +95,7 @@ jobs:
             2. Extract to your `Starsector/mods/` folder
             3. Enable the mod in the launcher
 
-            ### Dependencies
-            - **LazyLib** (required)
+            ### Dependencies (all optional)
             - **Nexerelin** (optional - enables diplomacy/war effects on banking)
             - **NexusUI** (optional - adds a banking dashboard overlay)
+            - **LunaLib** (optional - in-game settings and version checker)

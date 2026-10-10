@@ -40,7 +40,7 @@ public class LoanIntelPlugin extends BaseIntelPlugin {
     @Override
     public void createSmallDescription(TooltipMakerAPI info, float width, float height) {
         info.addPara(description, 10f);
-        info.addPara("Open the PBC Banking Terminal (Intel > Economy) to pay the past-due amount.",
+        info.addPara(com.bankofstarsector.core.Str.get("notice.howToPay"),
             Misc.getGrayColor(), 10f);
     }
 

@@ -14,6 +14,9 @@ public class BankSettings {
     private static final Logger log = Logger.getLogger(BankSettings.class);
     public static final String SETTINGS_FILE = "data/config/bos_settings.json";
 
+    // Language: auto (system locale), en, pt_BR
+    public static String LANGUAGE = "auto";
+
     // Interest rate modifiers
     public static float WAR_SURCHARGE = 0.25f;
     public static float WAR_SURCHARGE_PER_WAR = 0.05f;
@@ -66,6 +69,7 @@ public class BankSettings {
     public static void load() {
         try {
             JSONObject j = Global.getSettings().getMergedJSONForMod(SETTINGS_FILE, BankModPlugin.MOD_ID);
+            LANGUAGE = j.optString("language", LANGUAGE);
             WAR_SURCHARGE = f(j, "warSurchargeMax", WAR_SURCHARGE);
             WAR_SURCHARGE_PER_WAR = f(j, "warSurchargePerWar", WAR_SURCHARGE_PER_WAR);
             OVERDUE_PENALTY_PER_MONTH = f(j, "overduePenaltyPerMonth", OVERDUE_PENALTY_PER_MONTH);
@@ -100,6 +104,10 @@ public class BankSettings {
         } catch (Exception e) {
             log.warn("Bank of Starsector: Could not read " + SETTINGS_FILE + ", using defaults (" + e.getMessage() + ")");
         }
+        // In-game settings (LunaLib), when available, take precedence over the JSON file.
+        com.bankofstarsector.compat.LunaLibCompat.applyOverrides();
+        Str.load(LANGUAGE);
+        Str.applyDescriptions();
     }
 
     private static float f(JSONObject j, String key, float def) {

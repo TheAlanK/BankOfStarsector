@@ -157,7 +157,7 @@ public class CollectionFleetScript implements EveryFrameScript, Serializable {
                 return;
             }
 
-            fleet.setName("PBC Collection Fleet");
+            fleet.setName(com.bankofstarsector.core.Str.get("fleet.collection.name"));
             fleet.setNoFactionInName(true);
             fleet.getMemoryWithoutUpdate().set(MEM_COLLECTION_FLEET, true);
             fleet.getMemoryWithoutUpdate().set(MEM_TARGET_LOAN, loanAccountId);
@@ -170,7 +170,7 @@ public class CollectionFleetScript implements EveryFrameScript, Serializable {
             fleet.setLocation(spawnLocation.getLocation().x, spawnLocation.getLocation().y);
 
             fleet.addAssignment(FleetAssignment.INTERCEPT, Global.getSector().getPlayerFleet(), HUNT_DAYS,
-                "collecting on PBC debt");
+                com.bankofstarsector.core.Str.get("fleet.collection.assignment"));
 
             log.info("BOS: Collection fleet spawned (" + targetFP + " FP) for loan " + loanAccountId);
         } catch (Exception e) {

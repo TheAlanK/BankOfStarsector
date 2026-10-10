@@ -57,14 +57,21 @@ Loans are locked for 24 months, and you can't invest for 12. Your score recovers
 
 ### Mod Integration
 - **Nexerelin**: wars drive interest rates, and dead factions don't count toward the war surcharge.
-- **NexusUI**: a banking dashboard page with real-time portfolio tracking.
+- **NexusUI**: a banking dashboard page (amounts due, autopay, loans, investments) with pay/autopay buttons; the data is also exposed to NexusUI's data bridge as `pbc_banking`.
+- **LunaLib**: in-game settings and version checker support.
 
 ## Where to bank
 - **Intel → Economy → PBC Banking Terminal**, available anywhere: Overview, Loans, Investments, Credit Score and History tabs.
 - **PBC markets → "Visit the Confederation branch office"**.
 
 ## Configuration
-Every number above can be changed in `data/config/bos_settings.json`, and other mods can merge their own values into it.
+Every number above can be changed in `data/config/bos_settings.json`, and other mods can merge their own values into it. With **LunaLib**, the main settings and the language can also be changed in-game (LunaLib settings menu); those values take precedence over the JSON.
+
+## Languages
+English and Brazilian Portuguese. `language` = `auto` follows the system language; set `en` or `pt_BR` in `bos_settings.json` or LunaLib. Translations live in `data/strings/bos_strings_<lang>.json`; any missing key falls back to English.
+
+## Testing
+`test.ps1` builds the jar and runs: a replay of Starsector's script sandbox rules over every referenced class, a link check against the game's jars on the game's JRE, a translation-table check, and a month-by-month loan simulation. `test.ps1 -Smoke` also launches the real game directly (`-DlaunchDirect`, windowed, no sound), waits for the main menu and scans `starsector.log` for errors from this mod.
 
 ## Installation
 1. Download the latest release.
@@ -84,6 +91,10 @@ None required.
 ## Changelog
 
 ### 0.2.0-beta
+- **New:** Brazilian Portuguese translation (automatic by system language), translatable faction/planet descriptions.
+- **New:** LunaLib settings menu and version checker file; release zip now has a stable `BankOfStarsector.zip` asset and includes `graphics/`.
+- **Fix:** the NexusUI page read game state from NexusUI's refresh thread; it now renders snapshots published from the game thread and sends actions through NexusUI's command queue.
+- **New:** test suite (`test.ps1`) including an in-game smoke test.
 - **Fix:** the Nexerelin and NexusUI integrations never worked. Starsector's script class loader (`com.fs.starfarer.loading.scripts.B`) rejects every `java.lang.reflect` class with *"File access and reflection are not allowed to scripts"*. Both now use direct calls through bridge classes, with no reflection at all.
 - **New:** monthly installments, autopay through the vanilla monthly report, a one-month grace period, and past-due tracking.
 - **New:** income garnishment is now actually applied in default, and the garnished money pays down the debt. (It was never triggered before, and the old income multiplier never reached the bank.)

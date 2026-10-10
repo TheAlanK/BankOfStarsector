@@ -5,6 +5,7 @@ import com.bankofstarsector.banking.LoanManager;
 import com.bankofstarsector.banking.LoanStatus;
 import com.bankofstarsector.core.BankData;
 import com.bankofstarsector.core.BankSettings;
+import com.bankofstarsector.core.Str;
 import com.bankofstarsector.intel.CollectionIntelPlugin;
 import com.bankofstarsector.intel.LoanIntelPlugin;
 import com.fs.starfarer.api.Global;
@@ -85,34 +86,17 @@ public class CollectionManager implements Serializable {
     }
 
     private void notify(BankAccount loan, int phase) {
-        String title;
+        if (phase < 1 || phase > 4) return;
+        String bal = LoanManager.formatCredits(loan.remainingBalance);
+        String due = LoanManager.formatCredits(loan.amountPastDue);
+        String name = loan.loanType.getDisplayName();
+        String title = Str.get("notice.phase" + phase + ".title");
         String desc;
-        String bal = LoanManager.formatCredits(loan.remainingBalance) + " credits";
-        String due = LoanManager.formatCredits(loan.amountPastDue) + " credits";
         switch (phase) {
-            case 1:
-                title = "PBC Payment Reminder";
-                desc = "A payment of " + due + " on your " + loan.loanType.displayName + " is overdue. "
-                    + "Pay the past-due amount in the Banking Terminal to avoid penalties.";
-                break;
-            case 2:
-                title = "PBC Collection Warning";
-                desc = "Your " + loan.loanType.displayName + " is " + loan.daysOverdue + " days overdue. "
-                    + "Penalty interest applies and new banking services are suspended.";
-                break;
-            case 3:
-                title = "PBC Enforcement Notice";
-                desc = "The Confederation has dispatched a Collection Fleet over " + due + " past due ("
-                    + bal + " outstanding). Settle with them, or face them.";
-                break;
-            case 4:
-                title = "PBC Default Judgment";
-                desc = "Your " + loan.loanType.displayName + " is in default. "
-                    + (int) (BankSettings.GARNISH_PERCENTAGE * 100) + "% of your colony income will be garnished "
-                    + "every month until the past-due amount is cleared.";
-                break;
-            default:
-                return;
+            case 1: desc = Str.f("notice.phase1.desc", due, name); break;
+            case 2: desc = Str.f("notice.phase2.desc", name, loan.daysOverdue); break;
+            case 3: desc = Str.f("notice.phase3.desc", due, bal); break;
+            default: desc = Str.f("notice.phase4.desc", name, (int) (BankSettings.GARNISH_PERCENTAGE * 100)); break;
         }
         endIntelFor(loan.accountId, LoanIntelPlugin.class);
         LoanIntelPlugin intel = new LoanIntelPlugin(title, desc, loan.accountId, phase);
@@ -144,7 +128,7 @@ public class CollectionManager implements Serializable {
         Integer d = fleetsDefeated.get(accountId);
         fleetsDefeated.put(accountId, d == null ? 1 : d + 1);
         retryCooldown.put(accountId, BankSettings.COLLECTION_FLEET_RETRY_DAYS);
-        BankData.get().addTransaction("ENFORCEMENT", 0, "A PBC Collection Fleet was destroyed. A stronger one will follow.");
+        BankData.get().addTransaction("ENFORCEMENT", 0, com.bankofstarsector.core.Str.get("txd.enforcement"));
     }
 
     /** The fleet left without settling (timed out or was dismissed): try again later. */

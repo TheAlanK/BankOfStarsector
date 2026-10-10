@@ -9,7 +9,7 @@ public class BankingNexusPageFactory implements NexusPageFactory {
     public String getId() { return "pbc_banking"; }
 
     @Override
-    public String getTitle() { return "PBC Banking"; }
+    public String getTitle() { return com.bankofstarsector.core.Str.get("nexus.title"); }
 
     @Override
     public NexusPage create() { return new BankingNexusPage(); }

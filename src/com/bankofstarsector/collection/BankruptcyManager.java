@@ -32,6 +32,10 @@ public class BankruptcyManager implements Serializable {
         stigmaApplied = false;
     }
 
+    public static String stateName(BankruptcyState s) {
+        return com.bankofstarsector.core.Str.get("bankruptcy.state." + s.name());
+    }
+
     public BankruptcyState getState() {
         if (state == null) state = BankruptcyState.NONE;
         return state;
@@ -106,7 +110,7 @@ public class BankruptcyManager implements Serializable {
         // Clear collection states
         data.getCollectionManager().onLoanResolved("*"); // clear all
 
-        data.addTransaction("BANKRUPTCY", 0, "Bankruptcy filed. Debts reduced. Recovery period begun.");
+        data.addTransaction("BANKRUPTCY", 0, com.bankofstarsector.core.Str.get("txd.bankruptcy"));
         log.info("BOS: Bankruptcy processed. Recovery: " + recoveryDaysRemaining + " days.");
     }
 
@@ -144,7 +148,7 @@ public class BankruptcyManager implements Serializable {
                 for (MarketAPI market : Global.getSector().getEconomy().getMarketsCopy()) {
                     if (market.isPlayerOwned()) {
                         market.getIncomeMult().modifyMult("bos_bankruptcy_stigma",
-                            1f - BankSettings.BANKRUPTCY_COLONY_INCOME_PENALTY, "Bankruptcy Stigma");
+                            1f - BankSettings.BANKRUPTCY_COLONY_INCOME_PENALTY, com.bankofstarsector.core.Str.get("bankruptcy.stigma"));
                     }
                 }
             }
@@ -182,7 +186,7 @@ public class BankruptcyManager implements Serializable {
             if (market.isPlayerOwned()) {
                 market.getIncomeMult().modifyMult("bos_bankruptcy_stigma",
                     1f - BankSettings.BANKRUPTCY_COLONY_INCOME_PENALTY,
-                    "Bankruptcy Stigma");
+                    com.bankofstarsector.core.Str.get("bankruptcy.stigma"));
             }
         }
     }
