@@ -66,6 +66,8 @@ public class LoanManager implements Serializable {
         long timestamp = Global.getSector().getClock().getTimestamp();
         BankAccount loan = BankAccount.createLoan(type, amount, effectiveRate, timestamp);
         getLoans().add(loan);
+        // Application = hard inquiry; the account goes on the credit report.
+        BankData.get().getCreditScoreManager().onLoanOpened(loan);
 
         Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
 

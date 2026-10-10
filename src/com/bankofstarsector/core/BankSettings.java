@@ -36,7 +36,15 @@ public class BankSettings {
     public static int SCORE_MAX_INVESTMENT_BONUS = 5;
     public static int SCORE_COLONY_INCOME_BONUS = 3;
     public static int SCORE_DECAY_PER_MONTH = -1;
-    public static int SCORE_NATURAL_DRIFT_TARGET = 600;
+    public static int SCORE_NATURAL_DRIFT_TARGET = 600; // unused since the bureau model
+
+    // Credit bureau (months / days)
+    public static int MIN_SCORING_MONTHS = 6;         // FICO minimum scoring criteria
+    public static int INQUIRY_DEDUPE_DAYS = 45;       // same-type inquiries grouped (rate shopping)
+    public static int DEROGATORY_MONTHS = 84;         // late payments / charge-offs stay 7 years
+    public static int CLOSED_ACCOUNT_MONTHS = 120;    // closed accounts in good standing stay 10 years
+    public static int BANKRUPTCY_RECORD_MONTHS = 120; // public record
+
 
     // Collection
     public static int OVERDUE_PHASE1_DAYS = 30;
@@ -80,6 +88,11 @@ public class BankSettings {
             SCORE_LATE_PAYMENT = i(j, "scoreLatePayment", SCORE_LATE_PAYMENT);
             SCORE_MISSED_PAYMENT = i(j, "scoreMissedPayment", SCORE_MISSED_PAYMENT);
             SCORE_DEFAULT = i(j, "scoreDefault", SCORE_DEFAULT);
+            MIN_SCORING_MONTHS = i(j, "minScoringMonths", MIN_SCORING_MONTHS);
+            INQUIRY_DEDUPE_DAYS = i(j, "inquiryDedupeDays", INQUIRY_DEDUPE_DAYS);
+            DEROGATORY_MONTHS = i(j, "derogatoryMonths", DEROGATORY_MONTHS);
+            CLOSED_ACCOUNT_MONTHS = i(j, "closedAccountMonths", CLOSED_ACCOUNT_MONTHS);
+            BANKRUPTCY_RECORD_MONTHS = i(j, "bankruptcyRecordMonths", BANKRUPTCY_RECORD_MONTHS);
             OVERDUE_PHASE1_DAYS = i(j, "overduePhase1Days", OVERDUE_PHASE1_DAYS);
             OVERDUE_PHASE2_DAYS = i(j, "overduePhase2Days", OVERDUE_PHASE2_DAYS);
             OVERDUE_PHASE3_DAYS = i(j, "overduePhase3Days", OVERDUE_PHASE3_DAYS);

@@ -25,7 +25,7 @@ public final class BankSnapshot {
     public final float netWorth, credits, debt, invested, late, dueNow, warSurcharge, disruption, sovereignDebt;
     public final boolean autopay, restricted;
     public final int score;
-    public final String bracket, bankruptcyState, bankruptcyLabel;
+    public final String bracket, bankruptcyState, bankruptcyLabel, scoreText;
     public final List<Line> loans;
     public final List<Line> investments;
 
@@ -56,6 +56,7 @@ public final class BankSnapshot {
         autopay = data.isAutopayEnabled();
         restricted = data.getCollectionManager().isBankingRestricted();
         score = data.getCreditScoreManager().getScore();
+        scoreText = data.getCreditScoreManager().getScoreText();
         bracket = data.getCreditScoreManager().getBracket();
         warSurcharge = engine.getWarSurcharge();
         disruption = engine.getMarketDisruptionModifier();
@@ -108,7 +109,7 @@ public final class BankSnapshot {
             o.put("dueByMonthEnd", dueNow);
             o.put("autopay", autopay);
             o.put("bankingRestricted", restricted);
-            o.put("creditScore", score);
+            o.put("creditScore", "--".equals(scoreText) ? JSONObject.NULL : (Object) Integer.valueOf(score));
             o.put("bracket", bracket);
             o.put("warSurcharge", warSurcharge);
             o.put("marketDisruption", disruption);

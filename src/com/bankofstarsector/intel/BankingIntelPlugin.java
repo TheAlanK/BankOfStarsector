@@ -43,7 +43,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         float pad = 3f;
 
         info.addPara(Str.get("terminal.list.score"), pad, Misc.getGrayColor(),
-            Misc.getHighlightColor(), "" + csm.getScore(), csm.getBracket());
+            Misc.getHighlightColor(), csm.getScoreText(), csm.getBracket());
 
         float debt = data.getLoanManager().getTotalDebt();
         float invested = data.getInvestmentManager().getTotalValue();
@@ -122,7 +122,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         info.addSpacer(opad);
         heading(info, "terminal.credit.heading", opad);
         Color scoreColor = scoreColor(csm.getScore());
-        info.addPara(Str.get("terminal.overview.score"), opad, scoreColor, "" + csm.getScore(), csm.getBracket());
+        info.addPara(Str.get("terminal.overview.score"), opad, scoreColor, csm.getScoreText(), csm.getBracket());
         info.addPara(Str.get("terminal.overview.maxLoans"), opad, Misc.getHighlightColor(), "" + csm.getMaxLoans());
 
         info.addSpacer(opad);
@@ -366,20 +366,60 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     private void renderCreditScore(TooltipMakerAPI info, float width, float opad) {
         BankData data = BankData.get();
         CreditScoreManager csm = data.getCreditScoreManager();
+        CreditBureau.Result r = csm.getReport();
 
         heading(info, "terminal.credit.heading", opad);
-        Color scoreColor = scoreColor(csm.getScore());
-        info.addPara(Str.get("terminal.credit.current"), opad, scoreColor, "" + csm.getScore());
+        Color scoreColor = csm.hasScore() ? scoreColor(csm.getScore()) : Misc.getGrayColor();
+        info.addPara(Str.get("terminal.credit.current"), opad, scoreColor, csm.getScoreText());
         info.addPara(Str.get("terminal.credit.bracket"), opad, scoreColor, csm.getBracket());
         info.addPara(Str.get("terminal.credit.modifier"), opad, Misc.getHighlightColor(),
             String.format("%+.0f%%", csm.getRateModifier() * 100));
+        if (!csm.hasScore()) {
+            info.addPara("%s", opad, Misc.getGrayColor(), Str.f("terminal.credit.thinFile", BankSettings.MIN_SCORING_MONTHS));
+        }
+        info.addPara(Str.get("terminal.credit.monthly"), opad, Misc.getGrayColor());
 
+        // Score factors with the published FICO weights
+        info.addSpacer(opad);
+        heading(info, "terminal.credit.factors", opad);
+        factor(info, "factor.payment", 35, r.payment, CreditBureau.PAYMENT_MAX);
+        factor(info, "factor.amounts", 30, r.amounts, CreditBureau.AMOUNTS_MAX);
+        factor(info, "factor.length", 15, r.length, CreditBureau.LENGTH_MAX);
+        factor(info, "factor.newCredit", 10, r.newCredit, CreditBureau.NEW_MAX);
+        factor(info, "factor.mix", 10, r.mix, CreditBureau.MIX_MAX);
+
+        // Reason codes, as an adverse-action notice would list them
+        if (!r.reasons.isEmpty()) {
+            info.addSpacer(opad);
+            heading(info, "terminal.credit.reasons", opad);
+            int n = 1;
+            for (String key : r.reasons) {
+                info.addPara("%s", 3f, Misc.getNegativeHighlightColor(), n++ + ". " + Str.get(key));
+            }
+        }
+
+        // Credit report summary
+        info.addSpacer(opad);
+        heading(info, "terminal.credit.report", opad);
+        Color hl = Misc.getHighlightColor();
+        info.addPara(Str.get("terminal.credit.accounts"), opad, hl, "" + r.openAccounts, "" + r.closedAccounts,
+            String.format("%.0f", r.oldestMonths), String.format("%.0f", r.averageMonths));
+        info.addPara(Str.get("terminal.credit.paymentRecord"), 3f, hl, "" + r.monthsOnTime,
+            "" + r.late30, "" + r.late60, "" + r.late90, "" + r.late120);
+        info.addPara(Str.get("terminal.credit.derogatory"), 3f,
+            r.chargeOffs + r.repossessions > 0 || r.bankruptcyOnFile ? Misc.getNegativeHighlightColor() : hl,
+            "" + r.chargeOffs, "" + r.repossessions, Str.get(r.bankruptcyOnFile ? "common.yes" : "common.no"));
+        info.addPara(Str.get("terminal.credit.newCredit"), 3f, hl, "" + r.inquiries12, "" + r.accountsOpened12,
+            String.format("%.0f%%", r.balanceRatio * 100));
+
+        // Brackets (pricing and limits)
         info.addSpacer(opad);
         heading(info, "terminal.credit.brackets", opad);
         info.addPara(Str.get("terminal.credit.excellent"), opad, Misc.getPositiveHighlightColor(), Str.get("credit.bracket.excellent"));
         info.addPara(Str.get("terminal.credit.good"), opad, Misc.getHighlightColor(), Str.get("credit.bracket.good"));
         info.addPara(Str.get("terminal.credit.fair"), opad, GOLD, Str.get("credit.bracket.fair"));
         info.addPara(Str.get("terminal.credit.poor"), opad, Misc.getNegativeHighlightColor(), Str.get("credit.bracket.poor"));
+        info.addPara(Str.get("terminal.credit.none"), opad, Misc.getGrayColor(), Str.get("credit.bracket.none"));
 
         List<Integer> history = csm.getScoreHistory();
         if (!history.isEmpty()) {
@@ -389,20 +429,16 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             StringBuilder trend = new StringBuilder();
             for (int i = history.size() - 1; i >= 0; i--) {
                 if (trend.length() > 0) trend.append(" -> ");
-                trend.append(history.get(i));
+                trend.append(history.get(i) > 0 ? String.valueOf(history.get(i)) : "--");
             }
             info.addPara("%s", opad, Misc.getHighlightColor(), trend.toString());
         }
 
         info.addSpacer(opad);
         heading(info, "terminal.credit.tips", opad);
-        info.addPara("%s", opad, Misc.getTextColor(), Str.f("terminal.credit.tipOnTime", BankSettings.SCORE_ON_TIME_PAYMENT));
-        info.addPara("%s", 3f, Misc.getTextColor(), Str.f("terminal.credit.tipPayoff", BankSettings.SCORE_LOAN_PAYOFF));
-        info.addPara(Str.get("terminal.credit.tipInvest"), 3f);
-        info.addPara(Str.get("terminal.credit.tipColony"), 3f);
-        info.addPara("%s", 3f, Misc.getTextColor(), Str.f("terminal.credit.tipMissed", BankSettings.SCORE_MISSED_PAYMENT, BankSettings.SCORE_LATE_PAYMENT));
-        info.addPara("%s", 3f, Misc.getTextColor(), Str.f("terminal.credit.tipDefault", BankSettings.SCORE_DEFAULT));
-
+        for (String tip : new String[]{"tipOnTime", "tipLate", "tipInquiries", "tipAge", "tipBalance", "tipPayoff", "tipMix"}) {
+            info.addPara(Str.get("terminal.credit." + tip), 3f);
+        }
         BankruptcyManager bm = data.getBankruptcyManager();
         if (bm.canFileBankruptcy(data)) {
             String keep = pct(1f - BankSettings.BANKRUPTCY_DEBT_REDUCTION, "%.0f") + "%";
@@ -415,6 +451,16 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             info.addButton(Str.get("terminal.bankruptcy.file"), "bankruptcy_file",
                 Misc.getNegativeHighlightColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 28f, opad);
         }
+    }
+
+    /** One factor row: name, published weight, points earned, and a rating. */
+    private void factor(TooltipMakerAPI info, String key, int weight, float points, float max) {
+        float q = max <= 0 ? 0 : points / max;
+        String rating = q >= 0.9f ? "rating.excellent" : q >= 0.75f ? "rating.good" : q >= 0.5f ? "rating.fair" : "rating.poor";
+        Color c = q >= 0.9f ? Misc.getPositiveHighlightColor() : q >= 0.75f ? Misc.getHighlightColor()
+            : q >= 0.5f ? GOLD : Misc.getNegativeHighlightColor();
+        info.addPara(Str.get("terminal.credit.factorRow"), 3f, c, Str.get(key), weight + "%",
+            String.format("%.0f/%.0f", points, max), Str.get(rating));
     }
 
     private void renderHistory(TooltipMakerAPI info, float width, float opad) {
