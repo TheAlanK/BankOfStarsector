@@ -58,8 +58,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
         BankruptcyManager.BankruptcyState bState = data.getBankruptcyManager().getState();
         if (bState != BankruptcyManager.BankruptcyState.NONE) {
-            info.addPara(Str.f("terminal.list.bankruptcy", BankruptcyManager.stateName(bState)),
-                Misc.getNegativeHighlightColor(), pad);
+            info.addPara("%s", pad, Misc.getNegativeHighlightColor(), Str.f("terminal.list.bankruptcy", BankruptcyManager.stateName(bState)));
         }
     }
 
@@ -392,17 +391,17 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 if (trend.length() > 0) trend.append(" -> ");
                 trend.append(history.get(i));
             }
-            info.addPara(trend.toString(), opad, Misc.getHighlightColor());
+            info.addPara("%s", opad, Misc.getHighlightColor(), trend.toString());
         }
 
         info.addSpacer(opad);
         heading(info, "terminal.credit.tips", opad);
-        info.addPara(Str.f("terminal.credit.tipOnTime", BankSettings.SCORE_ON_TIME_PAYMENT), opad);
-        info.addPara(Str.f("terminal.credit.tipPayoff", BankSettings.SCORE_LOAN_PAYOFF), 3f);
+        info.addPara("%s", opad, Misc.getTextColor(), Str.f("terminal.credit.tipOnTime", BankSettings.SCORE_ON_TIME_PAYMENT));
+        info.addPara("%s", 3f, Misc.getTextColor(), Str.f("terminal.credit.tipPayoff", BankSettings.SCORE_LOAN_PAYOFF));
         info.addPara(Str.get("terminal.credit.tipInvest"), 3f);
         info.addPara(Str.get("terminal.credit.tipColony"), 3f);
-        info.addPara(Str.f("terminal.credit.tipMissed", BankSettings.SCORE_MISSED_PAYMENT, BankSettings.SCORE_LATE_PAYMENT), 3f);
-        info.addPara(Str.f("terminal.credit.tipDefault", BankSettings.SCORE_DEFAULT), 3f);
+        info.addPara("%s", 3f, Misc.getTextColor(), Str.f("terminal.credit.tipMissed", BankSettings.SCORE_MISSED_PAYMENT, BankSettings.SCORE_LATE_PAYMENT));
+        info.addPara("%s", 3f, Misc.getTextColor(), Str.f("terminal.credit.tipDefault", BankSettings.SCORE_DEFAULT));
 
         BankruptcyManager bm = data.getBankruptcyManager();
         if (bm.canFileBankruptcy(data)) {
@@ -535,8 +534,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             return;
         }
         prompt.addPara(Str.get("terminal.bankruptcy.confirmTitle"), Misc.getNegativeHighlightColor(), 0f);
-        prompt.addPara(Str.f("terminal.bankruptcy.confirmText",
-            pct(BankSettings.BANKRUPTCY_DEBT_REDUCTION, "%.0f"), BankSettings.BANKRUPTCY_NO_LOANS_MONTHS), 10f);
+        prompt.addPara("%s", 10f, Misc.getTextColor(), Str.f("terminal.bankruptcy.confirmText", pct(BankSettings.BANKRUPTCY_DEBT_REDUCTION, "%.0f"), BankSettings.BANKRUPTCY_NO_LOANS_MONTHS));
     }
 
     @Override

@@ -35,12 +35,13 @@ if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed' }
 function Run($name, [scriptblock]$cmd, [string]$okPattern) {
     Write-Host "`n=== $name"
     $lines = & $cmd 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch 'log4j:WARN' }
-    $lines | Where-Object { $_ -cmatch 'PASS|FAIL|BLOCKED|SANDBOX|STRINGS|keys used|linked|ALL SCEN|^\[|Exception' } | ForEach-Object { Write-Host $_ }
+    $lines | Where-Object { $_ -cmatch 'PASS|FAIL|BLOCKED|SANDBOX|STRINGS|FORMAT|calls checked|keys used|linked|ALL SCEN|^\[|Exception' } | ForEach-Object { Write-Host $_ }
     if (-not ($lines -match $okPattern) -or ($lines -cmatch '^\s*FAIL |BLOCKED in')) { $script:failed++ ; Write-Host "!!! $name FAILED" -ForegroundColor Red }
 }
 
 Run 'Sandbox policy' { & $gameJava -cp $out SandboxCheck $jar } 'SANDBOX OK'
 Run 'Link against game jars' { & $gameJava -cp $out LinkCheck $jar $core @optional } 'failures 0'
+Run 'Format-string safety' { & $gameJava -cp $out FormatSafetyCheck (Join-Path $ModDir 'src') } 'FORMAT SAFETY OK'
 Run 'Translation tables' { & $gameJava -cp "$out;$cp" StringsCheck $ModDir } 'STRINGS OK'
 Run 'Loan lifecycle simulation' { & $gameJava "-Dbos.mod=$ModDir" -cp "$out;$cp" BankSim } 'ALL SCENARIOS PASSED'
 

@@ -162,7 +162,7 @@ public class BankEconomyListener implements EconomyTickListener {
             public boolean isTooltipExpandable(Object tooltipParam) { return false; }
             public float getTooltipWidth(Object tooltipParam) { return 450; }
             public void createTooltip(TooltipMakerAPI tooltip, boolean expanded, Object tooltipParam) {
-                tooltip.addPara(text, 0f);
+                tooltip.addPara("%s", 0f, com.fs.starfarer.api.util.Misc.getTextColor(), text);
             }
         };
     }
