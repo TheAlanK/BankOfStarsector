@@ -25,13 +25,13 @@ public class CollectionIntelPlugin extends BaseIntelPlugin {
     @Override
     public void createIntelInfo(TooltipMakerAPI info, ListInfoMode mode) {
         Color c = getTitleColor(mode);
-        info.addPara("PBC Collection Action", c, 0f);
+        info.addPara(com.bankofstarsector.core.Str.get("collection.title"), c, 0f);
 
         Color negative = Misc.getNegativeHighlightColor();
-        info.addPara("Outstanding debt: %s", 3f, Misc.getGrayColor(),
+        info.addPara(com.bankofstarsector.core.Str.get("collection.debt"), 3f, Misc.getGrayColor(),
             negative, Misc.getDGSCredits(debtAmount));
-        if (!isEnding()) info.addPara("A Collection Fleet is hunting you.", negative, 3f);
-        else info.addPara("Resolved.", Misc.getPositiveHighlightColor(), 3f);
+        if (!isEnding()) info.addPara(com.bankofstarsector.core.Str.get("collection.hunting"), negative, 3f);
+        else info.addPara(com.bankofstarsector.core.Str.get("collection.resolved"), Misc.getPositiveHighlightColor(), 3f);
     }
 
     @Override
@@ -42,17 +42,14 @@ public class CollectionIntelPlugin extends BaseIntelPlugin {
         float opad = 10f;
         BankAccount loan = BankData.get().getLoanManager().findLoan(loanAccountId);
         if (loan != null) {
-            info.addPara("Loan: %s", opad, Misc.getHighlightColor(), loan.loanType.displayName);
-            info.addPara("Past due: %s", opad, Misc.getNegativeHighlightColor(), Misc.getDGSCredits(loan.amountPastDue));
-            info.addPara("Outstanding balance: %s", opad, Misc.getNegativeHighlightColor(),
+            info.addPara(com.bankofstarsector.core.Str.get("collection.loan"), opad, Misc.getHighlightColor(), loan.loanType.getDisplayName());
+            info.addPara(com.bankofstarsector.core.Str.get("collection.pastDue"), opad, Misc.getNegativeHighlightColor(), Misc.getDGSCredits(loan.amountPastDue));
+            info.addPara(com.bankofstarsector.core.Str.get("collection.balance"), opad, Misc.getNegativeHighlightColor(),
                 Misc.getDGSCredits(loan.remainingBalance));
-            info.addPara("Days overdue: %s", opad, Misc.getNegativeHighlightColor(), "" + loan.daysOverdue);
+            info.addPara(com.bankofstarsector.core.Str.get("collection.days"), opad, Misc.getNegativeHighlightColor(), "" + loan.daysOverdue);
         }
-        info.addPara("The Persean Banking Confederation has dispatched an Enforcement Fleet. When it reaches "
-            + "you, its commander will demand payment - you may pay, surrender a ship as collateral, or refuse "
-            + "and fight. Paying the past-due amount in the Banking Terminal recalls the fleet.", opad);
-        info.addPara("Destroying the fleet does not clear the debt; a larger fleet will follow.", opad,
-            Misc.getNegativeHighlightColor(), "a larger fleet will follow");
+        info.addPara(com.bankofstarsector.core.Str.get("collection.explain"), opad);
+        info.addPara(com.bankofstarsector.core.Str.get("collection.warning"), Misc.getNegativeHighlightColor(), opad);
     }
 
     @Override

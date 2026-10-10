@@ -50,7 +50,7 @@ public class InvestmentManager implements Serializable {
         getInvestments().add(investment);
 
         BankData.get().addTransaction("INVEST", -amount,
-            "Invested in " + type.displayName);
+            com.bankofstarsector.core.Str.f("txd.invest", type.getDisplayName()));
 
         return investment;
     }
@@ -66,11 +66,11 @@ public class InvestmentManager implements Serializable {
             returnAmount = inv.currentValue - penalty;
             if (returnAmount < 0) returnAmount = 0;
             BankData.get().addTransaction("EARLY_WITHDRAW", returnAmount,
-                "Early withdrawal from " + inv.investmentType.displayName + " (penalty applied)");
+                com.bankofstarsector.core.Str.f("txd.earlyWithdraw", inv.investmentType.getDisplayName()));
         } else {
             returnAmount = inv.currentValue;
             BankData.get().addTransaction("WITHDRAW", returnAmount,
-                "Withdrawal from " + inv.investmentType.displayName);
+                com.bankofstarsector.core.Str.f("txd.withdraw", inv.investmentType.getDisplayName()));
         }
 
         Global.getSector().getPlayerFleet().getCargo().getCredits().add(returnAmount);

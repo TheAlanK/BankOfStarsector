@@ -1,6 +1,8 @@
 {
 	# Bank of Starsector tunables. Every key is optional; missing keys use the built-in defaults.
 
+	"language":"auto",                # auto (system language), en or pt_BR
+
 	# Interest
 	"warSurchargeMax":0.25,             # cap on the war surcharge applied to loan rates
 	"warSurchargePerWar":0.05,          # +5% per active war between major factions

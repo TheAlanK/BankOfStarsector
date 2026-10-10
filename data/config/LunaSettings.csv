@@ -1,0 +1,26 @@
+fieldID,fieldName,fieldType,defaultValue,secondaryValue,fieldDescription,minValue,maxValue,tab
+bos_generalHeader,General,Header,General,,,,,General
+bos_language,Language / Idioma,Radio,auto,"auto,en,pt_BR","auto = follow the system language. Applies after reloading the save. / auto = segue o idioma do sistema. Vale ao recarregar o save.",,,General
+bos_interestHeader,Interest,Header,Interest rates,,,,,Interest
+bos_warSurchargePerWar,War surcharge per war,Double,0.05,,Loan rates rise by this fraction for every war between major factions.,0,0.2,Interest
+bos_warSurchargeMax,War surcharge cap,Double,0.25,,Maximum total war surcharge on loan rates.,0,1,Interest
+bos_overduePenaltyPerMonth,Penalty interest per month overdue,Double,0.5,,Overdue loans accrue base rate x (1 + this x months overdue).,0,3,Interest
+bos_marketDisruptionModifier,Market disruption weight,Double,0.1,,How strongly disrupted industries raise loan rates and drag investment returns.,0,1,Interest
+bos_collectionHeader,Collection,Header,Debt collection,,,,,Collection
+bos_overduePhase1Days,Days until banking is restricted,Int,30,,Days overdue before new loans are suspended and penalty interest applies.,7,180,Collection
+bos_overduePhase2Days,Days until a collection fleet,Int,60,,Days overdue before a PBC Collection Fleet is dispatched.,14,365,Collection
+bos_defaultThresholdDays,Days until default,Int,90,,Days overdue before the loan defaults (investment seizure and income garnishment).,30,720,Collection
+bos_collectionFleetMinFP,Collection fleet minimum size,Int,30,,Minimum fleet points of a Collection Fleet.,10,300,Collection
+bos_collectionFleetMaxFP,Collection fleet maximum size,Int,200,,Maximum fleet points of a Collection Fleet (doubled after repeated defeats).,30,600,Collection
+bos_collectionFleetEscalation,Fleet escalation after defeat,Double,1.5,,Each Collection Fleet you destroy is replaced by one this many times stronger.,1,3,Collection
+bos_garnishPercentage,Income garnishment,Double,0.3,,Share of colony income taken every month while a loan is in default.,0,0.9,Collection
+bos_shipSurrenderValueFraction,Value of a surrendered ship,Double,0.6,,A ship surrendered to a Collection Fleet pays off this fraction of its base value.,0.1,1,Collection
+bos_creditHeader,Credit score,Header,Credit score,,,,,Credit
+bos_scoreMissedPayment,Missed payment,Int,-25,,Credit score change for each missed monthly installment.,-150,0,Credit
+bos_scoreDefault,Default,Int,-150,,Credit score change when a loan defaults.,-550,0,Credit
+bos_scoreOnTimePayment,On-time payment,Int,5,,Credit score change for each on-time payment.,0,30,Credit
+bos_bankruptcyHeader,Bankruptcy,Header,Bankruptcy,,,,,Bankruptcy
+bos_bankruptcyDebtReduction,Debt forgiven,Double,0.8,,Share of outstanding debt forgiven when filing bankruptcy.,0,1,Bankruptcy
+bos_bankruptcyNoLoansMonths,Months without loans,Int,24,,Months after filing before loans are offered again.,0,120,Bankruptcy
+bos_bankruptcyNoInvestMonths,Months without investing,Int,12,,Months after filing before investing is allowed again.,0,120,Bankruptcy
+bos_earlyWithdrawalPenalty,Early withdrawal penalty,Double,0.5,,Share of accumulated returns lost when withdrawing a locked investment early.,0,1,Bankruptcy

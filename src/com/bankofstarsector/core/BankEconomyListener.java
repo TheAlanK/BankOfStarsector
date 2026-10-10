@@ -108,12 +108,12 @@ public class BankEconomyListener implements EconomyTickListener {
         data.getInvestmentManager().cleanupEmptyInvestments();
 
         if (billed > 0f || garnish > 0f || seized > 0f || stillDue > 1f) {
-            String msg = "PBC statement: " + Misc.getDGSCredits(autopaid) + " paid";
-            if (seized > 0f) msg += ", " + Misc.getDGSCredits(seized) + " seized from investments";
-            if (garnish > 0f) msg += ", " + Misc.getDGSCredits(garnish) + " garnished";
-            if (dueNextMonth > 1f) msg += ", " + Misc.getDGSCredits(dueNextMonth) + " due by next month end";
-            if (stillDue > 1f) msg += ", " + Misc.getDGSCredits(stillDue) + " PAST DUE";
-            Global.getSector().getCampaignUI().addMessage(msg + ".",
+            String msg = com.bankofstarsector.core.Str.f("statement.paid", Misc.getDGSCredits(autopaid));
+            if (seized > 0f) msg += com.bankofstarsector.core.Str.f("statement.seized", Misc.getDGSCredits(seized));
+            if (garnish > 0f) msg += com.bankofstarsector.core.Str.f("statement.garnished", Misc.getDGSCredits(garnish));
+            if (dueNextMonth > 1f) msg += com.bankofstarsector.core.Str.f("statement.dueNext", Misc.getDGSCredits(dueNextMonth));
+            if (stillDue > 1f) msg += com.bankofstarsector.core.Str.f("statement.pastDue", Misc.getDGSCredits(stillDue));
+            Global.getSector().getCampaignUI().addMessage(msg,
                 stillDue > 1f ? Misc.getNegativeHighlightColor() : Misc.getTextColor());
         }
         log.info("BOS: month end - billed " + billed + ", autopaid " + autopaid + ", garnished " + garnish
@@ -129,10 +129,9 @@ public class BankEconomyListener implements EconomyTickListener {
         }
         FDNode node = report.getNode(fleetNode, "bos_loan_installments");
         if (node.name == null) {
-            node.name = "PBC loan installments";
+            node.name = com.bankofstarsector.core.Str.get("report.installments");
             node.icon = crest();
-            node.tooltipCreator = tooltip("Scheduled payments on your Persean Banking Confederation loans, "
-                + "paid automatically. Toggle autopay in the PBC Banking Terminal (Intel screen).");
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.installments.tooltip"));
         }
         return node;
     }
@@ -146,10 +145,9 @@ public class BankEconomyListener implements EconomyTickListener {
         }
         FDNode node = report.getNode(colonies, "bos_garnishment");
         if (node.name == null) {
-            node.name = "PBC income garnishment";
+            node.name = com.bankofstarsector.core.Str.get("report.garnishment");
             node.icon = crest();
-            node.tooltipCreator = tooltip("A share of your colony income seized by the Persean Banking "
-                + "Confederation because a loan is in default. Clear the past-due amount to stop it.");
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.garnishment.tooltip"));
         }
         return node;
     }

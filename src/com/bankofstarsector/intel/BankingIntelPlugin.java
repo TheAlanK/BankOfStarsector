@@ -4,6 +4,7 @@ import com.bankofstarsector.banking.*;
 import com.bankofstarsector.collection.BankruptcyManager;
 import com.bankofstarsector.core.BankData;
 import com.bankofstarsector.core.BankSettings;
+import com.bankofstarsector.core.Str;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.impl.campaign.intel.BaseIntelPlugin;
 import com.fs.starfarer.api.ui.*;
@@ -19,8 +20,8 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     private static final Color DARK_NAVY = new Color(20, 30, 60);
 
     private String currentTab = TAB_OVERVIEW;
-    private String pendingLoanType = null;
-    private String pendingInvestType = null;
+    private String pendingLoanType = null;   // kept for save compatibility
+    private String pendingInvestType = null; // kept for save compatibility
 
     public static final String TAB_OVERVIEW = "tab_overview";
     public static final String TAB_LOANS = "tab_loans";
@@ -28,33 +29,37 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     public static final String TAB_CREDIT = "tab_credit";
     public static final String TAB_HISTORY = "tab_history";
 
+    private static String pct(float fraction, String fmt) {
+        return String.format(fmt, fraction * 100);
+    }
+
     @Override
     public void createIntelInfo(TooltipMakerAPI info, ListInfoMode mode) {
         Color c = getTitleColor(mode);
-        info.addPara("PBC Banking Terminal", c, 0f);
+        info.addPara(Str.get("terminal.title"), c, 0f);
 
         BankData data = BankData.get();
         CreditScoreManager csm = data.getCreditScoreManager();
         float pad = 3f;
 
-        info.addPara("Credit Score: %s (%s)", pad, Misc.getGrayColor(),
-            Misc.getHighlightColor(),
-            "" + csm.getScore(), csm.getBracket());
+        info.addPara(Str.get("terminal.list.score"), pad, Misc.getGrayColor(),
+            Misc.getHighlightColor(), "" + csm.getScore(), csm.getBracket());
 
         float debt = data.getLoanManager().getTotalDebt();
         float invested = data.getInvestmentManager().getTotalValue();
         if (debt > 0) {
-            info.addPara("Debt: %s", pad, Misc.getGrayColor(),
+            info.addPara(Str.get("terminal.list.debt"), pad, Misc.getGrayColor(),
                 Misc.getNegativeHighlightColor(), Misc.getDGSCredits(debt));
         }
         if (invested > 0) {
-            info.addPara("Investments: %s", pad, Misc.getGrayColor(),
+            info.addPara(Str.get("terminal.list.investments"), pad, Misc.getGrayColor(),
                 Misc.getPositiveHighlightColor(), Misc.getDGSCredits(invested));
         }
 
         BankruptcyManager.BankruptcyState bState = data.getBankruptcyManager().getState();
         if (bState != BankruptcyManager.BankruptcyState.NONE) {
-            info.addPara("BANKRUPTCY: " + bState.name(), Misc.getNegativeHighlightColor(), pad);
+            info.addPara(Str.f("terminal.list.bankruptcy", BankruptcyManager.stateName(bState)),
+                Misc.getNegativeHighlightColor(), pad);
         }
     }
 
@@ -81,17 +86,18 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     }
 
     private void addTabBar(TooltipMakerAPI info, float width, float opad) {
-        info.addSectionHeading("PBC Banking Terminal",
-            GOLD, DARK_NAVY, Alignment.MID, opad);
+        info.addSectionHeading(Str.get("terminal.title"), GOLD, DARK_NAVY, Alignment.MID, opad);
 
-        String[] tabs = {"Overview", "Loans", "Investments", "Credit Score", "History"};
         String[] tabIds = {TAB_OVERVIEW, TAB_LOANS, TAB_INVESTMENTS, TAB_CREDIT, TAB_HISTORY};
-
-        for (int i = 0; i < tabs.length; i++) {
-            Color btnColor = tabIds[i].equals(currentTab) ? GOLD : Misc.getBasePlayerColor();
-            info.addButton(tabs[i], tabIds[i], btnColor, DARK_NAVY,
-                (Alignment) Alignment.MID, CutStyle.NONE, width / tabs.length - 4, 24f, 3f);
+        for (String tabId : tabIds) {
+            Color btnColor = tabId.equals(currentTab) ? GOLD : Misc.getBasePlayerColor();
+            info.addButton(Str.get("terminal." + tabId), tabId, btnColor, DARK_NAVY,
+                Alignment.MID, CutStyle.NONE, width / tabIds.length - 4, 24f, 3f);
         }
+    }
+
+    private void heading(TooltipMakerAPI info, String key, float opad) {
+        info.addSectionHeading(Str.get(key), Misc.getBasePlayerColor(), Misc.getDarkPlayerColor(), Alignment.MID, opad);
     }
 
     // ========== TAB RENDERING ==========
@@ -105,60 +111,47 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         float netWorth = data.getNetWorth();
 
-        info.addSectionHeading("Account Summary", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
-
-        info.addPara("Net Worth: %s", opad, Misc.getHighlightColor(),
-            Misc.getDGSCredits(netWorth));
-        info.addPara("Credits on Hand: %s", opad, Misc.getHighlightColor(),
-            Misc.getDGSCredits(credits));
-        info.addPara("Total Debt: %s", opad,
+        heading(info, "terminal.overview.summary", opad);
+        info.addPara(Str.get("terminal.overview.netWorth"), opad, Misc.getHighlightColor(), Misc.getDGSCredits(netWorth));
+        info.addPara(Str.get("terminal.overview.credits"), opad, Misc.getHighlightColor(), Misc.getDGSCredits(credits));
+        info.addPara(Str.get("terminal.overview.totalDebt"), opad,
             lm.getTotalDebt() > 0 ? Misc.getNegativeHighlightColor() : Misc.getGrayColor(),
             Misc.getDGSCredits(lm.getTotalDebt()));
-        info.addPara("Total Investments: %s", opad, Misc.getPositiveHighlightColor(),
+        info.addPara(Str.get("terminal.overview.totalInvestments"), opad, Misc.getPositiveHighlightColor(),
             Misc.getDGSCredits(im.getTotalValue()));
 
         info.addSpacer(opad);
-        info.addSectionHeading("Credit Score", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
-
-        Color scoreColor = csm.getScore() >= 750 ? Misc.getPositiveHighlightColor() :
-                          csm.getScore() >= 650 ? Misc.getHighlightColor() :
-                          csm.getScore() >= 500 ? GOLD : Misc.getNegativeHighlightColor();
-        info.addPara("Score: %s (%s)", opad, scoreColor,
-            "" + csm.getScore(), csm.getBracket());
-        info.addPara("Max Simultaneous Loans: %s", opad, Misc.getHighlightColor(),
-            "" + csm.getMaxLoans());
+        heading(info, "terminal.credit.heading", opad);
+        Color scoreColor = scoreColor(csm.getScore());
+        info.addPara(Str.get("terminal.overview.score"), opad, scoreColor, "" + csm.getScore(), csm.getBracket());
+        info.addPara(Str.get("terminal.overview.maxLoans"), opad, Misc.getHighlightColor(), "" + csm.getMaxLoans());
 
         info.addSpacer(opad);
-        info.addSectionHeading("Monthly Cash Flow", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
-
+        heading(info, "terminal.overview.cashFlow", opad);
         float monthlyPayments = lm.getTotalMonthlyPayment();
         float monthlyReturns = im.getMonthlyProjectedReturn();
         float netCashFlow = monthlyReturns - monthlyPayments;
 
-        info.addPara("Loan Payments: %s/mo", opad, Misc.getNegativeHighlightColor(),
+        info.addPara(Str.get("terminal.overview.loanPayments"), opad, Misc.getNegativeHighlightColor(),
             Misc.getDGSCredits(monthlyPayments));
         float late = lm.getTotalLate();
         float dueNow = lm.getTotalCurrentBills();
         if (dueNow > 1f) {
-            info.addPara("Due by next month end: %s", opad, Misc.getHighlightColor(), Misc.getDGSCredits(dueNow));
+            info.addPara(Str.get("terminal.overview.dueNow"), opad, Misc.getHighlightColor(), Misc.getDGSCredits(dueNow));
         }
         if (late > 1f) {
-            info.addPara("PAST DUE: %s - pay it in the Loans tab to stop collection.", opad,
-                Misc.getNegativeHighlightColor(), Misc.getDGSCredits(late));
+            info.addPara(Str.get("terminal.overview.pastDue"), opad, Misc.getNegativeHighlightColor(), Misc.getDGSCredits(late));
         }
-        info.addPara("Autopay: %s (installments are booked in the monthly income report)", opad,
+        info.addPara(Str.get("terminal.overview.autopay"), opad,
             data.isAutopayEnabled() ? Misc.getPositiveHighlightColor() : Misc.getNegativeHighlightColor(),
-            data.isAutopayEnabled() ? "ON" : "OFF");
-        info.addButton(data.isAutopayEnabled() ? "Turn autopay OFF" : "Turn autopay ON", "toggle_autopay",
-            Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 22f, 3f);
-        info.addPara("Investment Returns: %s/mo (est.)", opad, Misc.getPositiveHighlightColor(),
+            Str.get(data.isAutopayEnabled() ? "common.on" : "common.off"));
+        info.addButton(Str.get(data.isAutopayEnabled() ? "terminal.overview.autopayOff" : "terminal.overview.autopayOn"),
+            "toggle_autopay", Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 22f, 3f);
+        info.addPara(Str.get("terminal.overview.returns"), opad, Misc.getPositiveHighlightColor(),
             Misc.getDGSCredits(monthlyReturns));
-        info.addPara("Net Cash Flow: %s/mo", opad,
+        info.addPara(Str.get("terminal.overview.netCashFlow"), opad,
             netCashFlow >= 0 ? Misc.getPositiveHighlightColor() : Misc.getNegativeHighlightColor(),
-            Misc.getDGSCredits(Math.abs(netCashFlow)));
+            (netCashFlow < 0 ? "-" : "") + Misc.getDGSCredits(Math.abs(netCashFlow)));
 
         // Sector conditions
         InterestEngine engine = data.getInterestEngine();
@@ -166,23 +159,19 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         float disruption = engine.getMarketDisruptionModifier();
 
         info.addSpacer(opad);
-        info.addSectionHeading("Sector Conditions", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
-        int wars = engine.getWarCount();
-        info.addPara("Wars between major factions: %s  |  War surcharge on loans: +%s%%", opad,
+        heading(info, "terminal.sector.heading", opad);
+        info.addPara(Str.get("terminal.sector.wars"), opad,
             warSurcharge > 0 ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(),
-            "" + wars, String.format("%.0f", warSurcharge * 100));
-        info.addPara("Market disruption: %s%%  (loan rates +%s%%, investment returns -%s%%, commodity futures +%s%%)",
-            opad, disruption > 0 ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(),
-            String.format("%.1f", disruption * 100), String.format("%.1f", disruption * 100),
-            String.format("%.1f", disruption * 100), String.format("%.1f", disruption * 100));
+            "" + engine.getWarCount(), pct(warSurcharge, "%.0f"));
+        String d = pct(disruption, "%.1f");
+        info.addPara(Str.get("terminal.sector.disruption"), opad,
+            disruption > 0 ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(), d, d, d, d);
 
         // Sovereign debt ledger (NPC factions borrowing from the Confederation)
         final java.util.Map<String, Float> debts = data.getAssetSeizureManager().getAllFactionDebts();
         if (!debts.isEmpty()) {
             info.addSpacer(opad);
-            info.addSectionHeading("Sovereign Debt Ledger", Misc.getBasePlayerColor(),
-                Misc.getDarkPlayerColor(), Alignment.MID, opad);
+            heading(info, "terminal.sovereign.heading", opad);
             java.util.List<String> ids = new java.util.ArrayList<String>(debts.keySet());
             java.util.Collections.sort(ids, new java.util.Comparator<String>() {
                 public int compare(String a, String b) { return Float.compare(debts.get(b), debts.get(a)); }
@@ -193,23 +182,29 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                     f != null ? f.getDisplayName() : ids.get(i), Misc.getDGSCredits(debts.get(ids.get(i))));
             }
             float total = data.getAssetSeizureManager().getTotalSovereignDebt();
-            info.addPara("Government bond coupon bonus: +%s%%/mo. If an indebted faction collapses, bonds take a haircut.",
-                opad, Misc.getHighlightColor(), String.format("%.2f", engine.getSovereignYieldBonus(total) * 100));
+            info.addPara(Str.get("terminal.sovereign.bonus"), opad, Misc.getHighlightColor(),
+                pct(engine.getSovereignYieldBonus(total), "%.2f"));
         }
 
         // Bankruptcy status
         BankruptcyManager.BankruptcyState bState = data.getBankruptcyManager().getState();
         if (bState != BankruptcyManager.BankruptcyState.NONE) {
             info.addSpacer(opad);
-            info.addSectionHeading("Bankruptcy Status", Misc.getNegativeHighlightColor(),
+            info.addSectionHeading(Str.get("terminal.bankruptcy.status"), Misc.getNegativeHighlightColor(),
                 Misc.getDarkPlayerColor(), Alignment.MID, opad);
-            info.addPara("State: %s", opad, Misc.getNegativeHighlightColor(), bState.name());
             BankruptcyManager bm = data.getBankruptcyManager();
-            info.addPara("New loans available in: %s days (then Emergency/Small only)", opad,
-                Misc.getHighlightColor(), "" + bm.getNoLoansDaysRemaining());
-            info.addPara("Investing available in: %s days", opad, Misc.getHighlightColor(), "" + bm.getNoInvestDaysRemaining());
-            info.addPara("Full Recovery In: %s days", opad, Misc.getHighlightColor(), "" + bm.getRecoveryDaysRemaining());
+            info.addPara(Str.get("terminal.bankruptcy.state"), opad, Misc.getNegativeHighlightColor(),
+                BankruptcyManager.stateName(bState));
+            info.addPara(Str.get("terminal.bankruptcy.loansIn"), opad, Misc.getHighlightColor(), "" + bm.getNoLoansDaysRemaining());
+            info.addPara(Str.get("terminal.bankruptcy.investIn"), opad, Misc.getHighlightColor(), "" + bm.getNoInvestDaysRemaining());
+            info.addPara(Str.get("terminal.bankruptcy.recoveryIn"), opad, Misc.getHighlightColor(), "" + bm.getRecoveryDaysRemaining());
         }
+    }
+
+    private static Color scoreColor(int score) {
+        return score >= 750 ? Misc.getPositiveHighlightColor() :
+               score >= 650 ? Misc.getHighlightColor() :
+               score >= 500 ? GOLD : Misc.getNegativeHighlightColor();
     }
 
     private void renderLoans(TooltipMakerAPI info, float width, float opad) {
@@ -218,69 +213,52 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         CreditScoreManager csm = data.getCreditScoreManager();
         InterestEngine engine = data.getInterestEngine();
 
-        // Active loans
-        info.addSectionHeading("Active Loans", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        heading(info, "terminal.loans.active", opad);
 
         List<BankAccount> activeLoans = lm.getActiveLoans();
         if (activeLoans.isEmpty()) {
-            info.addPara("No active loans.", Misc.getGrayColor(), opad);
+            info.addPara(Str.get("terminal.loans.none"), Misc.getGrayColor(), opad);
         } else {
             for (BankAccount loan : activeLoans) {
                 Color statusColor = loan.status == LoanStatus.ACTIVE ?
                     Misc.getPositiveHighlightColor() : Misc.getNegativeHighlightColor();
 
-                info.addPara("%s  |  Balance: %s  |  Rate: %s%%/mo  |  %s", opad,
-                    statusColor,
-                    loan.loanType.displayName,
+                info.addPara(Str.get("terminal.loans.row"), opad, statusColor,
+                    loan.loanType.getDisplayName(),
                     Misc.getDGSCredits(loan.remainingBalance),
-                    String.format("%.1f", loan.monthlyRate * 100),
+                    pct(loan.monthlyRate, "%.1f"),
                     loan.getStatusDisplay());
 
-                info.addPara("  Next installment: %s  |  Months Elapsed: %s/%s",
-                    3f, Misc.getHighlightColor(),
-                    Misc.getDGSCredits(loan.getMonthlyPayment()),
-                    "" + loan.monthsElapsed, "" + loan.termMonths);
+                info.addPara(Str.get("terminal.loans.next"), 3f, Misc.getHighlightColor(),
+                    Misc.getDGSCredits(loan.getMonthlyPayment()), "" + loan.monthsElapsed, "" + loan.termMonths);
 
                 if (loan.amountPastDue > 1f) {
-                    info.addPara("  Amount due: %s  |  Late: %s  |  Missed payments: %s", 3f,
+                    info.addPara(Str.get("terminal.loans.due"), 3f,
                         loan.getLateAmount() > 1f ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(),
                         Misc.getDGSCredits(loan.amountPastDue), Misc.getDGSCredits(loan.getLateAmount()),
                         "" + loan.missedPayments);
-                    info.addButton("Pay Amount Due (" + Misc.getDGSCredits(loan.amountPastDue) + ")",
+                    info.addButton(Str.f("terminal.loans.payDue", Misc.getDGSCredits(loan.amountPastDue)),
                         "loan_paypastdue_" + loan.accountId,
-                        Misc.getNegativeHighlightColor(), DARK_NAVY,
-                        Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+                        Misc.getNegativeHighlightColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
                 } else {
-                    // Prepay next installment
-                    info.addButton("Prepay Installment (" + Misc.getDGSCredits(loan.getMonthlyPayment()) + ")",
+                    info.addButton(Str.f("terminal.loans.prepay", Misc.getDGSCredits(loan.getMonthlyPayment())),
                         "loan_paymin_" + loan.accountId,
-                        Misc.getBasePlayerColor(), DARK_NAVY,
-                        Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+                        Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
                 }
-
-                // Pay off button
-                info.addButton("Pay Off (" + Misc.getDGSCredits(loan.remainingBalance) + ")",
+                info.addButton(Str.f("terminal.loans.payOff", Misc.getDGSCredits(loan.remainingBalance)),
                     "loan_payoff_" + loan.accountId,
-                    Misc.getBasePlayerColor(), DARK_NAVY,
-                    Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
-
+                    Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
                 info.addSpacer(opad / 2);
             }
         }
 
-        // Available loans
         info.addSpacer(opad);
-        info.addSectionHeading("Available Loans", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        heading(info, "terminal.loans.available", opad);
 
-        boolean canTakeAny = data.getBankruptcyManager().canTakeLoans();
-        if (!canTakeAny) {
-            info.addPara("Banking access restricted due to bankruptcy recovery.",
-                Misc.getNegativeHighlightColor(), opad);
+        if (!data.getBankruptcyManager().canTakeLoans()) {
+            info.addPara(Str.get("terminal.loans.restrictedBankruptcy"), Misc.getNegativeHighlightColor(), opad);
         } else if (data.getCollectionManager().isBankingRestricted()) {
-            info.addPara("New loan applications restricted due to overdue payments.",
-                Misc.getNegativeHighlightColor(), opad);
+            info.addPara(Str.get("terminal.loans.restrictedOverdue"), Misc.getNegativeHighlightColor(), opad);
         } else {
             for (LoanType type : LoanType.values()) {
                 boolean canTake = lm.canTakeLoan(type, csm.getScore(), csm.getMaxLoans())
@@ -289,30 +267,25 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 float effectiveRate = engine.calculateEffectiveLoanRate(type, csm.getScore());
 
                 Color typeColor = canTake ? Misc.getHighlightColor() : Misc.getGrayColor();
-                info.addPara("%s", opad, typeColor, type.displayName);
-                info.addPara("  Max: %s  |  Rate: %s%%/mo  |  Term: %s months  |  Min Score: %s",
-                    3f, Misc.getGrayColor(),
-                    Misc.getDGSCredits(maxAmount),
-                    String.format("%.1f", effectiveRate * 100),
-                    "" + type.termMonths,
-                    "" + type.minCreditScore);
-                info.addPara("  %s", 3f, Misc.getGrayColor(), type.description);
+                info.addPara("%s", opad, typeColor, type.getDisplayName());
+                info.addPara(Str.get("terminal.loans.terms"), 3f, Misc.getGrayColor(),
+                    Misc.getDGSCredits(maxAmount), pct(effectiveRate, "%.1f"),
+                    "" + type.termMonths, "" + type.minCreditScore);
+                info.addPara("  %s", 3f, Misc.getGrayColor(), type.getDescription());
 
                 if (canTake) {
-                    // Offer at different percentages
                     float[] pcts = {0.25f, 0.50f, 0.75f, 1.0f};
-                    for (float pct : pcts) {
-                        float amount = maxAmount * pct;
-                        info.addButton("Take " + Misc.getDGSCredits(amount),
-                            "loan_take_" + type.name() + "_" + (int)(pct * 100),
-                            Misc.getBasePlayerColor(), DARK_NAVY,
-                            Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
+                    for (float p : pcts) {
+                        float amount = maxAmount * p;
+                        info.addButton(Str.f("terminal.loans.take", Misc.getDGSCredits(amount)),
+                            "loan_take_" + type.name() + "_" + (int) (p * 100),
+                            Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
                     }
                 } else {
                     String reason;
-                    if (csm.getScore() < type.minCreditScore) reason = "Insufficient credit score";
-                    else if (!data.getBankruptcyManager().canTakeLoanType(type)) reason = "Not offered during bankruptcy recovery";
-                    else reason = "Maximum active loans reached";
+                    if (csm.getScore() < type.minCreditScore) reason = Str.get("terminal.loans.reasonScore");
+                    else if (!data.getBankruptcyManager().canTakeLoanType(type)) reason = Str.get("terminal.loans.reasonBankruptcy");
+                    else reason = Str.get("terminal.loans.reasonMax");
                     info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), reason);
                 }
                 info.addSpacer(opad / 2);
@@ -324,51 +297,40 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         BankData data = BankData.get();
         InvestmentManager im = data.getInvestmentManager();
 
-        // Active investments
-        info.addSectionHeading("Portfolio", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        heading(info, "terminal.invest.portfolio", opad);
 
         List<BankAccount> activeInvestments = im.getActiveInvestments();
         if (activeInvestments.isEmpty()) {
-            info.addPara("No active investments.", Misc.getGrayColor(), opad);
+            info.addPara(Str.get("terminal.invest.none"), Misc.getGrayColor(), opad);
         } else {
             for (BankAccount inv : activeInvestments) {
                 float returnPct = inv.investedAmount > 0 ?
                     ((inv.currentValue - inv.investedAmount) / inv.investedAmount) * 100 : 0;
-                Color returnColor = returnPct >= 0 ?
-                    Misc.getPositiveHighlightColor() : Misc.getNegativeHighlightColor();
 
-                info.addPara("%s  |  Value: %s  |  Return: %s%%  |  %s", opad,
-                    Misc.getHighlightColor(),
-                    inv.investmentType.displayName,
+                info.addPara(Str.get("terminal.invest.row"), opad, Misc.getHighlightColor(),
+                    inv.investmentType.getDisplayName(),
                     Misc.getDGSCredits(inv.currentValue),
                     String.format("%+.1f", returnPct),
                     inv.getStatusDisplay());
 
                 if (!inv.isLocked()) {
-                    info.addButton("Withdraw (" + Misc.getDGSCredits(inv.currentValue) + ")",
+                    info.addButton(Str.f("terminal.invest.withdraw", Misc.getDGSCredits(inv.currentValue)),
                         "invest_withdraw_" + inv.accountId,
-                        Misc.getBasePlayerColor(), DARK_NAVY,
-                        Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+                        Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
                 } else {
-                    info.addButton("Withdraw (Early, Penalty)",
+                    info.addButton(Str.get("terminal.invest.withdrawEarly"),
                         "invest_withdraw_" + inv.accountId,
-                        Misc.getNegativeHighlightColor(), DARK_NAVY,
-                        Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+                        Misc.getNegativeHighlightColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
                 }
                 info.addSpacer(opad / 2);
             }
         }
 
-        // Available investments
         info.addSpacer(opad);
-        info.addSectionHeading("Available Investments", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        heading(info, "terminal.invest.available", opad);
 
-        boolean canInvest = data.getBankruptcyManager().canInvest();
-        if (!canInvest) {
-            info.addPara("Investment access restricted during bankruptcy recovery.",
-                Misc.getNegativeHighlightColor(), opad);
+        if (!data.getBankruptcyManager().canInvest()) {
+            info.addPara(Str.get("terminal.invest.restricted"), Misc.getNegativeHighlightColor(), opad);
         } else {
             float playerCredits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
 
@@ -376,28 +338,26 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 boolean canAfford = playerCredits >= type.minInvestment;
                 Color typeColor = canAfford ? Misc.getHighlightColor() : Misc.getGrayColor();
 
-                info.addPara("%s", opad, typeColor, type.displayName);
-                info.addPara("  Return: %s%%/mo  |  Volatility: %s%%  |  Lock: %s  |  Min: %s",
-                    3f, Misc.getGrayColor(),
-                    String.format("%.1f", type.baseMonthlyReturn * 100),
-                    String.format("%.1f", type.volatility * 100),
-                    type.lockMonths > 0 ? type.lockMonths + " months" : "None",
+                info.addPara("%s", opad, typeColor, type.getDisplayName());
+                info.addPara(Str.get("terminal.invest.terms"), 3f, Misc.getGrayColor(),
+                    pct(type.baseMonthlyReturn, "%.1f"),
+                    pct(type.volatility, "%.1f"),
+                    type.lockMonths > 0 ? Str.f("common.months", type.lockMonths) : Str.get("common.none"),
                     Misc.getDGSCredits(type.minInvestment));
-                info.addPara("  %s", 3f, Misc.getGrayColor(), type.description);
+                info.addPara("  %s", 3f, Misc.getGrayColor(), type.getDescription());
 
                 if (canAfford) {
                     float[] amounts = {type.minInvestment, type.minInvestment * 2,
                                        type.minInvestment * 5, type.minInvestment * 10};
                     for (float amt : amounts) {
                         if (amt <= playerCredits) {
-                            info.addButton("Invest " + Misc.getDGSCredits(amt),
-                                "invest_buy_" + type.name() + "_" + (int)amt,
-                                Misc.getBasePlayerColor(), DARK_NAVY,
-                                Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
+                            info.addButton(Str.f("terminal.invest.invest", Misc.getDGSCredits(amt)),
+                                "invest_buy_" + type.name() + "_" + (int) amt,
+                                Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
                         }
                     }
                 } else {
-                    info.addPara("  [Insufficient credits]", 3f, Misc.getNegativeHighlightColor());
+                    info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), Str.get("terminal.invest.noCredits"));
                 }
                 info.addSpacer(opad / 2);
             }
@@ -408,39 +368,25 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         BankData data = BankData.get();
         CreditScoreManager csm = data.getCreditScoreManager();
 
-        info.addSectionHeading("Credit Score", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
-
-        Color scoreColor = csm.getScore() >= 750 ? Misc.getPositiveHighlightColor() :
-                          csm.getScore() >= 650 ? Misc.getHighlightColor() :
-                          csm.getScore() >= 500 ? GOLD : Misc.getNegativeHighlightColor();
-
-        info.addPara("Current Score: %s", opad, scoreColor, "" + csm.getScore());
-        info.addPara("Bracket: %s", opad, scoreColor, csm.getBracket());
-        info.addPara("Rate Modifier: %s", opad, Misc.getHighlightColor(),
+        heading(info, "terminal.credit.heading", opad);
+        Color scoreColor = scoreColor(csm.getScore());
+        info.addPara(Str.get("terminal.credit.current"), opad, scoreColor, "" + csm.getScore());
+        info.addPara(Str.get("terminal.credit.bracket"), opad, scoreColor, csm.getBracket());
+        info.addPara(Str.get("terminal.credit.modifier"), opad, Misc.getHighlightColor(),
             String.format("%+.0f%%", csm.getRateModifier() * 100));
 
-        // Score brackets explained
         info.addSpacer(opad);
-        info.addSectionHeading("Score Brackets", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        heading(info, "terminal.credit.brackets", opad);
+        info.addPara(Str.get("terminal.credit.excellent"), opad, Misc.getPositiveHighlightColor(), Str.get("credit.bracket.excellent"));
+        info.addPara(Str.get("terminal.credit.good"), opad, Misc.getHighlightColor(), Str.get("credit.bracket.good"));
+        info.addPara(Str.get("terminal.credit.fair"), opad, GOLD, Str.get("credit.bracket.fair"));
+        info.addPara(Str.get("terminal.credit.poor"), opad, Misc.getNegativeHighlightColor(), Str.get("credit.bracket.poor"));
 
-        info.addPara("750-850 (Excellent): 5 loans, -15%% rates, every loan type including Sovereign", opad,
-            Misc.getPositiveHighlightColor(), "Excellent");
-        info.addPara("650-749 (Good): 3 loans, standard rates, up to Megacorp", opad,
-            Misc.getHighlightColor(), "Good");
-        info.addPara("500-649 (Fair): 2 loans, +20%% rates, Corporate from 550", opad,
-            GOLD, "Fair");
-        info.addPara("300-499 (Poor): 1 loan, +50%% rates, Emergency (Small from 400)", opad,
-            Misc.getNegativeHighlightColor(), "Poor");
-
-        // Score history
         List<Integer> history = csm.getScoreHistory();
         if (!history.isEmpty()) {
             info.addSpacer(opad);
-            info.addSectionHeading("Score Trend (Last " + history.size() + " Months)",
+            info.addSectionHeading(Str.f("terminal.credit.trend", history.size()),
                 Misc.getBasePlayerColor(), Misc.getDarkPlayerColor(), Alignment.MID, opad);
-
             StringBuilder trend = new StringBuilder();
             for (int i = history.size() - 1; i >= 0; i--) {
                 if (trend.length() > 0) trend.append(" -> ");
@@ -449,55 +395,44 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             info.addPara(trend.toString(), opad, Misc.getHighlightColor());
         }
 
-        // Tips
         info.addSpacer(opad);
-        info.addSectionHeading("Improving Your Score", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        heading(info, "terminal.credit.tips", opad);
+        info.addPara(Str.f("terminal.credit.tipOnTime", BankSettings.SCORE_ON_TIME_PAYMENT), opad);
+        info.addPara(Str.f("terminal.credit.tipPayoff", BankSettings.SCORE_LOAN_PAYOFF), 3f);
+        info.addPara(Str.get("terminal.credit.tipInvest"), 3f);
+        info.addPara(Str.get("terminal.credit.tipColony"), 3f);
+        info.addPara(Str.f("terminal.credit.tipMissed", BankSettings.SCORE_MISSED_PAYMENT, BankSettings.SCORE_LATE_PAYMENT), 3f);
+        info.addPara(Str.f("terminal.credit.tipDefault", BankSettings.SCORE_DEFAULT), 3f);
 
-        info.addPara("- Make loan payments on time (+" + BankSettings.SCORE_ON_TIME_PAYMENT + " per payment)", opad);
-        info.addPara("- Pay off loans in full (+" + BankSettings.SCORE_LOAN_PAYOFF + " per payoff)", 3f);
-        info.addPara("- Maintain active investments (+1 per 100k invested, max +5)", 3f);
-        info.addPara("- Earn colony income over 100k/month (+3)", 3f);
-        info.addPara("- Missing a monthly installment costs " + BankSettings.SCORE_MISSED_PAYMENT
-            + "; paying late costs " + BankSettings.SCORE_LATE_PAYMENT, 3f);
-        info.addPara("- A default costs " + BankSettings.SCORE_DEFAULT
-            + " and triggers income garnishment and collection fleets", 3f);
-
-        // Bankruptcy option
         BankruptcyManager bm = data.getBankruptcyManager();
         if (bm.canFileBankruptcy(data)) {
+            String keep = pct(1f - BankSettings.BANKRUPTCY_DEBT_REDUCTION, "%.0f") + "%";
+            String months = Str.f("common.months", BankSettings.BANKRUPTCY_NO_LOANS_MONTHS);
             info.addSpacer(opad * 2);
-            info.addSectionHeading("BANKRUPTCY", Misc.getNegativeHighlightColor(),
+            info.addSectionHeading(Str.get("terminal.bankruptcy.heading"), Misc.getNegativeHighlightColor(),
                 Misc.getDarkPlayerColor(), Alignment.MID, opad);
-            info.addPara("Filing bankruptcy will reduce your debt to 20%% of current balance, " +
-                "but your credit score will be reset to 300 and you will lose access to " +
-                "banking services for up to 24 months. Investments will be liquidated at 50%% value.",
-                opad, Misc.getNegativeHighlightColor(),
-                "20%", "300", "24 months", "50%");
-            info.addButton("FILE BANKRUPTCY", "bankruptcy_file",
-                Misc.getNegativeHighlightColor(), DARK_NAVY,
-                Alignment.MID, CutStyle.NONE, 200, 28f, opad);
+            info.addPara(Str.get("terminal.bankruptcy.explain"), opad, Misc.getNegativeHighlightColor(),
+                keep, "" + BankSettings.CREDIT_SCORE_MIN, months, "50%");
+            info.addButton(Str.get("terminal.bankruptcy.file"), "bankruptcy_file",
+                Misc.getNegativeHighlightColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 200, 28f, opad);
         }
     }
 
     private void renderHistory(TooltipMakerAPI info, float width, float opad) {
         BankData data = BankData.get();
-
-        info.addSectionHeading("Transaction History", Misc.getBasePlayerColor(),
-            Misc.getDarkPlayerColor(), Alignment.MID, opad);
+        heading(info, "terminal.history.heading", opad);
 
         List<BankData.TransactionRecord> history = data.getTransactionHistory();
         if (history.isEmpty()) {
-            info.addPara("No transactions yet.", Misc.getGrayColor(), opad);
+            info.addPara(Str.get("terminal.history.none"), Misc.getGrayColor(), opad);
         } else {
             for (BankData.TransactionRecord record : history) {
                 Color amountColor = record.amount >= 0 ?
                     Misc.getPositiveHighlightColor() : Misc.getNegativeHighlightColor();
-                String amountStr = record.amount != 0 ?
-                    Misc.getDGSCredits(Math.abs(record.amount)) : "--";
-
-                info.addPara("[%s] %s - %s", opad, amountColor,
-                    record.type, amountStr, record.description);
+                String amountStr = record.amount != 0 ? Misc.getDGSCredits(Math.abs(record.amount)) : "--";
+                String label = Str.get("tx." + record.type);
+                if (label.startsWith("tx.")) label = record.type; // unknown type from an older save
+                info.addPara("[%s] %s - %s", opad, amountColor, label, amountStr, record.description);
             }
         }
     }
@@ -508,7 +443,6 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     public void buttonPressConfirmed(Object buttonId, IntelUIAPI ui) {
         String id = buttonId.toString();
 
-        // Tab switching
         if (id.startsWith("tab_")) {
             currentTab = id;
             ui.updateUIForItem(this);
@@ -517,13 +451,10 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
         BankData data = BankData.get();
 
-        // Loan payment
         if (id.startsWith("loan_paymin_")) {
             String accountId = id.substring("loan_paymin_".length());
             BankAccount loan = data.getLoanManager().findLoan(accountId);
-            if (loan != null) {
-                data.getLoanManager().makePayment(accountId, loan.getMonthlyPayment());
-            }
+            if (loan != null) data.getLoanManager().makePayment(accountId, loan.getMonthlyPayment());
             ui.updateUIForItem(this);
             return;
         }
@@ -541,18 +472,16 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         }
 
         if (id.startsWith("loan_payoff_")) {
-            String accountId = id.substring("loan_payoff_".length());
-            data.getLoanManager().payOff(accountId);
+            data.getLoanManager().payOff(id.substring("loan_payoff_".length()));
             ui.updateUIForItem(this);
             return;
         }
 
-        // Take loan
         if (id.startsWith("loan_take_")) {
             String rest = id.substring("loan_take_".length());
             int lastUnderscore = rest.lastIndexOf('_');
             String typeName = rest.substring(0, lastUnderscore);
-            int pct = Integer.parseInt(rest.substring(lastUnderscore + 1));
+            int p = Integer.parseInt(rest.substring(lastUnderscore + 1));
 
             LoanType type = LoanType.valueOf(typeName);
             int score = data.getCreditScoreManager().getScore();
@@ -562,31 +491,24 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 ui.updateUIForItem(this);
                 return;
             }
-            float maxAmount = type.getMaxAmountForScore(data.getCreditScoreManager().getScore());
-            float amount = maxAmount * (pct / 100f);
-            float effectiveRate = data.getInterestEngine().calculateEffectiveLoanRate(
-                type, data.getCreditScoreManager().getScore());
-
+            float amount = type.getMaxAmountForScore(score) * (p / 100f);
+            float effectiveRate = data.getInterestEngine().calculateEffectiveLoanRate(type, score);
             data.getLoanManager().takeLoan(type, amount, effectiveRate);
             ui.updateUIForItem(this);
             return;
         }
 
-        // Investment withdrawal
         if (id.startsWith("invest_withdraw_")) {
-            String accountId = id.substring("invest_withdraw_".length());
-            data.getInvestmentManager().withdraw(accountId);
+            data.getInvestmentManager().withdraw(id.substring("invest_withdraw_".length()));
             ui.updateUIForItem(this);
             return;
         }
 
-        // Buy investment
         if (id.startsWith("invest_buy_")) {
             String rest = id.substring("invest_buy_".length());
             int lastUnderscore = rest.lastIndexOf('_');
             String typeName = rest.substring(0, lastUnderscore);
             int amount = Integer.parseInt(rest.substring(lastUnderscore + 1));
-
             InvestmentType type = InvestmentType.valueOf(typeName);
             if (data.getBankruptcyManager().canInvest()) {
                 data.getInvestmentManager().invest(type, (float) amount);
@@ -595,11 +517,9 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             return;
         }
 
-        // Bankruptcy
         if ("bankruptcy_file".equals(id)) {
             data.getBankruptcyManager().fileBankruptcy(data);
             ui.updateUIForItem(this);
-            return;
         }
     }
 
@@ -614,15 +534,14 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             super.createConfirmationPrompt(buttonId, prompt);
             return;
         }
-        prompt.addPara("File for bankruptcy with the Persean Banking Confederation?", Misc.getNegativeHighlightColor(), 0f);
-        prompt.addPara("Debts are cut by " + (int) (BankSettings.BANKRUPTCY_DEBT_REDUCTION * 100) + "% and restructured, "
-            + "investments are liquidated at half value, your credit score drops to 300 and you lose banking access for "
-            + BankSettings.BANKRUPTCY_NO_LOANS_MONTHS + " months. This cannot be undone.", 10f);
+        prompt.addPara(Str.get("terminal.bankruptcy.confirmTitle"), Misc.getNegativeHighlightColor(), 0f);
+        prompt.addPara(Str.f("terminal.bankruptcy.confirmText",
+            pct(BankSettings.BANKRUPTCY_DEBT_REDUCTION, "%.0f"), BankSettings.BANKRUPTCY_NO_LOANS_MONTHS), 10f);
     }
 
     @Override
     public String getConfirmText(Object buttonId) {
-        return "bankruptcy_file".equals(buttonId) ? "File bankruptcy" : super.getConfirmText(buttonId);
+        return "bankruptcy_file".equals(buttonId) ? Str.get("terminal.bankruptcy.confirmButton") : super.getConfirmText(buttonId);
     }
 
     @Override

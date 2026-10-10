@@ -1,6 +1,7 @@
 package com.bankofstarsector.banking;
 
 import com.bankofstarsector.core.BankData;
+import com.bankofstarsector.core.Str;
 
 import java.io.Serializable;
 
@@ -102,18 +103,15 @@ public class BankAccount implements Serializable {
     public String getStatusDisplay() {
         if (isLoan) {
             switch (status) {
-                case ACTIVE: return "Current";
-                case OVERDUE: return "OVERDUE (" + daysOverdue + " days)";
-                case DEFAULTED: return "DEFAULTED (" + daysOverdue + " days)";
-                case PAID_OFF: return "Paid Off";
-                case SEIZED: return "SEIZED";
+                case ACTIVE: return Str.get("status.current");
+                case OVERDUE: return Str.f("status.overdue", daysOverdue);
+                case DEFAULTED: return Str.f("status.defaulted", daysOverdue);
+                case PAID_OFF: return Str.get("status.paidOff");
+                case SEIZED: return Str.get("status.seized");
                 default: return status.name();
             }
-        } else {
-            if (lockMonthsRemaining > 0) {
-                return "Locked (" + lockMonthsRemaining + " mo)";
-            }
-            return "Active";
         }
+        if (lockMonthsRemaining > 0) return Str.f("status.locked", lockMonthsRemaining);
+        return Str.get("status.active");
     }
 }

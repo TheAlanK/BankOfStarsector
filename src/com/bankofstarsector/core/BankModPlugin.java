@@ -50,6 +50,9 @@ public class BankModPlugin extends BaseModPlugin {
     public void onGameLoad(boolean newGame) {
         log.info("Bank of Starsector: Game loaded (newGame=" + newGame + ")");
 
+        // LunaLib finishes loading its settings after onApplicationLoad, so re-read them here.
+        BankSettings.load();
+        com.bankofstarsector.compat.LunaLibCompat.listenForChanges();
         BankData.get();
 
         Global.getSector().addTransientScript(new BankCampaignScript());
@@ -60,7 +63,10 @@ public class BankModPlugin extends BaseModPlugin {
         if (NexerelinCompat.isAvailable()) {
             log.info("Bank of Starsector: Nexerelin detected (corvus mode: " + NexerelinCompat.isCorvusMode() + ").");
         }
+        com.bankofstarsector.ui.BankSnapshot.clear(); // never show the previous save's numbers
         if (NexusUICompat.registerBankingPage()) {
+            // NexusUI refreshes pages off the game thread; publish snapshots from the game thread.
+            Global.getSector().addTransientScript(new com.bankofstarsector.ui.BankSnapshotScript());
             log.info("Bank of Starsector: NexusUI banking page available.");
         }
 

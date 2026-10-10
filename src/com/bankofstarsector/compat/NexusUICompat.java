@@ -33,4 +33,14 @@ public class NexusUICompat {
         }
         return registered;
     }
+
+    /** Registers the bank's data provider with the current NexusUI data bridge (game thread). */
+    public static void ensureDataProvider() {
+        if (!isAvailable()) return;
+        try {
+            NexusUIBridge.ensureDataProvider();
+        } catch (Throwable t) {
+            // NexusUI not initialised yet, or an incompatible version: the page still works.
+        }
+    }
 }

@@ -14,7 +14,7 @@ bos_collectionDone,DialogOptionSelected,$option == bos_done,BOSCollection done,,
 bos_branchOption,PopulateOptions,"$hasMarket
 $menuState == main
 $tradeMode != NONE
-$faction.id == pbc",,,14:bos_branchVisit:Visit the Confederation branch office,
+$faction.id == pbc",BOSBranch addOption,,,Option label comes from data/strings (translated)
 bos_branchVisit,DialogOptionSelected,$option == bos_branchVisit,BOSBranch visit,,,
 bos_branchPay,DialogOptionSelected,$option == bos_branchPay,BOSBranch payPastDue,,,
 bos_branchTerminal,DialogOptionSelected,$option == bos_branchTerminal,BOSBranch terminal,,,

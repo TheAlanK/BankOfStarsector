@@ -1,0 +1,19 @@
+Bank of Starsector
+
+0.2.0-beta
+- Fixed: Nexerelin and NexusUI integrations never worked (Starsector blocks reflection in mod scripts); both use direct calls now.
+- New: monthly loan installments in the vanilla income report, autopay toggle, one-month grace period.
+- New: debt collection in four phases - reminder, banking restriction with penalty interest, Collection Fleet, default.
+- New: Collection Fleets hail you (pay, settle, surrender a ship, stall, refuse); destroyed fleets return stronger.
+- New: default seizes your investments and garnishes colony income; loans closed this way are marked SEIZED.
+- New: Confederation branch office at PBC markets.
+- New: sovereign debt market for NPC factions, tied to government bond yields and sovereign defaults.
+- New: in-game settings through LunaLib (optional), data/config/bos_settings.json otherwise.
+- New: NexusUI page shows amounts due and autopay, with pay/toggle buttons; data also exposed to the NexusUI API.
+- New: LunaLib version checker support.
+- Fixed: account ids colliding after load, notices piling up, permanent rate doubling, missing intel icon,
+  duplicate PBC homeworld in Nexerelin random sector, collection stuck when no PBC market exists.
+- Changed: LazyLib is no longer required.
+
+0.1.x
+- Initial releases.

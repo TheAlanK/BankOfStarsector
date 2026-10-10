@@ -27,10 +27,10 @@ public class CreditScoreManager implements Serializable {
     public int getScore() { return creditScore; }
 
     public String getBracket() {
-        if (creditScore >= 750) return "Excellent";
-        if (creditScore >= 650) return "Good";
-        if (creditScore >= 500) return "Fair";
-        return "Poor";
+        if (creditScore >= 750) return com.bankofstarsector.core.Str.get("credit.bracket.excellent");
+        if (creditScore >= 650) return com.bankofstarsector.core.Str.get("credit.bracket.good");
+        if (creditScore >= 500) return com.bankofstarsector.core.Str.get("credit.bracket.fair");
+        return com.bankofstarsector.core.Str.get("credit.bracket.poor");
     }
 
     public int getMaxLoans() {

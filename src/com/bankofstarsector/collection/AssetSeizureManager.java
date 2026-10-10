@@ -97,8 +97,8 @@ public class AssetSeizureManager implements Serializable {
             inv.accumulatedReturns *= (1f - fraction);
             inv.currentValue -= take;
             seized += take;
-            data.addTransaction("SEIZURE", 0, "PBC seized " + (int) take + " credits from your "
-                + inv.investmentType.displayName);
+            data.addTransaction("SEIZURE", 0,
+                com.bankofstarsector.core.Str.f("txd.seizeInvest", (int) take, inv.investmentType.getDisplayName()));
         }
         if (seized > 0f) {
             applyToDefaultedLoans(data, seized, "SEIZURE");
@@ -140,8 +140,8 @@ public class AssetSeizureManager implements Serializable {
         data.getLoanManager().applyPayment(loan, part, "SEIZURE");
         float rest = value - part;
         if (rest > 0) applyToDefaultedLoans(data, rest, "SEIZURE");
-        data.addTransaction("SEIZURE", 0, "PBC seized the " + member.getShipName() + " ("
-            + member.getHullSpec().getHullName() + ") for " + (int) value + " credits");
+        data.addTransaction("SEIZURE", 0, com.bankofstarsector.core.Str.f("txd.seizeShip",
+            member.getShipName(), member.getHullSpec().getHullName(), (int) value));
         log.info("BOS: Seized " + member.getShipName() + " worth " + value);
     }
 
@@ -182,9 +182,8 @@ public class AssetSeizureManager implements Serializable {
             com.fs.starfarer.api.campaign.FactionAPI f = Global.getSector().getFaction(e.getKey());
             String name = f != null ? f.getDisplayName() : e.getKey();
             factionDebts.remove(e.getKey());
-            data.addTransaction("SOVEREIGN", 0, name + " defaulted on " + (int) (e.getValue() / 1000f) + "k of sovereign debt");
-            Global.getSector().getCampaignUI().addMessage("Sovereign default: " + name
-                + " can no longer service its debt to the Confederation. Government bonds lose value.",
+            data.addTransaction("SOVEREIGN", 0, com.bankofstarsector.core.Str.f("txd.sovereign", name, (int) (e.getValue() / 1000f)));
+            Global.getSector().getCampaignUI().addMessage(com.bankofstarsector.core.Str.f("msg.sovereignDefault", name),
                 com.fs.starfarer.api.util.Misc.getNegativeHighlightColor());
         }
         if (defaulted > 0f && total > 0f) {

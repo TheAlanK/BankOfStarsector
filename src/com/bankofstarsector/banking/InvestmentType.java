@@ -29,4 +29,13 @@ public enum InvestmentType {
         this.minInvestment = minInvestment;
         this.description = description;
     }
+
+    /** Localized name (see data/strings). The English field above stays for save compatibility. */
+    public String getDisplayName() {
+        return com.bankofstarsector.core.Str.get("invest." + name() + ".name");
+    }
+
+    public String getDescription() {
+        return com.bankofstarsector.core.Str.get("invest." + name() + ".desc");
+    }
 }

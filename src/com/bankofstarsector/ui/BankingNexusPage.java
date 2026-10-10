@@ -1,15 +1,26 @@
 package com.bankofstarsector.ui;
 
-import com.nexusui.api.NexusPage;
-import com.bankofstarsector.banking.*;
-import com.bankofstarsector.collection.BankruptcyManager;
+import com.bankofstarsector.banking.BankAccount;
 import com.bankofstarsector.core.BankData;
+import com.bankofstarsector.core.Str;
+import com.nexusui.api.NexusPage;
+import com.nexusui.bridge.GameDataBridge;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.List;
 
+/**
+ * NexusUI dashboard page.
+ *
+ * Threading: NexusUI calls {@link #refresh()} from its own "NexusUI-Refresh" thread and builds
+ * the panel on the Swing thread. This page therefore never touches game state: it renders
+ * {@link BankSnapshot} (captured on the game thread) and sends actions back through
+ * NexusUI's GameDataBridge command queue, which executes them on the game thread.
+ */
 public class BankingNexusPage implements NexusPage {
 
     private static final Color GOLD = new Color(212, 175, 55);
@@ -21,10 +32,12 @@ public class BankingNexusPage implements NexusPage {
     private static final Color NEGATIVE = new Color(220, 80, 80);
 
     private JPanel mainPanel;
+    private JLabel dateLabel;
     private JLabel netWorthLabel;
     private JLabel creditsLabel;
     private JLabel debtLabel;
     private JLabel investLabel;
+    private JLabel dueLabel;
     private JLabel pastDueLabel;
     private JLabel autopayLabel;
     private JLabel scoreLabel;
@@ -33,51 +46,70 @@ public class BankingNexusPage implements NexusPage {
     private JPanel investmentsPanel;
     private JLabel warSurchargeLabel;
     private JLabel disruptionLabel;
-    private int port;
+    private JLabel sovereignLabel;
+    private JButton payButton;
+    private JButton autopayButton;
+    private volatile BankSnapshot shown;
 
     @Override
     public String getId() { return "pbc_banking"; }
 
     @Override
-    public String getTitle() { return "PBC Banking"; }
+    public String getTitle() { return Str.get("nexus.title"); }
 
     @Override
     public JPanel createPanel(int port) {
-        this.port = port;
-
         mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBackground(DARK_NAVY);
         mainPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        // Header
-        JLabel header = new JLabel("PERSEAN BANKING CONFEDERATION");
+        JLabel header = new JLabel(Str.get("nexus.header"));
         header.setFont(new Font("SansSerif", Font.BOLD, 16));
         header.setForeground(GOLD);
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         mainPanel.add(header);
+        dateLabel = new JLabel(Str.get("nexus.waiting"));
+        dateLabel.setForeground(TEXT_SECONDARY);
+        dateLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        dateLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        mainPanel.add(dateLabel);
         mainPanel.add(Box.createVerticalStrut(10));
 
-        // Account overview card
-        JPanel overviewCard = createCard("Account Overview");
-        netWorthLabel = addLabelRow(overviewCard, "Net Worth:", "--");
-        creditsLabel = addLabelRow(overviewCard, "Credits:", "--");
-        debtLabel = addLabelRow(overviewCard, "Total Debt:", "--");
-        investLabel = addLabelRow(overviewCard, "Investments:", "--");
-        pastDueLabel = addLabelRow(overviewCard, "Past Due:", "--");
-        autopayLabel = addLabelRow(overviewCard, "Autopay:", "--");
+        JPanel overviewCard = createCard(Str.get("nexus.card.overview"));
+        netWorthLabel = addLabelRow(overviewCard, Str.get("nexus.netWorth"), "--");
+        creditsLabel = addLabelRow(overviewCard, Str.get("nexus.credits"), "--");
+        debtLabel = addLabelRow(overviewCard, Str.get("nexus.debt"), "--");
+        investLabel = addLabelRow(overviewCard, Str.get("nexus.investments"), "--");
+        dueLabel = addLabelRow(overviewCard, Str.get("nexus.dueNow"), "--");
+        pastDueLabel = addLabelRow(overviewCard, Str.get("nexus.pastDue"), "--");
+        autopayLabel = addLabelRow(overviewCard, Str.get("nexus.autopay"), "--");
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 4));
+        actions.setBackground(CARD_BG);
+        actions.setAlignmentX(Component.LEFT_ALIGNMENT);
+        payButton = new JButton(Str.get("nexus.payAll"));
+        payButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) { sendPayAllDue(); }
+        });
+        autopayButton = new JButton(Str.get("nexus.autopayOn"));
+        autopayButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) { sendToggleAutopay(); }
+        });
+        actions.add(payButton);
+        actions.add(Box.createHorizontalStrut(6));
+        actions.add(autopayButton);
+        overviewCard.add(actions);
         mainPanel.add(overviewCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
-        // Credit score card
-        JPanel scoreCard = createCard("Credit Score");
-        scoreLabel = addLabelRow(scoreCard, "Score:", "--");
-        bracketLabel = addLabelRow(scoreCard, "Bracket:", "--");
+        JPanel scoreCard = createCard(Str.get("nexus.card.score"));
+        scoreLabel = addLabelRow(scoreCard, Str.get("nexus.score"), "--");
+        bracketLabel = addLabelRow(scoreCard, Str.get("nexus.bracket"), "--");
         mainPanel.add(scoreCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
-        // Active loans card
-        JPanel loansCard = createCard("Active Loans");
+        JPanel loansCard = createCard(Str.get("nexus.card.loans"));
         loansPanel = new JPanel();
         loansPanel.setLayout(new BoxLayout(loansPanel, BoxLayout.Y_AXIS));
         loansPanel.setBackground(CARD_BG);
@@ -85,8 +117,7 @@ public class BankingNexusPage implements NexusPage {
         mainPanel.add(loansCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
-        // Active investments card
-        JPanel investCard = createCard("Investments");
+        JPanel investCard = createCard(Str.get("nexus.card.investments"));
         investmentsPanel = new JPanel();
         investmentsPanel.setLayout(new BoxLayout(investmentsPanel, BoxLayout.Y_AXIS));
         investmentsPanel.setBackground(CARD_BG);
@@ -94,117 +125,103 @@ public class BankingNexusPage implements NexusPage {
         mainPanel.add(investCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
-        // Sector conditions card
-        JPanel conditionsCard = createCard("Sector Conditions");
-        warSurchargeLabel = addLabelRow(conditionsCard, "War Surcharge:", "0%");
-        disruptionLabel = addLabelRow(conditionsCard, "Market Disruption:", "0%");
+        JPanel conditionsCard = createCard(Str.get("nexus.card.sector"));
+        warSurchargeLabel = addLabelRow(conditionsCard, Str.get("nexus.war"), "0%");
+        disruptionLabel = addLabelRow(conditionsCard, Str.get("nexus.disruption"), "0%");
+        sovereignLabel = addLabelRow(conditionsCard, Str.get("nexus.sovereign"), "0");
         mainPanel.add(conditionsCard);
 
-        // Initial data load
-        refresh();
-
+        render(BankSnapshot.get());
         return mainPanel;
     }
 
+    /** Called by NexusUI's refresh thread: only reads the snapshot, then renders on the Swing thread. */
     @Override
     public void refresh() {
-        try {
-            BankData data = BankData.get();
-            if (data == null) return;
-
-            CreditScoreManager csm = data.getCreditScoreManager();
-            LoanManager lm = data.getLoanManager();
-            InvestmentManager im = data.getInvestmentManager();
-            InterestEngine engine = data.getInterestEngine();
-
-            // Update overview
-            float netWorth = data.getNetWorth();
-            updateLabel(netWorthLabel, formatCredits(netWorth), netWorth >= 0 ? POSITIVE : NEGATIVE);
-            updateLabel(creditsLabel, formatCredits(
-                com.fs.starfarer.api.Global.getSector().getPlayerFleet().getCargo().getCredits().get()),
-                TEXT_PRIMARY);
-            float debt = lm.getTotalDebt();
-            updateLabel(debtLabel, formatCredits(debt), debt > 0 ? NEGATIVE : TEXT_PRIMARY);
-            updateLabel(investLabel, formatCredits(im.getTotalValue()), POSITIVE);
-            float late = lm.getTotalLate();
-            updateLabel(pastDueLabel, formatCredits(late), late > 1f ? NEGATIVE : TEXT_PRIMARY);
-            updateLabel(autopayLabel, data.isAutopayEnabled() ? "ON" : "OFF", data.isAutopayEnabled() ? POSITIVE : NEGATIVE);
-
-            // Update credit score
-            updateLabel(scoreLabel, "" + csm.getScore(), getScoreColor(csm.getScore()));
-            updateLabel(bracketLabel, csm.getBracket(), getScoreColor(csm.getScore()));
-
-            // Update loans
-            updateLoansPanel(lm.getActiveLoans());
-
-            // Update investments
-            updateInvestmentsPanel(im.getActiveInvestments());
-
-            // Update conditions
-            float warSurcharge = engine.getWarSurcharge();
-            float disruption = engine.getMarketDisruptionModifier();
-            updateLabel(warSurchargeLabel,
-                String.format("+%.0f%%", warSurcharge * 100),
-                warSurcharge > 0 ? NEGATIVE : TEXT_PRIMARY);
-            updateLabel(disruptionLabel,
-                String.format("-%.0f%%", disruption * 100),
-                disruption > 0 ? NEGATIVE : TEXT_PRIMARY);
-
-        } catch (Exception e) {
-            // Silently handle - data may not be available yet
-        }
+        final BankSnapshot s = BankSnapshot.get();
+        if (s == null || s == shown) return;
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() { render(s); }
+        });
     }
 
-    private void updateLoansPanel(List<BankAccount> loans) {
-        if (loansPanel == null) return;
-        loansPanel.removeAll();
-        if (loans.isEmpty()) {
-            JLabel none = new JLabel("No active loans");
+    /** Swing thread only. */
+    private void render(BankSnapshot s) {
+        if (s == null || mainPanel == null) return;
+        shown = s;
+        dateLabel.setText(Str.f("nexus.asOf", s.date));
+        set(netWorthLabel, formatCredits(s.netWorth), s.netWorth >= 0 ? POSITIVE : NEGATIVE);
+        set(creditsLabel, formatCredits(s.credits), TEXT_PRIMARY);
+        set(debtLabel, formatCredits(s.debt), s.debt > 0 ? NEGATIVE : TEXT_PRIMARY);
+        set(investLabel, formatCredits(s.invested), POSITIVE);
+        set(dueLabel, formatCredits(s.dueNow), s.dueNow > 1 ? GOLD : TEXT_PRIMARY);
+        set(pastDueLabel, formatCredits(s.late), s.late > 1 ? NEGATIVE : TEXT_PRIMARY);
+        set(autopayLabel, Str.get(s.autopay ? "common.on" : "common.off"), s.autopay ? POSITIVE : NEGATIVE);
+        payButton.setEnabled(s.dueNow + s.late > 1);
+        autopayButton.setText(Str.get(s.autopay ? "nexus.autopayOff" : "nexus.autopayOn"));
+        set(scoreLabel, "" + s.score, getScoreColor(s.score));
+        set(bracketLabel, s.bracket + ("NONE".equals(s.bankruptcyState) ? "" : " | " + Str.f("nexus.bankruptcy", s.bankruptcyLabel)),
+            getScoreColor(s.score));
+        fillList(loansPanel, s.loans, Str.get("terminal.loans.none"));
+        fillList(investmentsPanel, s.investments, Str.get("terminal.invest.none"));
+        set(warSurchargeLabel, String.format("+%.0f%%", s.warSurcharge * 100), s.warSurcharge > 0 ? NEGATIVE : TEXT_PRIMARY);
+        set(disruptionLabel, String.format("%.1f%%", s.disruption * 100), s.disruption > 0 ? NEGATIVE : TEXT_PRIMARY);
+        set(sovereignLabel, formatCredits(s.sovereignDebt), TEXT_PRIMARY);
+    }
+
+    // ------------------------------------------------------------------ actions (run on the game thread)
+
+    private void sendPayAllDue() {
+        enqueue(new GameDataBridge.GameCommand() {
+            public String execute() {
+                BankData data = BankData.get();
+                float paid = 0f;
+                for (BankAccount loan : data.getLoanManager().getActiveLoans()) {
+                    float due = loan.amountPastDue;
+                    if (due > 1f && data.getLoanManager().makePayment(loan.accountId, due)) paid += due;
+                }
+                BankSnapshot.capture();
+                return "paid " + (int) paid;
+            }
+        });
+    }
+
+    private void sendToggleAutopay() {
+        enqueue(new GameDataBridge.GameCommand() {
+            public String execute() {
+                BankData data = BankData.get();
+                data.setAutopayEnabled(!data.isAutopayEnabled());
+                BankSnapshot.capture();
+                return "autopay " + data.isAutopayEnabled();
+            }
+        });
+    }
+
+    private static void enqueue(GameDataBridge.GameCommand command) {
+        GameDataBridge bridge = GameDataBridge.getInstance();
+        if (bridge != null) bridge.enqueueCommand(command);
+    }
+
+    // ------------------------------------------------------------------ UI helpers
+
+    private void fillList(JPanel panel, List<BankSnapshot.Line> lines, String empty) {
+        panel.removeAll();
+        if (lines.isEmpty()) {
+            JLabel none = new JLabel(empty);
             none.setForeground(TEXT_SECONDARY);
             none.setFont(new Font("SansSerif", Font.PLAIN, 11));
-            loansPanel.add(none);
+            panel.add(none);
         } else {
-            for (BankAccount loan : loans) {
-                JLabel loanLabel = new JLabel(String.format("%s | %s | %s",
-                    loan.loanType.displayName,
-                    formatCredits(loan.remainingBalance),
-                    loan.getStatusDisplay()));
-                Color c = loan.status == LoanStatus.ACTIVE ? POSITIVE : NEGATIVE;
-                loanLabel.setForeground(c);
-                loanLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
-                loansPanel.add(loanLabel);
+            for (BankSnapshot.Line l : lines) {
+                JLabel row = new JLabel(l.label + " | " + l.detail);
+                row.setForeground(l.bad ? NEGATIVE : POSITIVE);
+                row.setFont(new Font("SansSerif", Font.PLAIN, 11));
+                panel.add(row);
             }
         }
-        loansPanel.revalidate();
-        loansPanel.repaint();
+        panel.revalidate();
+        panel.repaint();
     }
-
-    private void updateInvestmentsPanel(List<BankAccount> investments) {
-        if (investmentsPanel == null) return;
-        investmentsPanel.removeAll();
-        if (investments.isEmpty()) {
-            JLabel none = new JLabel("No active investments");
-            none.setForeground(TEXT_SECONDARY);
-            none.setFont(new Font("SansSerif", Font.PLAIN, 11));
-            investmentsPanel.add(none);
-        } else {
-            for (BankAccount inv : investments) {
-                float returnPct = inv.investedAmount > 0 ?
-                    ((inv.currentValue - inv.investedAmount) / inv.investedAmount) * 100 : 0;
-                JLabel invLabel = new JLabel(String.format("%s | %s | %+.1f%%",
-                    inv.investmentType.displayName,
-                    formatCredits(inv.currentValue),
-                    returnPct));
-                invLabel.setForeground(returnPct >= 0 ? POSITIVE : NEGATIVE);
-                invLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
-                investmentsPanel.add(invLabel);
-            }
-        }
-        investmentsPanel.revalidate();
-        investmentsPanel.repaint();
-    }
-
-    // ========== UI HELPERS ==========
 
     private JPanel createCard(String title) {
         JPanel card = new JPanel();
@@ -222,7 +239,6 @@ public class BankingNexusPage implements NexusPage {
         titleLabel.setForeground(GOLD);
         card.add(titleLabel);
         card.add(Box.createVerticalStrut(4));
-
         return card;
     }
 
@@ -242,32 +258,25 @@ public class BankingNexusPage implements NexusPage {
         row.add(keyLabel);
         row.add(valueLabel);
         card.add(row);
-
         return valueLabel;
     }
 
-    private void updateLabel(JLabel label, String text, Color color) {
-        if (label != null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    label.setText(text);
-                    label.setForeground(color);
-                }
-            });
-        }
+    private static void set(JLabel label, String text, Color color) {
+        if (label == null) return;
+        label.setText(text);
+        label.setForeground(color);
     }
 
-    private Color getScoreColor(int score) {
+    private static Color getScoreColor(int score) {
         if (score >= 750) return POSITIVE;
         if (score >= 650) return GOLD;
         if (score >= 500) return new Color(200, 180, 60);
         return NEGATIVE;
     }
 
-    private String formatCredits(float amount) {
-        if (amount >= 1000000) return String.format("%.1fM", amount / 1000000f);
-        if (amount >= 1000) return String.format("%.0fk", amount / 1000f);
+    private static String formatCredits(float amount) {
+        if (Math.abs(amount) >= 1000000) return String.format("%.1fM", amount / 1000000f);
+        if (Math.abs(amount) >= 1000) return String.format("%.0fk", amount / 1000f);
         return String.format("%.0f", amount);
     }
 }

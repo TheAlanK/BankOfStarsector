@@ -16,9 +16,9 @@ $jar = if ($Jdk) { Join-Path $Jdk 'bin\jar.exe' } else { 'jar' }
 $core = Join-Path $StarsectorDir 'starsector-core'
 $cp = @(Get-ChildItem $core -Filter *.jar | ForEach-Object FullName)
 # Compile-time only: the bridge classes reference these, but are loaded at runtime only when the mods are enabled.
-foreach ($opt in @('mods\Nexerelin\jars\ExerelinCore.jar', 'mods\NexusUI\jars\NexusUI.jar', 'mods\LazyLib\jars\LazyLib.jar')) {
+foreach ($opt in @('mods\Nexerelin\jars\ExerelinCore.jar', 'mods\NexusUI\jars\NexusUI.jar', 'mods\LunaLib-2.0.5\jars\LunaLib.jar')) {
     $p = Join-Path $StarsectorDir $opt
-    if (Test-Path $p) { $cp += $p } elseif ($opt -notmatch 'LazyLib') { throw "Missing compile dependency: $p" }
+    if (Test-Path $p) { $cp += $p } else { throw "Missing compile dependency: $p" }
 }
 
 Remove-Item -Recurse -Force $Out -ErrorAction SilentlyContinue
@@ -39,6 +39,6 @@ if (-not $NoInstall) {
     Copy-Item (Join-Path $ModDir 'jars') $dest -Recurse -Force
     Copy-Item (Join-Path $ModDir 'data') $dest -Recurse -Force
     Copy-Item (Join-Path $ModDir 'graphics') $dest -Recurse -Force
-    foreach ($f in 'README.md', 'LICENSE') { if (Test-Path (Join-Path $ModDir $f)) { Copy-Item (Join-Path $ModDir $f) $dest -Force } }
+    foreach ($f in 'README.md', 'LICENSE', 'changelog.txt', 'bank_of_starsector.version') { if (Test-Path (Join-Path $ModDir $f)) { Copy-Item (Join-Path $ModDir $f) $dest -Force } }
     Write-Host "Installed to $dest"
 }

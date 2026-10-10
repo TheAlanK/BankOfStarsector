@@ -70,7 +70,7 @@ public class LoanManager implements Serializable {
         Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
 
         BankData.get().addTransaction("LOAN", amount,
-            "Took " + type.displayName + " for " + formatCredits(amount));
+            com.bankofstarsector.core.Str.f("txd.loan", type.getDisplayName(), formatCredits(amount)));
 
         return loan;
     }
@@ -108,11 +108,11 @@ public class LoanManager implements Serializable {
             if (forced && wasLate) {
                 // Closed by enforcement, not by the borrower: no payoff credit.
                 loan.status = LoanStatus.SEIZED;
-                data.addTransaction("SEIZED", -amount, loan.loanType.displayName + " closed by asset seizure");
+                data.addTransaction("SEIZED", -amount, com.bankofstarsector.core.Str.f("txd.seized", loan.loanType.getDisplayName()));
             } else {
                 loan.status = LoanStatus.PAID_OFF;
                 data.getCreditScoreManager().onLoanPayoff();
-                data.addTransaction("PAYOFF", -amount, "Paid off " + loan.loanType.displayName);
+                data.addTransaction("PAYOFF", -amount, com.bankofstarsector.core.Str.f("txd.payoff", loan.loanType.getDisplayName()));
             }
             return;
         }
@@ -123,10 +123,10 @@ public class LoanManager implements Serializable {
             loan.daysOverdue = 0;
             loan.monthlyRate = loan.baseMonthlyRate;
             data.getCollectionManager().onLoanResolved(loan.accountId);
-            data.addTransaction("CURED", 0, loan.loanType.displayName + " is current again");
+            data.addTransaction("CURED", 0, com.bankofstarsector.core.Str.f("txd.cured", loan.loanType.getDisplayName()));
         }
         if (!forced) data.getCreditScoreManager().onPaymentMade(!wasLate);
-        data.addTransaction(txType, -amount, "Payment on " + loan.loanType.displayName);
+        data.addTransaction(txType, -amount, com.bankofstarsector.core.Str.f("txd.payment", loan.loanType.getDisplayName()));
     }
 
     public boolean payOff(String accountId) {
@@ -186,8 +186,8 @@ public class LoanManager implements Serializable {
                 loan.status = LoanStatus.OVERDUE;
                 loan.daysOverdue = Math.max(loan.daysOverdue, 1);
             }
-            data.addTransaction("MISSED", 0, "Missed payment of " + formatCredits(late)
-                + " on " + loan.loanType.displayName);
+            data.addTransaction("MISSED", 0,
+                com.bankofstarsector.core.Str.f("txd.missed", formatCredits(late), loan.loanType.getDisplayName()));
         }
     }
 
@@ -219,7 +219,7 @@ public class LoanManager implements Serializable {
             if (loan.daysOverdue >= BankSettings.DEFAULT_THRESHOLD_DAYS && loan.status != LoanStatus.DEFAULTED) {
                 loan.status = LoanStatus.DEFAULTED;
                 BankData.get().getCreditScoreManager().onDefault();
-                BankData.get().addTransaction("DEFAULT", 0, loan.loanType.displayName + " has DEFAULTED");
+                BankData.get().addTransaction("DEFAULT", 0, com.bankofstarsector.core.Str.f("txd.default", loan.loanType.getDisplayName()));
                 BankData.get().getAssetSeizureManager().seizeInvestments(BankData.get());
             }
         }
