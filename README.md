@@ -73,7 +73,7 @@ Every number above can be changed in `data/config/bos_settings.json`, and other 
 English and Brazilian Portuguese. `language` = `auto` follows the system language; set `en` or `pt_BR` in `bos_settings.json` or LunaLib. Translations live in `data/strings/bos_strings_<lang>.json`; any missing key falls back to English.
 
 ## Testing
-`test.ps1` builds the jar and runs: a replay of Starsector's script sandbox rules over every referenced class, a link check against the game's jars on the game's JRE, a translation-table check, and a month-by-month loan simulation. `test.ps1 -Smoke` also launches the real game directly (`-DlaunchDirect`, windowed, no sound), waits for the main menu and scans `starsector.log` for errors from this mod.
+`test.ps1` builds the jar and runs: a replay of Starsector's script sandbox rules over every referenced class, a link check against the game's jars on the game's JRE, a format-string safety check, a translation-table check, a save-compatibility check (every field the mod writes into saves is compared with `tests/save-fields.baseline`; see [docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)), and a month-by-month loan simulation. `test.ps1 -Smoke` also launches the real game directly (`-DlaunchDirect`, windowed, no sound), waits for the main menu and scans `starsector.log` for errors from this mod.
 
 ## Installation
 1. Download the latest release.
@@ -91,6 +91,9 @@ None required.
 - **NexusUI** (optional)
 
 ## Changelog
+
+### 0.3.0-beta (in development)
+- **Internal:** a test now fails the build if a change would break loading existing saves ([docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)).
 
 ### 0.2.1-beta
 - **New:** Persean Banking Confederation lore ([LORE.md](LORE.md)), condensed into the in-game faction and planet descriptions (English and pt-BR).

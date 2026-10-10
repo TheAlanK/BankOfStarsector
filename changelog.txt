@@ -1,5 +1,8 @@
 Bank of Starsector
 
+0.3.0-beta (in development)
+- Internal: save compatibility guard (tests/SaveCompatCheck) and docs/SAVE_COMPAT.md.
+
 0.2.1-beta
 - New: Persean Banking Confederation lore (LORE.md); condensed into the in-game faction and planet descriptions
   (English and Brazilian Portuguese).
