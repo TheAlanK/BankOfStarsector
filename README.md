@@ -1,29 +1,105 @@
+<p align="center">
+  <img src="docs/images/banner.png" alt="Bank of Starsector: a banking and economy mod for Starsector with loans, a real credit score, credit lines, colony mortgages, fleet insurance and debt collection fleets" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/TheAlanK/BankOfStarsector/releases/latest"><img src="https://img.shields.io/github/v/release/TheAlanK/BankOfStarsector?include_prereleases&label=release&color=d4af37" alt="Latest release"></a>
+  <a href="https://github.com/TheAlanK/BankOfStarsector/releases"><img src="https://img.shields.io/github/downloads/TheAlanK/BankOfStarsector/total?color=d4af37&label=downloads" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/Starsector-0.98a--RC8-1a2340" alt="Starsector 0.98a-RC8">
+  <img src="https://img.shields.io/badge/Nexerelin-compatible-2a6b3c" alt="Nexerelin compatible">
+  <img src="https://img.shields.io/badge/save-compatible-2a6b3c" alt="Save compatible">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/TheAlanK/BankOfStarsector?color=1a2340" alt="MIT license"></a>
+</p>
+
 # Bank of Starsector
 
-A Starsector mod that adds the **Persean Banking Confederation (PBC)**, a powerful neutral faction with a complete banking system.
+**A banking and economy mod for [Starsector](https://fractalsoftworks.com/).** Borrow money, build a real credit score, open a credit line, mortgage your colonies, insure your fleet, and invest in the war economy, all through the **Persean Banking Confederation**: a neutral faction that has kept the Sector's books since the Collapse.
+
+And if you stop paying, the bank sends a fleet.
+
+**[Download the latest release](https://github.com/TheAlanK/BankOfStarsector/releases/latest/download/BankOfStarsector.zip)** · [Features](#features) · [FAQ](#faq) · [Lore](LORE.md) · [Changelog](#changelog)
+
+## Stories this mod creates
+
+- You missed three installments. Somewhere in hyperspace, a **PBC Collection Fleet** is plotting a course to you. When it arrives, the commander hails you with an account number and a choice.
+- You mortgaged your best colony to fund a war, then lost the war. The colony went into **receivership**, the Confederation **foreclosed**, and it was **auctioned to the Hegemony**. The bank wired you the surplus.
+- Your credit score works like a **real FICO score**. You can't farm it by taking and repaying loans: the bureau only counts months paid on time.
+- Your best destroyer died in a battle. **Fleet insurance** paid 60% of its value two days later. It wouldn't have, if you'd bought it last week.
+
+## Quick start
+
+1. [Download `BankOfStarsector.zip`](https://github.com/TheAlanK/BankOfStarsector/releases/latest/download/BankOfStarsector.zip) and extract it into `Starsector/mods/`.
+2. Enable **Bank of Starsector** in the launcher and start a new game, or load an existing save (see the [FAQ](#faq)).
+3. Open **Intel → Economy → PBC Banking Terminal** from anywhere, or visit a **Confederation branch office** at any PBC market.
+
+No dependencies. Works with **Nexerelin**, **NexusUI** and **LunaLib** when they are installed.
 
 ## Features
 
-### Banking System
-- **Loans**: 5 tiers from Emergency (50k) to Sovereign (5M). Each loan is repaid in **monthly installments** (interest plus an even share of the principal).
-- **Credit-builder loan**: for captains with no credit score or a low one (under 500), including during bankruptcy recovery. You borrow 10k–50k, but the money stays at the bank while you pay the installments (12 months, 1%/month fixed); when the loan is paid off, the money is yours. Each month paid on time builds your credit file. It doesn't count toward your loan limit, and if it defaults the bank simply keeps the deposit (no Collection Fleet), but the charge-off still goes on your credit report.
-- **Repayment schedule and score chart**: every loan can show its month-by-month schedule (payment, interest, principal, balance) in the Loans tab; the Credit tab charts the last 12 monthly reports and names the factor that moved the score most each month.
-- **Know what you sign**: before any loan, the terminal and the branch show the first installment, total interest, total repaid, rate and term (projected exactly as the bank bills it); before a locked investment, the lock period and the early-withdrawal penalty.
-- **Fleet insurance**: House Varenne's underwriters insure every ship in your fleet. Standard (60% of a lost ship's base value, 10k deductible per ship) or Comprehensive (80%, 5k). The monthly premium follows your fleet's value, your credit score (as real insurers use credit-based insurance scores), claims paid in the last 12 months and the war surcharge. Ships lost in battle are paid after the post-battle recovery (a recovered ship is no loss). No claims in a new policy's first 30 days, nor for ships that joined the fleet less than 30 days before the loss; payouts are capped at half the insured value per month; an unpaid premium suspends the cover and a second cancels the policy. New Insurance tab in the terminal, also at the branch office and in NexusUI.
-- **Colony-secured loan**: pledge a colony of size 4+ for up to 60% of its appraised value (development, structures, natural resources and traits, a year of income, adjusted for hazard), at a rate 25% lower. The colony shows a *PBC Lien*. If the loan defaults, the colony goes into **receivership**: all its income goes to the bank and it loses stability until the loan is current. With Nexerelin, still unpaid 60 days later, the PBC **forecloses**: it turns hostile and sends an invasion. A colony the PBC takes is **auctioned** to a major faction (the Confederation never keeps territory): the highest bidder pays the second-highest bid, the price pays the loan, any surplus is returned to you, and relations go back to normal. Abandoning a pledged colony makes the whole loan due at once; if another faction captures it, the loan continues unsecured.
-- **Credit line**: a revolving Confederation Credit Line for scores of 500+ (limit 50k / 200k / 500k by bracket). Draw and repay freely; each month end issues a statement with a minimum payment (interest + 1% of the balance, at least 1k). Pay the statement in full and there is no interest (autopay does this by default; it can pay only the minimum instead). Six on-time statements in a row raise the limit by 20%; a late payment cuts it and blocks draws. The bureau sees the statement balance, so keeping utilization (balance ÷ limit) low matters: 1–10% is best, over 30% hurts, over 90% hurts a lot, and paying it down recovers the score at the next report.
-- **Autopay**: installments appear in the vanilla **monthly income report** under *Fleet → PBC loan installments* and are settled with the rest of your monthly finances. You can turn autopay off in the terminal.
-- **Grace period**: an installment only becomes late if it is still unpaid at the *next* month end, so you always get a month to pay manually.
-- **Investments**: savings accounts, government bonds, commodity futures, venture funds and military contracts.
-- **Sovereign debt market**: major factions borrow from the Confederation to fund their wars and repay in peace (ledger in the Overview tab). Government bonds pay a higher coupon when sovereign debt is high. If an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
-- **Credit score**: computed once a month from a credit report, like a real credit bureau (FICO-style, 300–850): payment history 35%, amounts owed 30% (installment balances and credit-line utilization), length of history 15%, new credit 10%, credit mix 10%. Every application is a hard inquiry, lateness is reported from 30 days and fades over 7 years, and there is no score until an account is 6 months old, so taking and instantly repaying loans does not farm points. Its bracket sets how many loans you can hold and adjusts your rates (−15% / 0 / +20% / +50%).
-- **Interest engine**:
-  - Each war between major factions adds +5% to loan rates, up to +25%. With Nexerelin this follows its live wars.
-  - Disrupted industries across the sector also make loans more expensive.
-  - Military contracts pay more in wartime.
-  - Disrupted industries drag investment returns down, while commodity futures go up when supply is disrupted.
+### Loans with monthly installments
+Five loan tiers, from an Emergency Loan (50k) to a Sovereign Loan (5M), repaid in **monthly installments** (interest plus an even share of the principal). Installments appear in the vanilla **monthly income report** and are paid by **autopay**. You always get a one-month grace period before a payment is late. Every loan shows a **repayment schedule**, and the terminal and the branch office show the full terms (first installment, total interest, total repaid) **before you sign**.
 
-### Debt Collection
+<details><summary>Loan details: credit-builder loan, rates and the interest engine</summary>
+
+- **Credit-builder loan**: for captains with no credit score or a low one (under 500), including during bankruptcy recovery. You borrow 10k–50k, but the money stays at the bank while you pay the installments (12 months, 1%/month fixed); when the loan is paid off, the money is yours. Each month paid on time builds your credit file. It doesn't count toward your loan limit, and if it defaults the bank simply keeps the deposit (no Collection Fleet), but the charge-off still goes on your credit report.
+- **Interest engine**: each war between major factions adds +5% to loan rates, up to +25% (with Nexerelin this follows its live wars). Disrupted industries across the sector also make loans more expensive. Your credit bracket adjusts the rate (−15% / 0 / +20% / +50%).
+- **Branch office**: apply for any amount with a slider, review the terms, then sign.
+
+</details>
+
+### A real credit score (FICO-style, 300–850)
+Computed once a month from a **credit report**, like a real credit bureau: payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%. Every application is a hard inquiry, lateness is reported from 30 days and fades over 7 years, and there's no score until an account is 6 months old. The Credit tab shows your factors, the reasons behind your score, and a **12-month chart** that names what moved it each month.
+
+<details><summary>Credit score details</summary>
+
+- Your score bracket sets how many loans you can hold and adjusts your rates.
+- Taking a loan and repaying it at once costs nothing in interest, but it doesn't build credit: it adds an inquiry and a young account, and no months of on-time payments.
+- Credit-line utilization (balance ÷ limit) counts like on a real report: 1–10% is best, over 30% hurts, over 90% hurts a lot, and paying it down recovers the score at the next report.
+- Defaults, charge-offs, repossessions and bankruptcy stay on file for years and fade with time.
+
+</details>
+
+### Revolving credit line
+A **Confederation Credit Line** for scores of 500+ (limit 50k / 200k / 500k by bracket). Draw and repay freely. Each month end issues a statement with a minimum payment, and paying the statement in full means **no interest**. Six on-time statements raise your limit by 20%; a late payment cuts it.
+
+<details><summary>Credit line details</summary>
+
+- Minimum payment: interest + 1% of the balance, at least 1k (or the whole balance if smaller).
+- Autopay pays the full statement by default; you can switch it to the minimum.
+- The bureau sees the statement balance, so paying in full after the statement doesn't hide your utilization; paying down before it does.
+- A default or bankruptcy closes the line to new draws.
+
+</details>
+
+### Colony mortgages, receivership, foreclosure and auctions
+Pledge a colony (size 4+) for up to **60% of its appraised value** at a 25% lower rate. The appraisal counts development, structures (with improvements, AI cores and special items), natural resources and traits, a year of income, and hazard. Default, and the colony goes into **receivership**: all its income goes to the bank. With Nexerelin, 60 days later the PBC **forecloses by force** and **auctions the colony to a major faction**. The Confederation never keeps territory.
+
+<details><summary>Foreclosure details</summary>
+
+- The colony shows a *PBC Lien* condition while it secures a loan, and *PBC Receivership* (−3 stability) after a default.
+- Foreclosure (Nexerelin only): the PBC turns hostile and sends an invasion from its largest market, then another every 60 days if one fails.
+- Auction: every major faction not hostile to the PBC bids around the appraisal, more if it has territory nearby or good relations with the PBC. The highest bidder pays the second-highest bid (never under 70% of the appraisal). The price pays your loan, **any surplus is returned to you**, any shortfall stays owed, and relations go back to normal.
+- Paying the amount due at any point lifts receivership and ends the foreclosure.
+- Abandoning a pledged colony makes the whole loan due at once; if another faction captures it, the loan continues unsecured.
+
+</details>
+
+### Fleet insurance
+House Varenne's underwriters insure every ship in your fleet. **Standard** pays 60% of a lost ship's base value (10k deductible per ship); **Comprehensive** pays 80% (5k deductible). The premium follows your fleet's value, your credit score (as real insurers use credit-based insurance scores), your recent claims and the war surcharge.
+
+<details><summary>Insurance details</summary>
+
+- Ships lost in battle are paid two days later, after the post-battle recovery: a recovered ship is no loss.
+- No claims in a new policy's first 30 days, nor for ships that joined the fleet less than 30 days before the loss.
+- Payouts are capped at half the insured value per month.
+- An unpaid premium suspends the cover; a second one cancels the policy.
+
+</details>
+
+### Investments and the sovereign debt market
+Savings accounts, government bonds, commodity futures, venture funds and military contracts. Major factions **borrow from the Confederation to fund their wars** and repay in peace: bonds pay more when sovereign debt is high, military contracts pay more in wartime, and if an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
+
+### Debt collection fleets
 Debt collection escalates by how many days a payment is overdue:
 
 | Days overdue | What happens |
@@ -31,70 +107,67 @@ Debt collection escalates by how many days a payment is overdue:
 | 1 | Payment reminder |
 | 31 | Penalty interest (+50% per month overdue), and new loans are suspended |
 | 61 | A **Collection Fleet** is dispatched to hunt you down |
-| 90 | **Default**: the bank seizes your investments up to the defaulted balance, then garnishes 30% of your colony income every month (*Colonies → PBC income garnishment* in the report). A loan fully recovered this way is closed as SEIZED, with no payoff credit |
+| 90 | **Default**: the bank seizes your investments, then garnishes 30% of your colony income every month |
 
-When the Collection Fleet reaches you, its commander hails you. You can:
-- pay the amount due;
-- settle the whole debt;
-- surrender your most valuable non-flagship ship as collateral, credited at 60% of its value;
-- stall for time;
-- refuse, which costs PBC reputation and starts a fight.
-
-Destroying a collection fleet doesn't clear the debt. A fleet 1.5× stronger follows 30 days later.
-
-Paying what you owe at any time (in the terminal, at a branch or to the fleet) cures the loan, recalls the fleet and ends the notices.
+When the Collection Fleet reaches you, its commander hails you. You can pay the amount due, settle the whole debt, surrender a ship as collateral (credited at 60% of its value), stall for time, or refuse and fight. Destroying a collection fleet doesn't clear the debt: a fleet 1.5× stronger follows 30 days later. Paying what you owe at any time cures the loan and recalls the fleet.
 
 ### Bankruptcy
-Bankruptcy is available once a loan has defaulted, or when your debt exceeds 3× your monthly colony income. Filing (after a confirmation prompt):
-- cuts your debt by 80% and restructures it over a new term;
-- liquidates your investments at 50% of their value;
-- puts a bankruptcy public record on your credit report for 10 years (its weight fades after 2 and 5 years);
-- costs relations with the PBC;
-- applies a colony income stigma.
-
-Loans are locked for 24 months, and you can't invest for 12.
+Available once a loan has defaulted, or when your debt exceeds 3× your monthly colony income. Filing cuts your debt by 80% and restructures it, liquidates your investments at 50%, puts a 10-year public record on your credit report, costs relations with the PBC and applies a colony income stigma. Loans are locked for 24 months (except the credit-builder loan), investing for 12.
 
 ### The Persean Banking Confederation
-The Confederation has kept the Sector's books since the Collapse. Read its history, charter and relations with every faction in **[LORE.md](LORE.md)**.
+A full neutral faction with the **Aurum** star system (Bullion, Vault and Ledger Station), a powerful defensive navy, custom fleets (Security Details, Enforcement Fleets, Confederation Task Forces) and a **branch office** at every PBC market. Read its history, charter and relations with every faction in **[LORE.md](LORE.md)**.
 
-- A full faction with the Aurum star system (3 planets and an orbital station). In a Nexerelin random sector, Nexerelin places the PBC markets itself and Aurum is not generated.
-- **Confederation branch office** at every PBC market. You can review your file, pay past-due installments, apply for a loan or make an investment for any amount (a slider), or open a banking terminal there. The teller shows the terms before you sign.
-- A powerful defensive navy with high-quality ships and officers.
-- A neutral diplomatic stance: other factions avoid war with the PBC.
-- Custom fleet types: Security Details, Enforcement Fleets, Confederation Task Forces.
+### Mod integration
+- **Nexerelin**: live wars drive interest rates, foreclosure invasions, market transfers after auctions, sovereign defaults. In a Nexerelin random sector, Nexerelin places the PBC markets.
+- **NexusUI**: a banking dashboard (amounts due, autopay, loans, credit line, insurance, credit trend) with pay/autopay buttons; the data is also exposed to NexusUI's data bridge as `pbc_banking`.
+- **LunaLib**: in-game settings menu and version checker (you get an update notice when a new release is out).
 
-### Mod Integration
-- **Nexerelin**: wars drive interest rates, and dead factions don't count toward the war surcharge.
-- **NexusUI**: a banking dashboard page (amounts due, autopay, loans, investments) with pay/autopay buttons; the data is also exposed to NexusUI's data bridge as `pbc_banking`.
-- **LunaLib**: in-game settings and version checker support.
+## FAQ
 
-## Where to bank
-- **Intel → Economy → PBC Banking Terminal**, available anywhere: Overview, Loans, Investments, Credit Score and History tabs.
-- **PBC markets → "Visit the Confederation branch office"**.
+**How do I get a loan in Starsector with this mod?**
+Open **Intel → Economy → PBC Banking Terminal** (works anywhere), go to the Loans tab and pick a loan; or visit a PBC market and choose **"Visit the Confederation branch office"**. The money goes straight to your credits.
+
+**Can I add Bank of Starsector to an existing save?**
+Yes. The banking terminal, loans, credit score, credit line, insurance and investments work right away. The Aurum system and the PBC branch offices are only created in a new game.
+
+**Can I remove it from a save?**
+No. Like most mods that keep campaign data, removing it breaks the save.
+
+**Is it compatible with Nexerelin?**
+Yes, and it uses Nexerelin when it's there: wars, foreclosure invasions, auctions and sovereign defaults follow the live Nexerelin sector. Without Nexerelin everything works except foreclosure by force (colonies stay in receivership).
+
+**Can I farm the credit score by taking and repaying loans?**
+No. The score only rises with months paid on time; instant loans add hard inquiries and young accounts, which lower it.
+
+**Where is the bank's money? Where is the bank?**
+The Persean Banking Confederation lends from its own reserves. Its headquarters is the Aurum system, it has a branch office at every PBC market, and the terminal is available anywhere in Intel.
+
+**Does it cause lag?**
+It shouldn't. Since 0.3.1 the sector-wide numbers are computed once per game day and the NexusUI dashboard only refreshes quickly while it's open, so it stays light even with large mod lists.
+
+**Does it work in Portuguese?**
+Yes: English and Brazilian Portuguese (automatic by system language, or set it in LunaLib or `bos_settings.json`).
+
+**Found a bug or have an idea?**
+[Open an issue](https://github.com/TheAlanK/BankOfStarsector/issues/new/choose). Got a good story (a foreclosure, an auction, a collection fleet ambush)? Share it in [Discussions](https://github.com/TheAlanK/BankOfStarsector/discussions).
 
 ## Configuration
-Every number above can be changed in `data/config/bos_settings.json`, and other mods can merge their own values into it. With **LunaLib**, the main settings and the language can also be changed in-game (LunaLib settings menu); those values take precedence over the JSON.
+Every number can be changed in `data/config/bos_settings.json`, and other mods can merge their own values into it. With **LunaLib**, the main settings and the language can also be changed in-game (LunaLib settings menu); those values take precedence over the JSON.
 
 ## Languages
-English and Brazilian Portuguese. `language` = `auto` follows the system language; set `en` or `pt_BR` in `bos_settings.json` or LunaLib. Translations live in `data/strings/bos_strings_<lang>.json`; any missing key falls back to English.
-
-## Testing
-`test.ps1` builds the jar and runs: a replay of Starsector's script sandbox rules over every referenced class, a link check against the game's jars on the game's JRE, a format-string safety check, a translation-table check, a save-compatibility check (every field the mod writes into saves is compared with `tests/save-fields.baseline`; see [docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)), and a month-by-month loan simulation. `test.ps1 -Smoke` also launches the real game directly (`-DlaunchDirect`, windowed, no sound), waits for the main menu and scans `starsector.log` for errors from this mod.
+English and Brazilian Portuguese. `language` = `auto` follows the system language; set `en` or `pt_BR` in `bos_settings.json` or LunaLib. Translations live in `data/strings/bos_strings_<lang>.json`; any missing key falls back to English. New translations are welcome.
 
 ## Installation
-1. Download the latest release.
+1. Download [the latest release](https://github.com/TheAlanK/BankOfStarsector/releases/latest).
 2. Extract it to your `Starsector/mods/` folder.
 3. Enable "Bank of Starsector" in the launcher.
 
-Saves from 0.1.x load fine. Existing loans start receiving monthly bills at the next month end.
+Saves from earlier versions load fine (every release is checked against the previous version's save format). Requires Starsector 0.98a-RC8. No required dependencies; Nexerelin, NexusUI and LunaLib are optional.
 
-## Building
-`build.ps1` (PowerShell) or `build.bat`. To compile you need the game's `starsector-core` jars plus `ExerelinCore.jar` and `NexusUI.jar`, because the compatibility bridges are compiled against them. At runtime those classes are only loaded when the matching mod is enabled.
-
-## Dependencies
-None required.
-- **Nexerelin** (optional)
-- **NexusUI** (optional)
+## For modders and contributors
+- **Building**: `build.ps1` (PowerShell) or `build.bat`. To compile you need the game's `starsector-core` jars plus `ExerelinCore.jar` and `NexusUI.jar`, because the compatibility bridges are compiled against them. At runtime those classes are only loaded when the matching mod is enabled.
+- **Testing**: `test.ps1` builds the jar and runs a replay of Starsector's script sandbox rules over every referenced class, a link check against the game's jars on the game's JRE, a format-string safety check, a translation-table check, a save-compatibility check (every field the mod writes into saves is compared with `tests/save-fields.baseline`; see [docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)), and a month-by-month simulation of the whole bank. `test.ps1 -Smoke` also launches the real game directly, waits for the main menu and scans `starsector.log` for errors from this mod.
+- See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Changelog
 
@@ -110,6 +183,8 @@ None required.
 - **New:** revolving credit line with monthly statements, minimum payments, a grace period, automatic limit increases, and utilization in the credit score. The Sovereign loan is no longer called a "credit line".
 - **Fix:** a default is put on the credit report when it happens, so a seizure that settles it before month end no longer hides it; a charged-off loan no longer adds a new late mark every month.
 - **Internal:** a test now fails the build if a change would break loading existing saves ([docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)).
+
+<details><summary>Older versions (0.1.x – 0.2.1)</summary>
 
 ### 0.2.1-beta
 - **New:** Persean Banking Confederation lore ([LORE.md](LORE.md)), condensed into the in-game faction and planet descriptions (English and pt-BR).
@@ -143,6 +218,8 @@ None required.
 ### 0.1.x
 - Initial releases.
 
+</details>
+
 ## License
 
-MIT License
+MIT License. If the bank hasn't foreclosed on you yet, consider giving the repo a star.

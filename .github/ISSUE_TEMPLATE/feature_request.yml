@@ -1,0 +1,16 @@
+name: Idea or suggestion
+description: A new financial product, a mechanic, a balance change, a translation.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What should the Confederation do, and why would it make the game more fun?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: A moment in a campaign where it would matter
+      description: Optional, but it helps a lot.

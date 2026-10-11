@@ -1,0 +1,43 @@
+name: Bug report
+description: Something broke, crashed, or the bank did something it shouldn't.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! A crash or a wrong number is much easier to fix with the log and your mod list.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Bank of Starsector version
+      description: Shown in the launcher's mod list (e.g. 0.3.1-beta).
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Starsector version
+      placeholder: 0.98a-RC8
+  - type: dropdown
+    id: nex
+    attributes:
+      label: Nexerelin installed?
+      options: ["Yes", "No"]
+  - type: textarea
+    id: log
+    attributes:
+      label: starsector.log
+      description: The lines around the error from `starsector-core/starsector.log` (search for "BOS:" or "Exception"). You can also attach the whole file.
+      render: text
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods
+      description: Your enabled mods (the contents of `mods/enabled_mods.json` is fine).
