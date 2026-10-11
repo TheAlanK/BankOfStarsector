@@ -1,5 +1,13 @@
 Bank of Starsector
 
+0.4.0-beta (in development)
+- New: relationship banking. The PBC prices and approves loans on an internal score = credit bureau score +
+  up to 25 points for the relationship (minus for a bad one); the bureau score itself is unchanged. A good
+  relation also lowers loan rates (up to 10%) and raises investment returns (up to +0.5%/yr); a bad one does
+  the opposite. Paying on time improves the relation (+0.2 per payment, +1 per loan carried 3+ months and
+  paid off), missed payments (-2) and defaults (-8) hurt it. Banking alone moves it between Inhospitable
+  and Friendly. Shown in the Overview, the Credit tab, the monthly statement and NexusUI.
+
 0.3.2-beta
 - Changed: investment returns follow real long-run asset classes instead of 1-8% a month. Expected returns
   per year: savings 3% (no risk), government bonds 4.5% (7.9% volatility), commodity futures 4% (18%),

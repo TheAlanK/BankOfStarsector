@@ -117,6 +117,18 @@ public class BankSettings {
 
     // Early withdrawal
     public static float EARLY_WITHDRAWAL_PENALTY = 0.50f;
+    // Relationship banking (0.4.0): the PBC rewards good customers, a little
+    public static float RELATIONSHIP_SCORE_BONUS = 25f;    // internal score points at relation +1 (minus at -1)
+    public static float RELATIONSHIP_RATE_DISCOUNT = 0.10f; // loan rates x (1 - this x relation)
+    public static float RELATIONSHIP_RETURN_BONUS = 0.005f; // + this x relation to expected annual returns
+    public static float RELATION_ON_TIME = 0.002f;          // per installment or minimum paid on time
+    public static float RELATION_PAYOFF = 0.01f;            // per loan paid off after at least RELATION_PAYOFF_MIN_MONTHS
+    public static int RELATION_PAYOFF_MIN_MONTHS = 3;
+    public static float RELATION_LATE = -0.02f;             // per missed payment
+    public static float RELATION_DEFAULT = -0.08f;
+    public static String RELATION_CAP_LEVEL = "FRIENDLY";   // banking alone never raises the relation past this
+    public static String RELATION_FLOOR_LEVEL = "INHOSPITABLE"; // ...nor lowers it past this: hostility comes from refusing collection or foreclosure
+
     /** Multiplies every investment's expected return (1 = real-world long-run returns). */
     public static float INVESTMENT_RETURN_MULT = 1f;
     /** Military contracts: extra annual return per unit of war surcharge (0.2 x 25% cap = +5%/yr). */
@@ -198,6 +210,16 @@ public class BankSettings {
             GARNISH_PERCENTAGE = f(j, "garnishPercentage", GARNISH_PERCENTAGE);
             EARLY_WITHDRAWAL_PENALTY = f(j, "earlyWithdrawalPenalty", EARLY_WITHDRAWAL_PENALTY);
             INVESTMENT_RETURN_MULT = f(j, "investmentReturnMultiplier", INVESTMENT_RETURN_MULT);
+            RELATIONSHIP_SCORE_BONUS = f(j, "relationshipScoreBonus", RELATIONSHIP_SCORE_BONUS);
+            RELATIONSHIP_RATE_DISCOUNT = f(j, "relationshipRateDiscount", RELATIONSHIP_RATE_DISCOUNT);
+            RELATIONSHIP_RETURN_BONUS = f(j, "relationshipReturnBonus", RELATIONSHIP_RETURN_BONUS);
+            RELATION_ON_TIME = f(j, "relationOnTimePayment", RELATION_ON_TIME);
+            RELATION_PAYOFF = f(j, "relationPayoff", RELATION_PAYOFF);
+            RELATION_PAYOFF_MIN_MONTHS = i(j, "relationPayoffMinMonths", RELATION_PAYOFF_MIN_MONTHS);
+            RELATION_LATE = f(j, "relationLatePayment", RELATION_LATE);
+            RELATION_DEFAULT = f(j, "relationDefault", RELATION_DEFAULT);
+            if (j.has("relationCapLevel")) RELATION_CAP_LEVEL = j.optString("relationCapLevel", RELATION_CAP_LEVEL);
+            if (j.has("relationFloorLevel")) RELATION_FLOOR_LEVEL = j.optString("relationFloorLevel", RELATION_FLOOR_LEVEL);
             INVESTMENT_WAR_BONUS = f(j, "investmentWarBonus", INVESTMENT_WAR_BONUS);
             log.info("Bank of Starsector: Settings loaded from " + SETTINGS_FILE);
         } catch (Exception e) {

@@ -39,3 +39,7 @@ bos_insuranceRateComprehensive,Comprehensive premium rate,Double,0.013,,Monthly 
 bos_insuranceWaitingDays,Waiting period (days),Int,30,,No claims in a new policy's first days, nor for ships that joined the fleet more recently.,0,180,Insurance
 bos_investmentHeader,Investments,Header,Investments,,,,,Interest
 bos_investmentReturnMultiplier,Investment return multiplier,Double,1,,Multiplies every investment's expected return. 1 = real-world long-run returns (savings 3%/yr; bonds 4.5%; commodities 4%; venture 12%; military 9%).,0,5,Interest
+bos_relationshipHeader,Relationship banking,Header,Relationship banking,,,,,Interest
+bos_relationshipScoreBonus,Internal score bonus,Double,25,,PBC internal score points at the best relation (minus at the worst). The credit bureau score is unchanged.,0,100,Interest
+bos_relationshipRateDiscount,Relationship rate discount,Double,0.1,,Loan rates are reduced by this share at the best relation (and raised at the worst).,0,0.5,Interest
+bos_relationshipReturnBonus,Relationship return bonus,Double,0.005,,Added to expected annual investment returns at the best relation.,0,0.05,Interest

@@ -42,7 +42,12 @@ public class InterestEngine implements Serializable {
         float warSurcharge = getWarSurcharge();
         float bracketMod = CreditScoreManager.rateModifierFor(creditScore);
         float disruption = getMarketDisruptionModifier(); // disrupted industry makes credit dearer
-        return baseRate * (1f + warSurcharge) * (1f + bracketMod) * (1f + disruption);
+        return baseRate * (1f + warSurcharge) * (1f + bracketMod) * (1f + disruption) * relationshipPriceFactor();
+    }
+
+    /** Relationship pricing: up to RELATIONSHIP_RATE_DISCOUNT cheaper for a friend of the bank, dearer for an enemy. */
+    public static float relationshipPriceFactor() {
+        return 1f - BankSettings.RELATIONSHIP_RATE_DISCOUNT * CreditScoreManager.pbcRelationship();
     }
 
     /** Government bonds yield more when sovereign borrowing is high (see AssetSeizureManager): up to +2%/yr. */
@@ -78,7 +83,8 @@ public class InterestEngine implements Serializable {
 
     /** Expected annual return of a product right now, with the sector's war, debt and disruption. */
     public float expectedAnnualReturn(InvestmentType type) {
-        float annual = type.expectedAnnualReturn();
+        float annual = type.expectedAnnualReturn()
+            + BankSettings.RELATIONSHIP_RETURN_BONUS * CreditScoreManager.pbcRelationship();
         float disruption = getMarketDisruptionModifier();
         switch (type) {
             case MILITARY:

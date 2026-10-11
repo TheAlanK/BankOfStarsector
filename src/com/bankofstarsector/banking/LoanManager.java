@@ -81,7 +81,7 @@ public class LoanManager implements Serializable {
      */
     public String whyNot(LoanType type, BankData data) {
         CreditScoreManager csm = data.getCreditScoreManager();
-        int score = csm.getScore();
+        int score = csm.getUnderwritingScore();
         if (type.isSecured()) {
             if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
             if (!data.getBankruptcyManager().canTakeLoanType(type)) return "terminal.loans.reasonBankruptcy";
@@ -99,7 +99,8 @@ public class LoanManager implements Serializable {
         if (type.isBuilder()) {
             // Costs the bank nothing, so it stays open to rebuild credit, even after bankruptcy.
             if (data.getCollectionManager().isBankingRestricted()) return "terminal.loans.reasonOverdue";
-            if (csm.hasScore() && score >= BankSettings.BUILDER_MAX_SCORE) return "terminal.loans.reasonBuilderScore";
+            // The bureau score, not the internal one: this loan is for thin or damaged credit files.
+            if (csm.hasScore() && csm.getScore() >= BankSettings.BUILDER_MAX_SCORE) return "terminal.loans.reasonBuilderScore";
             if (hasOpenBuilderLoan()) return "terminal.loans.reasonBuilderOpen";
             return null;
         }
@@ -186,6 +187,8 @@ public class LoanManager implements Serializable {
                 data.getCreditScoreManager().onLoanPayoff();
                 data.addTransaction("PAYOFF", -amount, com.bankofstarsector.core.Str.f("txd.payoff", loan.loanType.getDisplayName()));
                 releaseHeldFunds(loan);
+                // Only a loan actually carried for a while earns goodwill: taking and repaying at once doesn't.
+                if (loan.monthsElapsed >= BankSettings.RELATION_PAYOFF_MIN_MONTHS) CreditScoreManager.adjustRelation(BankSettings.RELATION_PAYOFF);
                 if (loan.loanType.isSecured()) data.getForeclosureManager().onLoanClosed(loan);
             }
             return;
@@ -276,9 +279,15 @@ public class LoanManager implements Serializable {
         BankData data = BankData.get();
         for (BankAccount loan : getActiveLoans()) {
             float late = loan.getLateAmount();
-            if (late <= 1f) continue;
+            if (late <= 1f) {
+                // Last month's bill was paid on time. Credit lines count only while they are in use.
+                boolean billedBefore = loan.monthsElapsed >= 2 && (!loan.loanType.isRevolving() || loan.statementBalance > 1f);
+                if (billedBefore && loan.status == LoanStatus.ACTIVE) CreditScoreManager.adjustRelation(BankSettings.RELATION_ON_TIME);
+                continue;
+            }
             loan.missedPayments++;
             data.getCreditScoreManager().onPaymentMissed();
+            CreditScoreManager.adjustRelation(BankSettings.RELATION_LATE);
             if (loan.status == LoanStatus.ACTIVE) {
                 loan.status = LoanStatus.OVERDUE;
                 loan.daysOverdue = Math.max(loan.daysOverdue, 1);
@@ -325,10 +334,10 @@ public class LoanManager implements Serializable {
         return null;
     }
 
-    /** Starting limit the player's score qualifies for (0 = not offered). */
+    /** Starting limit the player's internal score qualifies for (0 = not offered). */
     public static float lineLimitFor(CreditScoreManager csm) {
         if (!csm.hasScore()) return 0f;
-        int score = csm.getScore();
+        int score = csm.getUnderwritingScore();
         if (score >= 750) return BankSettings.LINE_LIMIT_EXCELLENT;
         if (score >= 650) return BankSettings.LINE_LIMIT_GOOD;
         if (score >= BankSettings.LINE_MIN_SCORE) return BankSettings.LINE_LIMIT_FAIR;
@@ -339,7 +348,7 @@ public class LoanManager implements Serializable {
     public BankAccount openCreditLine(BankData data) {
         if (whyNot(LoanType.CREDIT_LINE, data) != null) return null;
         CreditScoreManager csm = data.getCreditScoreManager();
-        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.CREDIT_LINE, csm.getScore());
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.CREDIT_LINE, csm.getUnderwritingScore());
         BankAccount line = BankAccount.createLoan(LoanType.CREDIT_LINE, 0f, rate,
             Global.getSector().getClock().getTimestamp());
         line.creditLimit = lineLimitFor(csm);
@@ -413,6 +422,7 @@ public class LoanManager implements Serializable {
                 loan.status = LoanStatus.DEFAULTED;
                 if (loan.loanType.isRevolving()) loan.creditLimit = 0f; // closed to new draws for good
                 BankData.get().getCreditScoreManager().onDefault(loan);
+                CreditScoreManager.adjustRelation(BankSettings.RELATION_DEFAULT);
                 BankData.get().addTransaction("DEFAULT", 0, com.bankofstarsector.core.Str.f("txd.default", loan.loanType.getDisplayName()));
                 applyHeldFunds(loan); // a credit-builder loan is settled from its own deposit first
                 BankData.get().getAssetSeizureManager().seizeInvestments(BankData.get());

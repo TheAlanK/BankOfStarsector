@@ -32,6 +32,9 @@ public class CreditScoreManager implements Serializable {
     private static final String[] FACTOR_KEYS = {"factor.payment", "factor.amounts", "factor.length", "factor.newCredit", "factor.mix"};
 
     private CreditBureau bureau;
+    /** 0.4.0: the PBC's relation to the player at the last month end (for the statement); NaN-safe: 0 in older saves. */
+    private float relationAtLastMonthEnd;
+    private boolean relationRecorded;
 
     public CreditScoreManager() {
         scoreHistory = new ArrayList<Integer>();
@@ -77,6 +80,58 @@ public class CreditScoreManager implements Serializable {
         return s != null ? s : BankSettings.CREDIT_SCORE_MIN;
     }
 
+    // ------------------------------------------------------------------ relationship banking (0.4.0)
+
+    /** The PBC's relation to the player, -1..1 (0 if the faction is missing). */
+    public static float pbcRelationship() {
+        com.fs.starfarer.api.campaign.FactionAPI pbc = com.fs.starfarer.api.Global.getSector().getFaction("pbc");
+        return pbc == null ? 0f : pbc.getRelationship(com.fs.starfarer.api.impl.campaign.ids.Factions.PLAYER);
+    }
+
+    /** Points the PBC adds to its own score for the relationship (negative when the relation is bad). */
+    public static int relationshipBonus() {
+        return Math.round(BankSettings.RELATIONSHIP_SCORE_BONUS * pbcRelationship());
+    }
+
+    /**
+     * The PBC's internal underwriting score: the bureau score plus the relationship bonus, as banks do
+     * with relationship customers. It sets eligibility, limits and rates. The bureau score itself
+     * (getScore) never includes it. A thin file has no internal score either.
+     */
+    public int getUnderwritingScore() {
+        if (!hasScore()) return BankSettings.CREDIT_SCORE_MIN;
+        return Math.max(BankSettings.CREDIT_SCORE_MIN, Math.min(BankSettings.CREDIT_SCORE_MAX, getScore() + relationshipBonus()));
+    }
+
+    /**
+     * Changes the PBC's relation to the player for banking behaviour. Gains stop at RELATION_CAP_LEVEL and
+     * losses at RELATION_FLOOR_LEVEL: late payments alone never make the PBC hostile; that takes refusing a
+     * Collection Fleet or a foreclosure.
+     */
+    public static void adjustRelation(float delta) {
+        if (delta == 0f) return;
+        com.fs.starfarer.api.campaign.FactionAPI pbc = com.fs.starfarer.api.Global.getSector().getFaction("pbc");
+        if (pbc == null) return;
+        String player = com.fs.starfarer.api.impl.campaign.ids.Factions.PLAYER;
+        String levelName = delta > 0f ? BankSettings.RELATION_CAP_LEVEL : BankSettings.RELATION_FLOOR_LEVEL;
+        com.fs.starfarer.api.campaign.RepLevel limit;
+        try {
+            limit = com.fs.starfarer.api.campaign.RepLevel.valueOf(levelName);
+        } catch (IllegalArgumentException e) {
+            limit = delta > 0f ? com.fs.starfarer.api.campaign.RepLevel.FRIENDLY : com.fs.starfarer.api.campaign.RepLevel.INHOSPITABLE;
+        }
+        pbc.adjustRelationship(player, delta, limit);
+    }
+
+    /** Month end: how much the PBC's relation moved since the last month end (all causes). */
+    public float relationChangeThisMonth() {
+        float now = pbcRelationship();
+        float delta = relationRecorded ? now - relationAtLastMonthEnd : 0f;
+        relationAtLastMonthEnd = now;
+        relationRecorded = true;
+        return delta;
+    }
+
     /** Score for display: "--" when unscoreable. */
     public String getScoreText() {
         Integer s = getReport().score;
@@ -94,7 +149,7 @@ public class CreditScoreManager implements Serializable {
 
     public int getMaxLoans() {
         if (!hasScore()) return 1;
-        int score = getScore();
+        int score = getUnderwritingScore();
         if (score >= 750) return 5;
         if (score >= 650) return 3;
         if (score >= 500) return 2;
@@ -102,7 +157,7 @@ public class CreditScoreManager implements Serializable {
     }
 
     public float getRateModifier() {
-        return rateModifierFor(getScore());
+        return rateModifierFor(getUnderwritingScore());
     }
 
     /** The bracket modifier shown in the terminal is the one actually applied to new loans. */

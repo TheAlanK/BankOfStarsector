@@ -139,6 +139,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         Color scoreColor = scoreColor(csm.getScore());
         info.addPara(Str.get("terminal.overview.score"), opad, scoreColor, csm.getScoreText(), csm.getBracket());
         info.addPara(Str.get("terminal.overview.maxLoans"), opad, Misc.getHighlightColor(), "" + csm.getMaxLoans());
+        renderRelationship(info, csm, opad);
         InsuranceManager ins = data.getInsuranceManager();
         if (ins.hasPolicy()) {
             info.addPara(Str.get("terminal.overview.insurance"), opad,
@@ -313,8 +314,8 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             // Players with a good score don't need it; don't clutter their list.
             if (type.isBuilder() && "terminal.loans.reasonBuilderScore".equals(why)) continue;
             boolean canTake = why == null;
-            float maxAmount = type.getMaxAmountForScore(csm.getScore());
-            float effectiveRate = engine.calculateEffectiveLoanRate(type, csm.getScore());
+            float maxAmount = type.getMaxAmountForScore(csm.getUnderwritingScore());
+            float effectiveRate = engine.calculateEffectiveLoanRate(type, csm.getUnderwritingScore());
 
             Color typeColor = canTake ? Misc.getHighlightColor() : Misc.getGrayColor();
             info.addPara("%s", opad, typeColor, type.getDisplayName());
@@ -346,6 +347,24 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             info.addSpacer(opad);
             renderSecuredOffers(info, opad);
         }
+    }
+
+    /** Relationship banking: the PBC's relation, the internal score, and what they change. */
+    private void renderRelationship(TooltipMakerAPI info, CreditScoreManager csm, float opad) {
+        float r = CreditScoreManager.pbcRelationship();
+        Color c = r > 0.001f ? Misc.getPositiveHighlightColor() : r < -0.001f ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor();
+        info.addPara(Str.get("terminal.overview.relationship"), opad, c, String.format("%+.0f", r * 100), relationLevelName(),
+            csm.hasScore() ? String.valueOf(csm.getUnderwritingScore()) : "--", String.format("%+d", CreditScoreManager.relationshipBonus()),
+            String.format("%+.1f%%", (InterestEngine.relationshipPriceFactor() - 1f) * 100f),
+            String.format("%+.2f%%", BankSettings.RELATIONSHIP_RETURN_BONUS * r * 100f));
+    }
+
+    /** "Favorable", "Hostile"...: the game's name for the PBC's attitude to the player. */
+    static String relationLevelName() {
+        com.fs.starfarer.api.campaign.FactionAPI pbc = Global.getSector().getFaction("pbc");
+        if (pbc == null) return "";
+        com.fs.starfarer.api.campaign.RepLevel level = pbc.getRelationshipLevel(com.fs.starfarer.api.impl.campaign.ids.Factions.PLAYER);
+        return level != null ? level.getDisplayName() : "";
     }
 
     /** Fleet insurance: the policy, quotes for each plan, and the claims record. */
@@ -457,7 +476,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             return;
         }
         String why = lm.whyNot(LoanType.SECURED, data);
-        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, csm.getScore());
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, csm.getUnderwritingScore());
         for (com.fs.starfarer.api.campaign.econ.MarketAPI m : colonies) {
             ColonyAppraisal a = ColonyAppraisal.of(m);
             float max = LoanManager.securedMaxFor(m);
@@ -560,7 +579,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 return;
             }
             float limit = LoanManager.lineLimitFor(csm);
-            float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.CREDIT_LINE, csm.getScore());
+            float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.CREDIT_LINE, csm.getUnderwritingScore());
             info.addPara(Str.get("terminal.line.offer"), 3f, Misc.getHighlightColor(), Misc.getDGSCredits(limit),
                 pct(rate, "%.1f"), pct(BankSettings.LINE_MIN_PAYMENT_PCT, "%.0f"), Misc.getDGSCredits(BankSettings.LINE_MIN_PAYMENT_FLOOR));
             info.addButton(Str.f("terminal.line.open", Misc.getDGSCredits(limit)), "line_open",
@@ -721,6 +740,10 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         heading(info, "terminal.credit.heading", opad);
         Color scoreColor = csm.hasScore() ? scoreColor(csm.getScore()) : Misc.getGrayColor();
         info.addPara(Str.get("terminal.credit.current"), opad, scoreColor, csm.getScoreText());
+        if (csm.hasScore()) {
+            info.addPara(Str.get("terminal.credit.internal"), 3f, Misc.getHighlightColor(),
+                String.valueOf(csm.getUnderwritingScore()), csm.getScoreText(), String.format("%+d", CreditScoreManager.relationshipBonus()));
+        }
         info.addPara(Str.get("terminal.credit.bracket"), opad, scoreColor, csm.getBracket());
         info.addPara(Str.get("terminal.credit.modifier"), opad, Misc.getHighlightColor(),
             String.format("%+.0f%%", csm.getRateModifier() * 100));
@@ -925,7 +948,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             com.fs.starfarer.api.campaign.econ.MarketAPI market = securedButtonMarket(id);
             if (market != null) {
                 float amount = LoanManager.securedMaxFor(market) * buttonSuffix(id) / 100f;
-                float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+                float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getUnderwritingScore());
                 data.getLoanManager().takeSecuredLoan(market, amount, rate);
             }
             ui.updateUIForItem(this);
@@ -939,7 +962,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             int p = Integer.parseInt(rest.substring(lastUnderscore + 1));
 
             LoanType type = LoanType.valueOf(typeName);
-            int score = data.getCreditScoreManager().getScore();
+            int score = data.getCreditScoreManager().getUnderwritingScore();
             if (data.getLoanManager().whyNot(type, data) != null) {
                 ui.updateUIForItem(this);
                 return;
@@ -989,7 +1012,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         if (loanType != null) {
             // Same amount and rate the button handler will use when confirmed.
             BankData data = BankData.get();
-            int score = data.getCreditScoreManager().getScore();
+            int score = data.getCreditScoreManager().getUnderwritingScore();
             float amount = loanAmount(loanType, loanType.getMaxAmountForScore(score), buttonSuffix(buttonId) / 100f);
             float rate = data.getInterestEngine().calculateEffectiveLoanRate(loanType, score);
             prompt.addPara(Str.get("confirm.loan.title"), Misc.getHighlightColor(), 0f);
@@ -1013,7 +1036,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         if (pledged != null) {
             BankData data = BankData.get();
             float amount = LoanManager.securedMaxFor(pledged) * buttonSuffix(buttonId) / 100f;
-            float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+            float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getUnderwritingScore());
             prompt.addPara(Str.get("confirm.loan.title"), Misc.getHighlightColor(), 0f);
             addQuote(prompt, com.bankofstarsector.ui.Quote.securedLoan(pledged.getName(), ColonyAppraisal.of(pledged).total, amount, rate));
             return;

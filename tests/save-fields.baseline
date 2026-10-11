@@ -120,6 +120,8 @@ field com.bankofstarsector.banking.CreditScoreManager lastFactors float[]
 field com.bankofstarsector.banking.CreditScoreManager latePaymentsThisMonth int
 field com.bankofstarsector.banking.CreditScoreManager loansPayedOffThisMonth int
 field com.bankofstarsector.banking.CreditScoreManager onTimePaymentsThisMonth int
+field com.bankofstarsector.banking.CreditScoreManager relationAtLastMonthEnd float
+field com.bankofstarsector.banking.CreditScoreManager relationRecorded boolean
 field com.bankofstarsector.banking.CreditScoreManager scoreChanges java.util.List<java.lang.String>
 field com.bankofstarsector.banking.CreditScoreManager scoreHistory java.util.List<java.lang.Integer>
 field com.bankofstarsector.banking.InsuranceManager claims java.util.List<com.bankofstarsector.banking.InsuranceManager$Claim>

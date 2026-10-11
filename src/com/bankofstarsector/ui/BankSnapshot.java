@@ -27,6 +27,10 @@ public final class BankSnapshot {
     public final float netWorth, credits, debt, invested, held, late, dueNow, warSurcharge, disruption, sovereignDebt;
     public final boolean autopay, restricted;
     public final int score;
+    /** Relationship banking (0.4.0): PBC relation -1..1, its level name, and the PBC's internal score. */
+    public final float pbcRelation, rateFactor;
+    public final String pbcRelationLevel;
+    public final int internalScore;
     public final String bracket, bankruptcyState, bankruptcyLabel, scoreText;
     public final List<Line> loans;
     /** Score at each monthly report, newest first (0 = no score), and what moved it ("factor.key:delta" or ""). */
@@ -102,6 +106,13 @@ public final class BankSnapshot {
         autopay = data.isAutopayEnabled();
         restricted = data.getCollectionManager().isBankingRestricted();
         score = data.getCreditScoreManager().getScore();
+        pbcRelation = CreditScoreManager.pbcRelationship();
+        rateFactor = InterestEngine.relationshipPriceFactor();
+        internalScore = data.getCreditScoreManager().hasScore() ? data.getCreditScoreManager().getUnderwritingScore() : 0;
+        com.fs.starfarer.api.campaign.FactionAPI pbcFaction = Global.getSector().getFaction("pbc");
+        com.fs.starfarer.api.campaign.RepLevel level = pbcFaction == null ? null
+            : pbcFaction.getRelationshipLevel(com.fs.starfarer.api.impl.campaign.ids.Factions.PLAYER);
+        pbcRelationLevel = level != null ? level.getDisplayName() : "";
         scoreText = data.getCreditScoreManager().getScoreText();
         bracket = data.getCreditScoreManager().getBracket();
         warSurcharge = engine.getWarSurcharge();
@@ -218,6 +229,10 @@ public final class BankSnapshot {
             o.put("bankingRestricted", restricted);
             o.put("creditScore", "--".equals(scoreText) ? JSONObject.NULL : (Object) Integer.valueOf(score));
             o.put("bracket", bracket);
+            o.put("pbcRelation", pbcRelation);
+            o.put("pbcRelationLevel", pbcRelationLevel);
+            o.put("internalScore", internalScore > 0 ? (Object) Integer.valueOf(internalScore) : JSONObject.NULL);
+            o.put("relationshipRateFactor", rateFactor);
             o.put("warSurcharge", warSurcharge);
             o.put("marketDisruption", disruption);
             o.put("sovereignDebt", sovereignDebt);

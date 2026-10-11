@@ -187,7 +187,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
 
     private void showLoans() {
         BankData data = BankData.get();
-        int score = data.getCreditScoreManager().getScore();
+        int score = data.getCreditScoreManager().getUnderwritingScore();
         TextPanelAPI text = dialog.getTextPanel();
         OptionPanelAPI options = dialog.getOptionPanel();
         options.clearOptions();
@@ -243,7 +243,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         BankData data = BankData.get();
         float max = LoanManager.securedMaxFor(market);
         amount = Math.max(Math.min(max, 1000f), Math.min(max, amount));
-        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getUnderwritingScore());
         addQuote(Quote.securedLoan(market.getName(), ColonyAppraisal.of(market).total, amount, rate));
         OptionPanelAPI options = dialog.getOptionPanel();
         options.clearOptions();
@@ -254,7 +254,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
 
     private void signSecured(MarketAPI market, float amount) {
         BankData data = BankData.get();
-        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getScore());
+        float rate = data.getInterestEngine().calculateEffectiveLoanRate(LoanType.SECURED, data.getCreditScoreManager().getUnderwritingScore());
         BankAccount loan = market == null ? null : data.getLoanManager().takeSecuredLoan(market, amount, rate);
         if (loan == null) {
             dialog.getTextPanel().addPara(Str.get("branch.loan.refused"), Misc.getNegativeHighlightColor());
@@ -271,7 +271,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
 
     private void showLoanAmount(LoanType type) {
         BankData data = BankData.get();
-        float max = type.getMaxAmountForScore(data.getCreditScoreManager().getScore());
+        float max = type.getMaxAmountForScore(data.getCreditScoreManager().getUnderwritingScore());
         float min = Quote.minLoanAmount(type, max);
         TextPanelAPI text = dialog.getTextPanel();
         OptionPanelAPI options = dialog.getOptionPanel();
@@ -288,7 +288,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
 
     private void showLoanQuote(LoanType type, float amount) {
         BankData data = BankData.get();
-        int score = data.getCreditScoreManager().getScore();
+        int score = data.getCreditScoreManager().getUnderwritingScore();
         float max = type.getMaxAmountForScore(score);
         amount = Math.max(Quote.minLoanAmount(type, max), Math.min(max, amount));
         float rate = data.getInterestEngine().calculateEffectiveLoanRate(type, score);
@@ -303,7 +303,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
     private void sign(LoanType type, float amount) {
         BankData data = BankData.get();
         LoanManager lm = data.getLoanManager();
-        int score = data.getCreditScoreManager().getScore();
+        int score = data.getCreditScoreManager().getUnderwritingScore();
         float max = type.getMaxAmountForScore(score);
         // Re-checked: the screen may be stale (a month end, a payment) by the time the player signs.
         if (lm.whyNot(type, data) != null || amount < Quote.minLoanAmount(type, max) - 1f || amount > max + 1f) {

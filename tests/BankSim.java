@@ -63,6 +63,8 @@ public class BankSim {
         scenarioInsuranceLapseAndCap();
         scenarioSectorScansAreCached();
         scenarioRealisticInvestmentReturns();
+        scenarioRelationshipBanking();
+        scenarioRelationshipFromBehaviour();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -747,6 +749,74 @@ public class BankSim {
         check("[returns] no investment out-earns the cheapest loan (no borrow-to-invest arbitrage)", bestInvestment < cheapestLoan);
     }
 
+    // ------------------------------------------------------------------ relationship banking (0.4.0)
+
+    static void scenarioRelationshipBanking() {
+        BankData data = scoredFile(10_000_000f);
+        CreditScoreManager csm = data.getCreditScoreManager();
+        InterestEngine engine = data.getInterestEngine();
+        int bureau = csm.getScore();
+        relations.put(key("pbc", "player"), 0.6f);
+        int friendScore = csm.getUnderwritingScore();
+        float friendRate = engine.calculateEffectiveLoanRate(LoanType.MEGACORP, friendScore);
+        float friendReturn = engine.expectedAnnualReturn(InvestmentType.BONDS);
+        relations.put(key("pbc", "player"), 0f);
+        float neutralRate = engine.calculateEffectiveLoanRate(LoanType.MEGACORP, csm.getUnderwritingScore());
+        float neutralReturn = engine.expectedAnnualReturn(InvestmentType.BONDS);
+        int neutralLoans = csm.getMaxLoans();
+        relations.put(key("pbc", "player"), -1f);
+        int enemyScore = csm.getUnderwritingScore();
+        float enemyRate = engine.calculateEffectiveLoanRate(LoanType.MEGACORP, enemyScore);
+        int enemyLoans = csm.getMaxLoans();
+        System.out.printf("[relationship] bureau %d | friend (+60): internal %d, megacorp %.3f%%/mo, bonds %.2f%%/yr | neutral: %.3f%%, %.2f%%, %d loans | enemy (-100): internal %d, %.3f%%, %d loans%n",
+            bureau, friendScore, friendRate * 100, friendReturn * 100, neutralRate * 100, neutralReturn * 100, neutralLoans,
+            enemyScore, enemyRate * 100, enemyLoans);
+        check("[relationship] internal score = bureau score + 25 x relation", friendScore == bureau + 15 && enemyScore == bureau - 25);
+        check("[relationship] the bureau score itself is unchanged", csm.getScore() == bureau);
+        check("[relationship] a friend of the bank pays less, an enemy more", friendRate < neutralRate && neutralRate < enemyRate);
+        check("[relationship] the rate discount is small (at most 10% at the best relation)", friendRate >= neutralRate * 0.94f * 0.99f);
+        check("[relationship] a good relation raises returns a little", friendReturn > neutralReturn && friendReturn - neutralReturn < 0.004f);
+        check("[relationship] a bad relation can cost a bracket (fewer loans)", enemyLoans < neutralLoans);
+    }
+
+    static void scenarioRelationshipFromBehaviour() {
+        // On-time payments raise the relation, and banking alone stops at the cap.
+        reset(10_000_000f);
+        BankData data = BankData.get();
+        data.getLoanManager().takeLoan(LoanType.MEGACORP, 900_000f, 0.035f);
+        months(12);
+        float afterYear = relation("pbc", "player");
+        relations.put(key("pbc", "player"), 0.74f);
+        months(6);
+        float capped = relation("pbc", "player");
+
+        // Taking and repaying at once earns nothing.
+        reset(10_000_000f);
+        data = BankData.get();
+        BankAccount instant = data.getLoanManager().takeLoan(LoanType.EMERGENCY, 40_000f, 0.08f);
+        data.getLoanManager().payOff(instant.accountId);
+        float instantRel = relation("pbc", "player");
+
+        // Late payments and a default cost goodwill.
+        reset(0f);
+        data = BankData.get();
+        data.setAutopayEnabled(false);
+        BankAccount loan = data.getLoanManager().takeLoan(LoanType.SMALL, 100_000f, 0.05f);
+        credits.set(0f);
+        int day = 0;
+        while (loan.status != LoanStatus.DEFAULTED && day < 240) { advanceDays(1); day++; if (day % 30 == 0) monthEnd(); }
+        float badRel = relation("pbc", "player");
+        months(24); // years in default: still not hostile
+        float floorRel = relation("pbc", "player");
+        System.out.printf("[relationship] 12 months on time: %+.3f | at the cap after 6 more months: %.3f | instant take-and-repay: %+.3f | missed payments + default: %+.3f, after 2 years in default: %+.3f%n",
+            afterYear, capped, instantRel, badRel, floorRel);
+        check("[relationship] on-time payments raise the relation", afterYear > 0.015f && afterYear < 0.05f);
+        check("[relationship] banking alone never raises it past the cap", capped <= 0.75f + 1e-4);
+        check("[relationship] taking and repaying a loan at once earns no goodwill", Math.abs(instantRel) < 1e-6);
+        check("[relationship] missed payments and a default lower it", badRel <= BankSettings.RELATION_DEFAULT + 2 * BankSettings.RELATION_LATE + 1e-4);
+        check("[relationship] payments alone never make the PBC hostile", floorRel > -0.5f && floorRel < badRel);
+    }
+
     static Integer score() {
         return BankData.get().getCreditScoreManager().getReport().score;
     }
@@ -994,6 +1064,15 @@ public class BankSim {
                         if (n.equals("getId") || n.equals("getDisplayName")) return id;
                         if (n.equals("isPlayerFaction")) return "player".equals(id);
                         if (n.equals("getRelationship")) return relation(id, (String) a[0]);
+                        if (n.equals("adjustRelationship") && a[0] instanceof String) {
+                            float cur = relation(id, (String) a[0]) + ((Number) a[1]).floatValue();
+                            // RepLevel cap (a third argument): FRIENDLY tops out below COOPERATIVE (0.75)
+                            if (a.length > 2 && a[2] != null && ((Number) a[1]).floatValue() > 0f) cur = Math.min(cur, 0.75f);
+                            // ...and INHOSPITABLE stays above hostile (-0.5)
+                            if (a.length > 2 && a[2] != null && ((Number) a[1]).floatValue() < 0f) cur = Math.max(cur, -0.49f);
+                            relations.put(key(id, (String) a[0]), Math.max(-1f, Math.min(1f, cur)));
+                            return a.length > 2 ? (Object) Boolean.TRUE : null;
+                        }
                         if (n.equals("setRelationship") && a[0] instanceof String) {
                             relations.put(key(id, (String) a[0]), ((Number) a[1]).floatValue());
                             return null;
@@ -1141,6 +1220,7 @@ public class BankSim {
         f.set(null, on ? Boolean.TRUE : null);
     }
 
+    @SuppressWarnings("unchecked")
     static void scenarioForeclosureAndAuction() throws Exception {
         setNexerelin(true); // invasion classes are not on the test classpath: the launch fails and is reported as such
         try {
@@ -1157,6 +1237,9 @@ public class BankSim {
             // The PBC takes the colony; the next day it is auctioned.
             float owed = loan.remainingBalance;
             float appraisal = ColonyAppraisal.of(c.proxy).total;
+            java.lang.reflect.Field sr = com.bankofstarsector.collection.ForeclosureManager.class.getDeclaredField("savedRelation");
+            sr.setAccessible(true);
+            Float beforeWar = ((Map<String, Float>) sr.get(fm)).get(loan.accountId);
             c.factionId = "pbc";
             float before = credits.get();
             advanceDays(1);
@@ -1169,7 +1252,9 @@ public class BankSim {
                 ("hegemony".equals(c.factionId) || "tritachyon".equals(c.factionId)));
             check("[auction] the price pays the loan and the surplus goes to the player",
                 loan.status == LoanStatus.SEIZED && surplus >= appraisal * BankSettings.AUCTION_RESERVE_PCT - owed - 1f);
-            check("[auction] relations go back to what they were", Math.abs(relation("pbc", "player") - 0.2f) < 1e-4);
+            // Back to the pre-war relation, which already carries the goodwill lost for missing payments.
+            check("[auction] relations go back to what they were before the foreclosure war",
+                beforeWar != null && Math.abs(relation("pbc", "player") - beforeWar) < 1e-4 && beforeWar > -0.5f);
             check("[auction] lien and receivership are gone", c.conditions.isEmpty() || !c.conditions.contains("bos_lien")
                 && !c.conditions.contains("bos_receivership"));
 

@@ -36,6 +36,7 @@ public class BankingNexusPage implements NexusPage {
     private JLabel netWorthLabel;
     private JLabel heldLabel;
     private JLabel trendLabel, changeLabel;
+    private JLabel internalLabel, relationLabel;
     private JLabel insPlanLabel, insPremiumLabel, insStatusLabel, insFleetLabel, insClaimsLabel;
     private JLabel lineBalanceLabel, lineLimitLabel, lineAvailableLabel, lineUtilLabel, lineMinLabel, lineStatementLabel, lineAutopayLabel;
     private JButton payStatementButton;
@@ -141,6 +142,8 @@ public class BankingNexusPage implements NexusPage {
         JPanel scoreCard = createCard(Str.get("nexus.card.score"));
         scoreLabel = addLabelRow(scoreCard, Str.get("nexus.score"), "--");
         bracketLabel = addLabelRow(scoreCard, Str.get("nexus.bracket"), "--");
+        internalLabel = addLabelRow(scoreCard, Str.get("nexus.internalScore"), "--");
+        relationLabel = addLabelRow(scoreCard, Str.get("nexus.pbcRelation"), "--");
         trendLabel = addLabelRow(scoreCard, Str.get("nexus.trend"), "--");
         changeLabel = addLabelRow(scoreCard, Str.get("nexus.lastChange"), "--");
         mainPanel.add(scoreCard);
@@ -214,6 +217,12 @@ public class BankingNexusPage implements NexusPage {
         }
         set(insFleetLabel, formatCredits(s.fleetValue), TEXT_PRIMARY);
         set(insClaimsLabel, Str.f("nexus.insClaimsValue", s.insuranceClaims12, s.insurancePending), TEXT_PRIMARY);
+
+        set(internalLabel, s.internalScore > 0 ? String.valueOf(s.internalScore) : "--",
+            s.internalScore > 0 ? getScoreColor(s.internalScore) : TEXT_SECONDARY);
+        set(relationLabel, String.format("%+.0f", s.pbcRelation * 100) + (s.pbcRelationLevel.isEmpty() ? "" : " (" + s.pbcRelationLevel + ")")
+            + String.format("  rates %+.1f%%", (s.rateFactor - 1f) * 100f),
+            s.pbcRelation > 0.001f ? POSITIVE : s.pbcRelation < -0.001f ? NEGATIVE : TEXT_PRIMARY);
 
         StringBuilder trend = new StringBuilder();
         for (int i = Math.min(5, s.scoreHistory.size() - 1); i >= 0; i--) {

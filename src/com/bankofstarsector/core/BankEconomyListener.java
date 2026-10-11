@@ -123,15 +123,19 @@ public class BankEconomyListener implements EconomyTickListener {
         data.getCreditScoreManager().advanceMonth(lm);
         data.getBankruptcyManager().advanceMonth(data);
 
+        EconomyDiagnostics.logMonth(); // TEMPORARY, v0.4.0 section B spikes
         lm.cleanupPaidLoans();
         data.getInvestmentManager().cleanupEmptyInvestments();
 
-        if (billed > 0f || garnish > 0f || seized > 0f || stillDue > 1f) {
+        float relationDelta = data.getCreditScoreManager().relationChangeThisMonth();
+        boolean relationMoved = Math.abs(relationDelta) >= 0.001f;
+        if (billed > 0f || garnish > 0f || seized > 0f || stillDue > 1f || relationMoved) {
             String msg = com.bankofstarsector.core.Str.f("statement.paid", Misc.getDGSCredits(autopaid));
             if (seized > 0f) msg += com.bankofstarsector.core.Str.f("statement.seized", Misc.getDGSCredits(seized));
             if (garnish > 0f) msg += com.bankofstarsector.core.Str.f("statement.garnished", Misc.getDGSCredits(garnish));
             if (dueNextMonth > 1f) msg += com.bankofstarsector.core.Str.f("statement.dueNext", Misc.getDGSCredits(dueNextMonth));
             if (stillDue > 1f) msg += com.bankofstarsector.core.Str.f("statement.pastDue", Misc.getDGSCredits(stillDue));
+            if (relationMoved) msg += com.bankofstarsector.core.Str.f("statement.relation", String.format("%+.1f", relationDelta * 100f));
             Global.getSector().getCampaignUI().addMessage(msg,
                 stillDue > 1f ? Misc.getNegativeHighlightColor() : Misc.getTextColor());
         }

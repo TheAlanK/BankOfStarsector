@@ -86,6 +86,18 @@
 	"earlyWithdrawalPenalty":0.5,       # share of accumulated returns lost on early withdrawal
 
 	# Investments follow real long-run returns (savings 3%/yr, bonds 4.5%, commodities 4%, venture 12%, military 9%)
+	# Relationship banking: the PBC's relation to you adjusts its internal score, your rates and your returns
+	"relationshipScoreBonus":25,        # internal score points at relation +1 (minus at -1); the bureau score is unchanged
+	"relationshipRateDiscount":0.10,    # loan rates x (1 - this x relation): -10% for a friend, +10% for an enemy
+	"relationshipReturnBonus":0.005,    # + this x relation to expected annual investment returns
+	"relationOnTimePayment":0.002,      # relation change per installment paid on time...
+	"relationPayoff":0.01,              # ...per loan paid off after at least relationPayoffMinMonths...
+	"relationPayoffMinMonths":3,
+	"relationLatePayment":-0.02,        # ...per missed payment...
+	"relationDefault":-0.08,            # ...and per default
+	"relationCapLevel":"FRIENDLY",      # banking alone never raises the relation past this level...
+	"relationFloorLevel":"INHOSPITABLE", # ...nor lowers it past this (hostility comes from refusing collection or foreclosure)
+
 	"investmentReturnMultiplier":1,     # x expected returns (2 = twice the real-world returns)
 	"investmentWarBonus":0.2,           # military contracts: + this x war surcharge per year (+5%/yr at the cap)
 }

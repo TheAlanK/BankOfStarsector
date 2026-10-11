@@ -64,6 +64,9 @@ Computed once a month from a **credit report**, like a real credit bureau: payme
 
 </details>
 
+### Relationship banking
+The PBC rewards good customers, a little. It approves and prices your loans on an **internal score**: your credit bureau score plus up to 25 points for a good relationship with the Confederation (minus for a bad one). A good relation also trims loan rates by up to 10% and adds up to 0.5% a year to your investment returns. **Paying on time improves the relation**; missed payments and defaults hurt it. Banking alone never makes the PBC friendlier than *Friendly* or more hostile than *Inhospitable*.
+
 ### Revolving credit line
 A **Confederation Credit Line** for scores of 500+ (limit 50k / 200k / 500k by bracket). Draw and repay freely. Each month end issues a statement with a minimum payment, and paying the statement in full means **no interest**. Six on-time statements raise your limit by 20%; a late payment cuts it.
 
@@ -189,6 +192,9 @@ Saves from earlier versions load fine (every release is checked against the prev
 - See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Changelog
+
+### 0.4.0-beta (in development)
+- **New:** relationship banking: an internal PBC score (bureau score + up to 25 points for the relationship), relationship pricing (up to −10% on loan rates) and a small return bonus; paying on time improves your relation with the PBC, missed payments and defaults hurt it.
 
 ### 0.3.2-beta
 - **Changed:** investment returns follow real long-run asset classes instead of 1–8% a month: savings 3%/yr, government bonds 4.5%, commodity futures 4%, venture fund 12%, military contracts 9%, each with realistic volatility. Wartime, sovereign-debt and shortage effects are realistic too. A new `investmentReturnMultiplier` setting lets you raise them.
