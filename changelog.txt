@@ -1,5 +1,16 @@
 Bank of Starsector
 
+0.3.2-beta
+- Changed: investment returns follow real long-run asset classes instead of 1-8% a month. Expected returns
+  per year: savings 3% (no risk), government bonds 4.5% (7.9% volatility), commodity futures 4% (18%),
+  venture fund 12% (35%), military contracts 9% (18%). Sources: Damodaran's 1928-2025 US returns (T-bills,
+  10-year Treasuries, S&P 500, small caps), commodity index and venture capital studies.
+- Changed: sector effects are realistic too: military contracts up to +5%/yr at the war surcharge cap,
+  bonds up to +2%/yr when sovereign debt is high, commodity futures gain from shortages.
+- Changed: monthly results are drawn from a normal distribution around the expected return (savings never
+  lose money); the terminal, the branch office and the quotes show returns per year.
+- New: investmentReturnMultiplier setting (JSON and LunaLib) for players who want richer returns.
+
 0.3.1-beta
 - Performance: sector-wide numbers (war surcharge, market disruption) are computed once per game day instead of
   on every rate quote and dashboard refresh; with large mod lists they scanned every market several times a second.

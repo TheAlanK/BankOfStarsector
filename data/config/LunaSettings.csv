@@ -37,3 +37,5 @@ bos_insuranceHeader,Fleet insurance,Header,Fleet insurance,,,,,Insurance
 bos_insuranceRateStandard,Standard premium rate,Double,0.008,,Monthly premium of the Standard policy as a share of the insured value.,0,0.1,Insurance
 bos_insuranceRateComprehensive,Comprehensive premium rate,Double,0.013,,Monthly premium of the Comprehensive policy as a share of the insured value.,0,0.1,Insurance
 bos_insuranceWaitingDays,Waiting period (days),Int,30,,No claims in a new policy's first days, nor for ships that joined the fleet more recently.,0,180,Insurance
+bos_investmentHeader,Investments,Header,Investments,,,,,Interest
+bos_investmentReturnMultiplier,Investment return multiplier,Double,1,,Multiplies every investment's expected return. 1 = real-world long-run returns (savings 3%/yr; bonds 4.5%; commodities 4%; venture 12%; military 9%).,0,5,Interest

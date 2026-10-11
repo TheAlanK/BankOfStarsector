@@ -689,8 +689,8 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
                 info.addPara("%s", opad, typeColor, type.getDisplayName());
                 info.addPara(Str.get("terminal.invest.terms"), 3f, Misc.getGrayColor(),
-                    pct(type.baseMonthlyReturn, "%.1f"),
-                    pct(type.volatility, "%.1f"),
+                    pct(type.expectedAnnualReturn(), "%.1f"),
+                    pct(type.annualVolatility, "%.0f"),
                     type.lockMonths > 0 ? Str.f("common.months", type.lockMonths) : Str.get("common.none"),
                     Misc.getDGSCredits(type.minInvestment));
                 info.addPara("  %s", 3f, Misc.getGrayColor(), type.getDescription());

@@ -102,7 +102,21 @@ House Varenne's underwriters insure every ship in your fleet. **Standard** pays 
 </details>
 
 ### Investments and the sovereign debt market
-Savings accounts, government bonds, commodity futures, venture funds and military contracts. Major factions **borrow from the Confederation to fund their wars** and repay in peace: bonds pay more when sovereign debt is high, military contracts pay more in wartime, and if an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
+Savings accounts, government bonds, commodity futures, venture funds and military contracts, with **real-world long-run returns and risk**. Major factions **borrow from the Confederation to fund their wars** and repay in peace: bonds pay more when sovereign debt is high, military contracts pay more in wartime, commodity futures gain from shortages, and if an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
+
+<details><summary>Expected returns and where they come from</summary>
+
+| Product | Expected return per year | Volatility per year | Real-world reference |
+|---|---|---|---|
+| Savings account | 3% | ~0 (never loses money) | 3-month T-bills 1928–2025: 3.4%/yr |
+| Government bonds | 4.5% (+ up to 2% when sovereign debt is high) | 7.9% | 10-year US Treasuries 1928–2025: 4.5%/yr, 7.9% s.d. |
+| Commodity futures | 4% (+ shortages) | 18% | Commodity futures indices: low single-digit returns, 14–23% volatility |
+| Venture fund | 12% | 35% | Venture capital net IRRs ~10–15%; US small caps 1928–2025: 12.0%/yr, 38% s.d. |
+| Military contract | 9% (+ up to 5% in wartime) | 18% | Defense contractors trade like stocks: S&P 500 1928–2025 10.0%/yr, 19.4% s.d. |
+
+Stock, bond and bill figures are computed from Aswath Damodaran's [historical returns data](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histretSP.html) (NYU Stern). Each month's result is drawn around the expected return, so risky products can lose money in a bad year. Investments never out-earn the cheapest loan, so borrowing to invest doesn't pay. Want richer returns? Raise `investmentReturnMultiplier` in `bos_settings.json` or LunaLib.
+
+</details>
 
 ### Debt collection fleets
 Debt collection escalates by how many days a payment is overdue:
@@ -175,6 +189,9 @@ Saves from earlier versions load fine (every release is checked against the prev
 - See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Changelog
+
+### 0.3.2-beta
+- **Changed:** investment returns follow real long-run asset classes instead of 1–8% a month: savings 3%/yr, government bonds 4.5%, commodity futures 4%, venture fund 12%, military contracts 9%, each with realistic volatility. Wartime, sovereign-debt and shortage effects are realistic too. A new `investmentReturnMultiplier` setting lets you raise them.
 
 ### 0.3.1-beta
 - **Performance:** fixes stuttering with large mod lists. The war surcharge and market disruption are computed once per game day (they scanned every market several times a second), and the NexusUI dashboard only refreshes quickly while it is open.

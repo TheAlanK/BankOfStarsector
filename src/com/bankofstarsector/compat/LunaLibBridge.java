@@ -31,6 +31,7 @@ final class LunaLibBridge {
         BankSettings.BANKRUPTCY_NO_LOANS_MONTHS = i("bos_bankruptcyNoLoansMonths", BankSettings.BANKRUPTCY_NO_LOANS_MONTHS);
         BankSettings.BANKRUPTCY_NO_INVEST_MONTHS = i("bos_bankruptcyNoInvestMonths", BankSettings.BANKRUPTCY_NO_INVEST_MONTHS);
         BankSettings.EARLY_WITHDRAWAL_PENALTY = f("bos_earlyWithdrawalPenalty", BankSettings.EARLY_WITHDRAWAL_PENALTY);
+        BankSettings.INVESTMENT_RETURN_MULT = f("bos_investmentReturnMultiplier", BankSettings.INVESTMENT_RETURN_MULT);
         BankSettings.BUILDER_MAX_AMOUNT = f("bos_builderMaxAmount", BankSettings.BUILDER_MAX_AMOUNT);
         BankSettings.BUILDER_TERM_MONTHS = i("bos_builderTermMonths", BankSettings.BUILDER_TERM_MONTHS);
         BankSettings.BUILDER_RATE = f("bos_builderRate", BankSettings.BUILDER_RATE);

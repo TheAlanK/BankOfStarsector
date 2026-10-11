@@ -45,9 +45,9 @@ public class InterestEngine implements Serializable {
         return baseRate * (1f + warSurcharge) * (1f + bracketMod) * (1f + disruption);
     }
 
-    /** Government bonds yield more when sovereign borrowing is high (see AssetSeizureManager). */
+    /** Government bonds yield more when sovereign borrowing is high (see AssetSeizureManager): up to +2%/yr. */
     public float getSovereignYieldBonus(float totalSovereignDebt) {
-        return Math.min(0.01f, totalSovereignDebt / 50_000_000f * 0.01f);
+        return Math.min(0.02f, totalSovereignDebt / 50_000_000f * 0.02f);
     }
 
     public float calculateOverdueRate(float baseRate, int monthsOverdue) {
@@ -55,35 +55,48 @@ public class InterestEngine implements Serializable {
         return baseRate * (1f + penalty);
     }
 
+    /**
+     * One month's return of an investment, in credits. Each product has a real-world expected annual
+     * return and volatility (see InvestmentType); sector conditions shift the expected return:
+     * military contracts earn up to +5%/yr at the war surcharge cap, government bonds up to +2%/yr when
+     * sovereign debt is high, commodity futures gain from shortages (+ the disruption rate per year)
+     * while disruption drags the other products down. The month's draw is normal around that mean, with
+     * the mean raised by half the variance so the compound (geometric) return matches the target.
+     * Savings never lose money.
+     */
     public float calculateInvestmentReturn(BankAccount investment) {
         if (investment.investmentType == null) return 0f;
         ensureRandom();
+        InvestmentType type = investment.investmentType;
+        float annual = expectedAnnualReturn(type);
+        float sd = type.monthlyVolatility();
+        float mean = InvestmentType.toMonthly(annual) + sd * sd / 2f;
+        float r = mean + (float) random.nextGaussian() * sd;
+        if (type == InvestmentType.SAVINGS) r = Math.max(0f, r);
+        return investment.currentValue * r;
+    }
 
-        float baseReturn = investment.investmentType.baseMonthlyReturn;
-        float vol = investment.investmentType.volatility;
+    /** Expected annual return of a product right now, with the sector's war, debt and disruption. */
+    public float expectedAnnualReturn(InvestmentType type) {
+        float annual = type.expectedAnnualReturn();
         float disruption = getMarketDisruptionModifier();
-
-        // Military contracts benefit from war
-        float warBonus = 0f;
-        if (investment.investmentType == InvestmentType.MILITARY) {
-            warBonus = getWarSurcharge() * 0.5f;
+        switch (type) {
+            case MILITARY:
+                annual += getWarSurcharge() * BankSettings.INVESTMENT_WAR_BONUS;
+                break;
+            case BONDS:
+                float total = 0f;
+                for (Float d : com.bankofstarsector.core.BankData.get().getAssetSeizureManager()
+                        .getAllFactionDebts().values()) total += d;
+                annual += getSovereignYieldBonus(total);
+                break;
+            case COMMODITIES:
+                // Scarcity spikes prices: shortages add to commodity returns instead of dragging them.
+                return annual + disruption;
+            default:
+                break;
         }
-        // Commodity futures follow market disruption the other way: scarcity spikes prices
-        if (investment.investmentType == InvestmentType.COMMODITIES) {
-            disruption = -disruption;
-        }
-        // Bonds are sovereign debt: more borrowing, higher coupons
-        if (investment.investmentType == InvestmentType.BONDS) {
-            float total = 0f;
-            for (Float d : com.bankofstarsector.core.BankData.get().getAssetSeizureManager()
-                    .getAllFactionDebts().values()) total += d;
-            warBonus += getSovereignYieldBonus(total);
-        }
-
-        float volatilityRoll = (random.nextFloat() * 2f - 1f) * vol;
-        float effectiveReturn = (baseReturn + warBonus) * (1f - disruption) + volatilityRoll;
-
-        return investment.currentValue * effectiveReturn;
+        return annual * (1f - disruption);
     }
 
     /** Recomputes the cached sector numbers when a game day has passed since the last time. */

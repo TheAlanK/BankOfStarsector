@@ -387,7 +387,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         text.addPara(Str.get("branch.invest.intro"));
         for (InvestmentType type : InvestmentType.values()) {
             text.addPara(Str.get("branch.invest.line"), Misc.getHighlightColor(), type.getDisplayName(),
-                Quote.percentText(type.baseMonthlyReturn),
+                Quote.percentText(type.expectedAnnualReturn()),
                 type.lockMonths > 0 ? Str.f("common.months", type.lockMonths) : Str.get("common.none"),
                 Misc.getDGSCredits(type.minInvestment));
             String id = PREFIX + "inv:" + type.name();
