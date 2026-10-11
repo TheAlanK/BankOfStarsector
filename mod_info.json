@@ -2,7 +2,7 @@
     "id": "bank_of_starsector",
     "name": "Bank of Starsector",
     "author": "TheAlanK",
-    "version": "0.3.1-beta",
+    "version": "0.3.2-beta",
     "description": "The Persean Banking Confederation: loans with monthly installments, a real credit score, credit lines, colony mortgages with foreclosure auctions, fleet insurance, investments, debt collection fleets and bankruptcy. Nexerelin, NexusUI and LunaLib compatible.",
     "gameVersion": "0.98a-RC8",
     "totalConversion": false,

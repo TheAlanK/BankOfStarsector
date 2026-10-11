@@ -84,8 +84,9 @@ public final class Quote {
         Color hl = Misc.getHighlightColor();
         List<Line> lines = new ArrayList<Line>();
         lines.add(new Line("confirm.invest.summary", hl, type.getDisplayName(), Misc.getDGSCredits(amount)));
-        lines.add(new Line("confirm.invest.return", hl, percent(type.baseMonthlyReturn, "%.1f"),
-            percent(type.volatility, "%.1f")));
+        lines.add(new Line("confirm.invest.return", hl, percent(type.expectedAnnualReturn(), "%.1f"),
+            percent(type.expectedMonthlyReturn(), "%.2f"), percent(type.annualVolatility, "%.0f")));
+        if (type.annualVolatility >= 0.05f) lines.add(new Line("confirm.invest.risk", Misc.getNegativeHighlightColor()));
         if (type.lockMonths > 0) {
             lines.add(new Line("confirm.invest.lock", Misc.getNegativeHighlightColor(), "" + type.lockMonths,
                 percent(BankSettings.EARLY_WITHDRAWAL_PENALTY, "%.0f")));

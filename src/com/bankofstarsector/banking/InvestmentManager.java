@@ -109,7 +109,7 @@ public class InvestmentManager implements Serializable {
     public float getMonthlyProjectedReturn() {
         float total = 0f;
         for (BankAccount inv : getActiveInvestments()) {
-            total += inv.currentValue * inv.investmentType.baseMonthlyReturn;
+            total += inv.currentValue * inv.investmentType.expectedMonthlyReturn();
         }
         return total;
     }

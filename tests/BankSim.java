@@ -62,6 +62,7 @@ public class BankSim {
         scenarioInsuranceClaims();
         scenarioInsuranceLapseAndCap();
         scenarioSectorScansAreCached();
+        scenarioRealisticInvestmentReturns();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -690,6 +691,60 @@ public class BankSim {
             && "claim.reason.partial".equals(second));
         check("[insurance limits] an unpaid premium suspends the cover", lapsed && "claim.reason.lapsed".equals(lapsedClaim));
         check("[insurance limits] a second unpaid premium cancels the policy", cancelled);
+    }
+
+    // ------------------------------------------------------------------ realistic investment returns (0.3.2)
+
+    static void scenarioRealisticInvestmentReturns() {
+        reset(100_000_000f);
+        BankData data = BankData.get();
+        InterestEngine engine = data.getInterestEngine();
+        try { // fixed seed: the statistical checks are deterministic
+            java.lang.reflect.Field rf = InterestEngine.class.getDeclaredField("random");
+            rf.setAccessible(true);
+            rf.set(engine, new Random(2026));
+        } catch (Exception e) { throw new RuntimeException(e); }
+        int months = 24_000;
+        boolean allMatch = true, savingsNeverLose = true;
+        float bestInvestment = 0f;
+        for (InvestmentType type : InvestmentType.values()) {
+            BankAccount inv = data.getInvestmentManager().invest(type, Math.max(type.minInvestment, 1_000_000f));
+            double sumLog = 0, sum = 0, sumSq = 0;
+            for (int i = 0; i < months; i++) {
+                inv.currentValue = 1_000_000f;
+                double r = engine.calculateInvestmentReturn(inv) / 1_000_000.0;
+                if (type == InvestmentType.SAVINGS && r < 0) savingsNeverLose = false;
+                sumLog += Math.log(1 + r);
+                sum += r;
+                sumSq += r * r;
+            }
+            double geoAnnual = Math.exp(sumLog / months * 12) - 1;
+            double sdMonthly = Math.sqrt(sumSq / months - (sum / months) * (sum / months));
+            double volAnnual = sdMonthly * Math.sqrt(12);
+            double tolerance = 0.003 + 3 * type.annualVolatility / Math.sqrt(months / 12.0);
+            boolean ok = Math.abs(geoAnnual - type.annualReturn) <= tolerance
+                && (type == InvestmentType.SAVINGS || Math.abs(volAnnual - type.annualVolatility) <= 0.05 * type.annualVolatility);
+            allMatch &= ok;
+            System.out.printf("[returns] %-11s target %5.1f%%/yr vol %4.1f%% | simulated %5.2f%%/yr vol %4.1f%%%s%n",
+                type.name(), type.annualReturn * 100, type.annualVolatility * 100, geoAnnual * 100, volAnnual * 100, ok ? "" : "  <-- off");
+            // Best case for the investor: war surcharge at its cap, sovereign debt maxed, markets disrupted.
+            float best = type.annualReturn + (type == InvestmentType.MILITARY ? BankSettings.WAR_SURCHARGE * BankSettings.INVESTMENT_WAR_BONUS : 0f)
+                + (type == InvestmentType.BONDS ? 0.02f : 0f)
+                + (type == InvestmentType.COMMODITIES ? BankSettings.MARKET_DISRUPTION_RATE_MODIFIER : 0f);
+            bestInvestment = Math.max(bestInvestment, best);
+        }
+        // Cheapest loan that pays out cash: best credit bracket, no war, no disruption.
+        float cheapestLoan = Float.MAX_VALUE;
+        for (LoanType t : LoanType.values()) {
+            if (t.isBuilder()) continue; // its money stays at the bank
+            float monthly = engine.calculateEffectiveLoanRate(t, 850);
+            cheapestLoan = Math.min(cheapestLoan, (float) (Math.pow(1 + monthly, 12) - 1));
+        }
+        System.out.printf("[returns] best investment in the best conditions %.1f%%/yr vs cheapest cash loan %.1f%%/yr%n",
+            bestInvestment * 100, cheapestLoan * 100);
+        check("[returns] every product compounds at its real-world return and volatility", allMatch);
+        check("[returns] savings never lose money", savingsNeverLose);
+        check("[returns] no investment out-earns the cheapest loan (no borrow-to-invest arbitrage)", bestInvestment < cheapestLoan);
     }
 
     static Integer score() {

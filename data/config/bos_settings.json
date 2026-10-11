@@ -84,4 +84,8 @@
 	# Seizure and withdrawals
 	"garnishPercentage":0.3,            # share of colony income taken while a loan is in default
 	"earlyWithdrawalPenalty":0.5,       # share of accumulated returns lost on early withdrawal
+
+	# Investments follow real long-run returns (savings 3%/yr, bonds 4.5%, commodities 4%, venture 12%, military 9%)
+	"investmentReturnMultiplier":1,     # x expected returns (2 = twice the real-world returns)
+	"investmentWarBonus":0.2,           # military contracts: + this x war surcharge per year (+5%/yr at the cap)
 }

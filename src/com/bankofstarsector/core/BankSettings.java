@@ -117,6 +117,10 @@ public class BankSettings {
 
     // Early withdrawal
     public static float EARLY_WITHDRAWAL_PENALTY = 0.50f;
+    /** Multiplies every investment's expected return (1 = real-world long-run returns). */
+    public static float INVESTMENT_RETURN_MULT = 1f;
+    /** Military contracts: extra annual return per unit of war surcharge (0.2 x 25% cap = +5%/yr). */
+    public static float INVESTMENT_WAR_BONUS = 0.2f;
 
     public static void load() {
         try {
@@ -193,6 +197,8 @@ public class BankSettings {
             BANKRUPTCY_SCORE_RECOVERY_PER_MONTH = i(j, "bankruptcyScoreRecoveryPerMonth", BANKRUPTCY_SCORE_RECOVERY_PER_MONTH);
             GARNISH_PERCENTAGE = f(j, "garnishPercentage", GARNISH_PERCENTAGE);
             EARLY_WITHDRAWAL_PENALTY = f(j, "earlyWithdrawalPenalty", EARLY_WITHDRAWAL_PENALTY);
+            INVESTMENT_RETURN_MULT = f(j, "investmentReturnMultiplier", INVESTMENT_RETURN_MULT);
+            INVESTMENT_WAR_BONUS = f(j, "investmentWarBonus", INVESTMENT_WAR_BONUS);
             log.info("Bank of Starsector: Settings loaded from " + SETTINGS_FILE);
         } catch (Exception e) {
             log.warn("Bank of Starsector: Could not read " + SETTINGS_FILE + ", using defaults (" + e.getMessage() + ")");
