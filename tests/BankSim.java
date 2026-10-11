@@ -61,6 +61,7 @@ public class BankSim {
         scenarioInsurancePremium();
         scenarioInsuranceClaims();
         scenarioInsuranceLapseAndCap();
+        scenarioSectorScansAreCached();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -537,6 +538,33 @@ public class BankSim {
     // ------------------------------------------------------------------ fleet insurance (0.3.0)
 
     static final List<Object> fleetMembers = new ArrayList<Object>();
+    static int marketScans = 0;
+
+    /** NexusUI captures twice a second and the terminal prices every loan type: the sector scans must not repeat. */
+    static void scenarioSectorScansAreCached() {
+        BankData data = scoredFile(1_000_000f);
+        for (int i = 0; i < 300; i++) colony("m" + i, i % 3 == 0 ? "hegemony" : i % 3 == 1 ? "tritachyon" : "persean", 5, 0f);
+        ship("a", 500_000f);
+        data.getInsuranceManager().buy(InsurancePlan.STANDARD, data);
+        advanceDays(1);
+        com.bankofstarsector.ui.BankSnapshot.capture(); // first capture of the day computes the numbers
+        int before = marketScans;
+        long t0 = System.nanoTime();
+        for (int i = 0; i < 100; i++) {
+            com.bankofstarsector.ui.BankSnapshot.capture();
+            for (LoanType t : LoanType.values()) data.getInterestEngine().calculateEffectiveLoanRate(t, 650);
+        }
+        long sameDay = System.nanoTime() - t0;
+        int scansSameDay = marketScans - before;
+        advanceDays(1);
+        before = marketScans;
+        com.bankofstarsector.ui.BankSnapshot.capture();
+        int scansNextDay = marketScans - before;
+        System.out.printf("[performance] 300 markets: 100 snapshots + 800 loan quotes in one day -> %d market scans, %.1f ms total | next day: %d scans%n",
+            scansSameDay, sameDay / 1e6, scansNextDay);
+        check("[performance] sector-wide numbers are not recomputed within a game day", scansSameDay == 0);
+        check("[performance] they are refreshed the next day", scansNextDay >= 1);
+    }
 
     static com.fs.starfarer.api.fleet.FleetMemberAPI ship(final String id, final float baseValue) {
         Object m = Proxy.newProxyInstance(BankSim.class.getClassLoader(),
@@ -1156,6 +1184,7 @@ public class BankSim {
                 }
                 if (n.equals("getMembersListCopy")) return new ArrayList<Object>(fleetMembers);
                 if (n.equals("getMarketsCopy")) {
+                    marketScans++;
                     List<Object> out = new ArrayList<Object>();
                     for (Colony c : colonies.values()) if (c.inEconomy) out.add(c.proxy);
                     return out;

@@ -1,5 +1,11 @@
 Bank of Starsector
 
+0.3.1-beta
+- Performance: sector-wide numbers (war surcharge, market disruption) are computed once per game day instead of
+  on every rate quote and dashboard refresh; with large mod lists they scanned every market several times a second.
+- Performance: the NexusUI dashboard refreshes twice a second only while it is open (every 10 s otherwise).
+- Performance: fewer Nexerelin calls when listing major factions; insurance quotes scan the fleet once.
+
 0.3.0-beta
 - New: credit-builder loan. For files with no score or a score under 500 (also during bankruptcy recovery):
   10k-50k held at the bank while you pay 12 installments at a fixed 1%/month, released when paid off.

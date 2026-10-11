@@ -18,6 +18,14 @@ public class InterestEngine implements Serializable {
     private static final long serialVersionUID = 1L;
     private Random random = new Random();
 
+    // Sector-wide numbers (war count, market disruption) scan every market in the sector, which is
+    // hundreds with big mod lists. They change slowly, so they are computed at most once per game day.
+    // Transient: not saved, recomputed after a load.
+    private transient long sectorCacheTs;
+    private transient boolean sectorCacheValid;
+    private transient int cachedWarCount;
+    private transient float cachedDisruption;
+
     /** Factions whose permanent hostility says nothing about the sector's political climate. */
     private static final Set<String> NOT_POLITICAL = new HashSet<String>();
     static {
@@ -78,6 +86,16 @@ public class InterestEngine implements Serializable {
         return investment.currentValue * effectiveReturn;
     }
 
+    /** Recomputes the cached sector numbers when a game day has passed since the last time. */
+    private void refreshSectorCache() {
+        long now = Global.getSector().getClock().getTimestamp();
+        if (sectorCacheValid && Global.getSector().getClock().getElapsedDaysSince(sectorCacheTs) < 1f) return;
+        cachedWarCount = countWars();
+        cachedDisruption = computeDisruption();
+        sectorCacheTs = now;
+        sectorCacheValid = true;
+    }
+
     /** +5% per war between major political factions (dynamic with Nexerelin), capped. */
     public float getWarSurcharge() {
         int warCount = getWarCount();
@@ -93,14 +111,19 @@ public class InterestEngine implements Serializable {
             if (market.isHidden() || market.getSize() < 4) continue;
             FactionAPI f = market.getFaction();
             if (f == null || f.isPlayerFaction() || NOT_POLITICAL.contains(f.getId()) || "pbc".equals(f.getId())) continue;
-            if (!NexerelinCompat.isFactionAlive(f.getId())) continue;
-            if (seen.add(f.getId())) majors.add(f);
+            if (!seen.add(f.getId())) continue; // each faction is checked once, not once per market
+            if (NexerelinCompat.isFactionAlive(f.getId())) majors.add(f);
         }
         return majors;
     }
 
-    /** Counts hostile pairs among factions that hold real territory. No reflection needed. */
+    /** Hostile pairs among factions that hold real territory (cached per game day). */
     public int getWarCount() {
+        refreshSectorCache();
+        return cachedWarCount;
+    }
+
+    private int countWars() {
         List<FactionAPI> majors = getMajorFactions();
         int wars = 0;
         for (int i = 0; i < majors.size(); i++) {
@@ -111,7 +134,13 @@ public class InterestEngine implements Serializable {
         return wars;
     }
 
+    /** Share of markets with disrupted industry, as a rate modifier (cached per game day). */
     public float getMarketDisruptionModifier() {
+        refreshSectorCache();
+        return cachedDisruption;
+    }
+
+    private float computeDisruption() {
         int totalMarkets = 0;
         int disruptedMarkets = 0;
         for (MarketAPI market : Global.getSector().getEconomy().getMarketsCopy()) {
