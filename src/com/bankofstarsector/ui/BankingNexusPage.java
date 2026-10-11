@@ -52,7 +52,7 @@ public class BankingNexusPage implements NexusPage {
     private JPanel investmentsPanel;
     private JLabel warSurchargeLabel;
     private JLabel disruptionLabel;
-    private JLabel sovereignLabel;
+    private JLabel sovereignLabel, reservesLabel, commodityLabel;
     private JButton payButton;
     private JButton autopayButton;
     private volatile BankSnapshot shown;
@@ -169,6 +169,8 @@ public class BankingNexusPage implements NexusPage {
         warSurchargeLabel = addLabelRow(conditionsCard, Str.get("nexus.war"), "0%");
         disruptionLabel = addLabelRow(conditionsCard, Str.get("nexus.disruption"), "0%");
         sovereignLabel = addLabelRow(conditionsCard, Str.get("nexus.sovereign"), "0");
+        reservesLabel = addLabelRow(conditionsCard, Str.get("nexus.pbcReserves"), "--");
+        commodityLabel = addLabelRow(conditionsCard, Str.get("nexus.commodityIndex"), "--");
         mainPanel.add(conditionsCard);
 
         render(BankSnapshot.get());
@@ -260,6 +262,8 @@ public class BankingNexusPage implements NexusPage {
         set(warSurchargeLabel, String.format("+%.0f%%", s.warSurcharge * 100), s.warSurcharge > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(disruptionLabel, String.format("%.1f%%", s.disruption * 100), s.disruption > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(sovereignLabel, formatCredits(s.sovereignDebt), TEXT_PRIMARY);
+        set(reservesLabel, formatCredits(s.pbcReserves), TEXT_PRIMARY);
+        set(commodityLabel, String.format("%+.1f%%", s.commodityIndexChange * 100f), s.commodityIndexChange >= 0f ? POSITIVE : NEGATIVE);
     }
 
     // ------------------------------------------------------------------ actions (run on the game thread)

@@ -40,6 +40,11 @@ public class InvestmentManager implements Serializable {
     }
 
     public BankAccount invest(InvestmentType type, float amount) {
+        return invest(type, amount, null);
+    }
+
+    /** Government bonds can be bought from one faction (its treasury pays the coupon); null = the bond fund. */
+    public BankAccount invest(InvestmentType type, float amount, String bondFactionId) {
         float playerCredits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         if (playerCredits < amount || amount < type.minInvestment) return null;
 
@@ -47,6 +52,10 @@ public class InvestmentManager implements Serializable {
 
         long timestamp = Global.getSector().getClock().getTimestamp();
         BankAccount investment = BankAccount.createInvestment(type, amount, timestamp);
+        if (type == InvestmentType.BONDS) {
+            investment.bondFactionId = bondFactionId;
+            investment.bondYield = BankData.get().getSectorEconomy().bondYield(bondFactionId);
+        }
         getInvestments().add(investment);
 
         BankData.get().addTransaction("INVEST", -amount,

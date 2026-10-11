@@ -99,5 +99,19 @@
 	"relationFloorLevel":"INHOSPITABLE", # ...nor lowers it past this (hostility comes from refusing collection or foreclosure)
 
 	"investmentReturnMultiplier":1,     # x expected returns (2 = twice the real-world returns)
-	"investmentWarBonus":0.2,           # military contracts: + this x war surcharge per year (+5%/yr at the cap)
+
+	# Real money flows: every return has a payer in the Sector (faction treasuries, the PBC, commodity prices,
+	# companies' earnings, military spending). See docs/v0.4.0-checklist.md, section B.
+	"pbcStartingReserves":100000000,    # the PBC's own capital, which absorbs its losses
+	"warCostPerWar":0.03,               # a faction's extra spending per war, share of its markets' gross income
+	"militaryBaseShare":0.05,           # peacetime military spending, share of gross income
+	"sovereignDebtCeiling":1.5,         # a faction owing more than this many years of gross income defaults
+	"sovereignSpreadPerDebtRatio":0.02, # bond yield spread per year of gross income owed
+	"sovereignWarPremium":0.005,        # bond yield premium per war
+	"sovereignDefaultPremium":0.05,     # bond yield premium for a year after a default
+	"sovereignHaircut":0.5,             # share of the debt (and of bondholders' value) lost in a default
+	"bondDuration":5,                   # bond price change per unit of yield change
+	"managedFundFee":0.01,              # yearly fee on venture and military funds, paid to the PBC
+	"venturePortfolioSize":20,          # stakes in growing NPC markets
+	"economySmoothingMonths":12,        # how fast earnings and spending baselines adapt
 }

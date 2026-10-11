@@ -236,6 +236,7 @@ public class LoanManager implements Serializable {
             }
             float interest = loan.remainingBalance * loan.monthlyRate;
             loan.remainingBalance += interest;
+            BankData.get().getSectorEconomy().recordLoanInterest(interest);
 
             float installment;
             if (loan.monthsElapsed + 1 >= loan.termMonths) {
@@ -260,6 +261,7 @@ public class LoanManager implements Serializable {
         boolean graceKept = line.paidSinceStatement >= line.statementBalance - 1f;
         float interest = graceKept ? 0f : line.remainingBalance * line.monthlyRate;
         line.remainingBalance += interest;
+        BankData.get().getSectorEconomy().recordLoanInterest(interest);
         line.lastInterest = interest;
         line.statementBalance = line.remainingBalance;
         line.paidSinceStatement = 0f;

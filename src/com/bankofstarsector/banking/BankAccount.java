@@ -51,6 +51,16 @@ public class BankAccount implements Serializable {
     /** Appraisal when the loan was signed. */
     public float collateralAppraisal;
 
+    // Investments (0.4.0): where the money comes from
+    /** Government bonds: the issuing faction, or null for the diversified sovereign bond fund. */
+    public String bondFactionId;
+    /** Government bonds: the coupon rate locked in at purchase (0 in older saves: set on the next coupon). */
+    public float bondYield;
+    /** Last month's return and its source, for the terminal ("flow.*" string key and its argument). */
+    public float lastReturn;
+    public String lastSourceKey;
+    public String lastSourceArg;
+
     // Investment fields
     public InvestmentType investmentType;
     public float investedAmount;

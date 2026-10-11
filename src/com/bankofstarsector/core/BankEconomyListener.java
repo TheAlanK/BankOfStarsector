@@ -55,6 +55,8 @@ public class BankEconomyListener implements EconomyTickListener {
         float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         float available = credits + report.getRoot().totalIncome - report.getRoot().totalUpkeep;
 
+        data.getSectorEconomy().beginMonth();
+
         // 1. Interest + this month's installment
         float billed = lm.billMonth(engine);
 
@@ -116,8 +118,10 @@ public class BankEconomyListener implements EconomyTickListener {
         float dueNextMonth = lm.getTotalCurrentBills();
 
         // 5. Sovereign debt market, investments, credit score, bankruptcy
-        data.getAssetSeizureManager().simulateSovereignDebts(data);
+        // Faction treasuries, sovereign debt, prices, portfolios: the sources investments are paid from.
+        data.getSectorEconomy().monthlyUpdate(data);
         data.getInvestmentManager().advanceMonth(engine);
+        data.getSectorEconomy().endMonth();
         boolean allCurrent = stillDue <= 1f;
         // Monthly reporting cycle: the bureau reads balances, delinquencies and closures now.
         data.getCreditScoreManager().advanceMonth(lm);

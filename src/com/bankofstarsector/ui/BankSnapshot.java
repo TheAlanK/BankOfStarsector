@@ -77,6 +77,11 @@ public final class BankSnapshot {
     public final float lineBalance, lineLimit, lineAvailable, lineUtilization, lineMinimumDue, lineStatementDue, lineLastInterest;
     public final boolean lineAutopayFull, lineLate;
     public final List<Line> investments;
+    /** 0.4.0: last month's return of each investment and who paid it: {name, credits, source}. */
+    public final List<String[]> investmentFlows;
+    /** 0.4.0: the Sovereign Desk: {faction, treasury, debt, yield, income, wars}; the PBC's reserves; markets. */
+    public final List<String[]> treasuries;
+    public final float pbcReserves, commodityIndexChange, sectorMilitarySpending;
 
     /** One row in a list: label, value, and whether it should be shown as a problem. */
     public static final class Line {
@@ -184,13 +189,32 @@ public final class BankSnapshot {
         lineLate = line != null && line.getLateAmount() > 1f;
 
         List<Line> inv = new ArrayList<Line>();
+        List<String[]> flows = new ArrayList<String[]>();
         for (BankAccount a : im.getActiveInvestments()) {
             float pct = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount * 100f : 0f;
-            inv.add(new Line(a.investmentType.getDisplayName(),
-                LoanManager.formatCredits(a.currentValue) + String.format(" | %+.1f%%", pct) + " | " + a.getStatusDisplay(),
-                pct < 0));
+            String label = a.investmentType.getDisplayName();
+            if (a.investmentType == InvestmentType.BONDS) label += " (" + com.bankofstarsector.ui.Quote.issuerName(a.bondFactionId) + ")";
+            String detail = LoanManager.formatCredits(a.currentValue) + String.format(" | %+.1f%%", pct) + " | " + a.getStatusDisplay();
+            if (a.lastSourceKey != null && !a.lastSourceKey.isEmpty()) {
+                detail += " | " + com.bankofstarsector.core.Str.f("nexus.lastMonth", (a.lastReturn < 0f ? "-" : "+")
+                    + LoanManager.formatCredits(Math.abs(a.lastReturn)));
+                flows.add(new String[]{label, String.valueOf(a.lastReturn),
+                    com.bankofstarsector.core.Str.f(a.lastSourceKey, a.lastSourceArg != null ? a.lastSourceArg : "")});
+            }
+            inv.add(new Line(label, detail, pct < 0));
         }
         investments = Collections.unmodifiableList(inv);
+        investmentFlows = Collections.unmodifiableList(flows);
+        com.bankofstarsector.economy.SectorEconomy eco = data.getSectorEconomy();
+        pbcReserves = eco.getLedger().reserves;
+        commodityIndexChange = eco.getCommodityIndexChange();
+        sectorMilitarySpending = eco.getMilitarySpending();
+        List<String[]> tr = new ArrayList<String[]>();
+        for (com.bankofstarsector.economy.FactionTreasury t : eco.getTreasuries().values()) {
+            tr.add(new String[]{t.factionId, String.valueOf(t.balance), String.valueOf(data.getAssetSeizureManager().getFactionDebt(t.factionId)),
+                String.valueOf(t.yield), String.valueOf(t.income), String.valueOf(t.wars)});
+        }
+        treasuries = Collections.unmodifiableList(tr);
     }
 
     /** Game thread only. */
@@ -282,6 +306,18 @@ public final class BankSnapshot {
             JSONArray is = new JSONArray();
             for (Line x : investments) is.put(new JSONObject().put("name", x.label).put("detail", x.detail).put("loss", x.bad));
             o.put("investments", is);
+            JSONArray fl = new JSONArray();
+            for (String[] f : investmentFlows) fl.put(new JSONObject().put("investment", f[0]).put("lastMonth", Float.parseFloat(f[1])).put("paidBy", f[2]));
+            o.put("investmentFlows", fl);
+            JSONObject eco = new JSONObject().put("pbcReserves", pbcReserves).put("commodityIndexChange", commodityIndexChange)
+                .put("militarySpending", sectorMilitarySpending);
+            JSONArray ts = new JSONArray();
+            for (String[] t : treasuries) {
+                ts.put(new JSONObject().put("faction", t[0]).put("treasury", Float.parseFloat(t[1])).put("debt", Float.parseFloat(t[2]))
+                    .put("bondYield", Float.parseFloat(t[3])).put("monthlyIncome", Float.parseFloat(t[4])).put("wars", Integer.parseInt(t[5])));
+            }
+            eco.put("treasuries", ts);
+            o.put("economy", eco);
             return o.toString();
         } catch (Exception e) {
             return "{}";

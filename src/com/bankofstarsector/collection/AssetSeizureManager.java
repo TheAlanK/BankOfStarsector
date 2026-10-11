@@ -147,62 +147,10 @@ public class AssetSeizureManager implements Serializable {
 
     // ------------------------------------------------------------------ sovereign debt (NPC factions)
 
-    /**
-     * Monthly: factions borrow from the Confederation to fund their wars and repay in peace.
-     * A faction that disappears while in debt (Nexerelin) defaults, and government bonds take a haircut.
+    /*
+     * Sovereign debt itself still lives here (factionDebts, saved). Since 0.4.0 it is driven by real
+     * faction deficits in economy/SectorEconomy instead of a random simulation.
      */
-    public void simulateSovereignDebts(BankData data) {
-        if (factionDebts == null) factionDebts = new HashMap<String, Float>();
-        List<com.fs.starfarer.api.campaign.FactionAPI> majors = data.getInterestEngine().getMajorFactions();
-        Set<String> alive = new HashSet<String>();
-        for (com.fs.starfarer.api.campaign.FactionAPI f : majors) {
-            alive.add(f.getId());
-            int wars = 0;
-            for (com.fs.starfarer.api.campaign.FactionAPI other : majors) {
-                if (other != f && f.isHostileTo(other)) wars++;
-            }
-            float size = 0f;
-            for (MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
-                if (m.getFaction() == f) size += m.getSize();
-            }
-            float debt = getFactionDebt(f.getId());
-            float borrowing = wars * 15000f * size;
-            float repayment = debt * 0.05f + 2000f * size;
-            simulateFactionDebt(f.getId(), borrowing - repayment);
-        }
-        // Sovereign default: indebted faction no longer holds territory or was eliminated.
-        float defaulted = 0f;
-        float total = 0f;
-        for (Map.Entry<String, Float> e : new ArrayList<Map.Entry<String, Float>>(factionDebts.entrySet())) {
-            total += e.getValue();
-            if (alive.contains(e.getKey())) continue;
-            if (com.bankofstarsector.compat.NexerelinCompat.isFactionAlive(e.getKey())
-                    && Global.getSector().getFaction(e.getKey()) != null && hasAnyMarket(e.getKey())) continue;
-            defaulted += e.getValue();
-            com.fs.starfarer.api.campaign.FactionAPI f = Global.getSector().getFaction(e.getKey());
-            String name = f != null ? f.getDisplayName() : e.getKey();
-            factionDebts.remove(e.getKey());
-            data.addTransaction("SOVEREIGN", 0, com.bankofstarsector.core.Str.f("txd.sovereign", name, (int) (e.getValue() / 1000f)));
-            Global.getSector().getCampaignUI().addMessage(com.bankofstarsector.core.Str.f("msg.sovereignDefault", name),
-                com.fs.starfarer.api.util.Misc.getNegativeHighlightColor());
-        }
-        if (defaulted > 0f && total > 0f) {
-            float haircut = Math.min(0.5f, defaulted / total);
-            for (BankAccount inv : data.getInvestmentManager().getActiveInvestments()) {
-                if (inv.investmentType != com.bankofstarsector.banking.InvestmentType.BONDS) continue;
-                float loss = inv.currentValue * haircut;
-                inv.currentValue -= loss;
-                inv.accumulatedReturns -= loss;
-            }
-        }
-    }
-
-    private static boolean hasAnyMarket(String factionId) {
-        for (MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
-            if (factionId.equals(m.getFactionId()) && !m.isHidden()) return true;
-        }
-        return false;
-    }
 
     public float getTotalSovereignDebt() {
         float total = 0f;

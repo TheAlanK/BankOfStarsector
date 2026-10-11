@@ -69,6 +69,14 @@ public enum InvestmentType {
         return (float) (Math.pow(1.0 + annual, 1.0 / 12.0) - 1.0);
     }
 
+    /** Risk word for the terminal ("risk.none" ... "risk.high"), from the real-world volatility above. */
+    public String riskKey() {
+        if (annualVolatility < 0.01f) return "risk.none";
+        if (annualVolatility < 0.10f) return "risk.low";
+        if (annualVolatility < 0.25f) return "risk.moderate";
+        return "risk.high";
+    }
+
     /** Localized name (see data/strings). The English field above stays for save compatibility. */
     public String getDisplayName() {
         return com.bankofstarsector.core.Str.get("invest." + name() + ".name");

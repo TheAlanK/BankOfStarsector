@@ -81,11 +81,19 @@ public final class Quote {
     }
 
     public static List<Line> investment(InvestmentType type, float amount) {
+        return investment(type, amount, null);
+    }
+
+    /** An investment; for bonds, of the given issuer (null = the diversified bond fund). */
+    public static List<Line> investment(InvestmentType type, float amount, String bondFactionId) {
         Color hl = Misc.getHighlightColor();
         List<Line> lines = new ArrayList<Line>();
         lines.add(new Line("confirm.invest.summary", hl, type.getDisplayName(), Misc.getDGSCredits(amount)));
-        lines.add(new Line("confirm.invest.return", hl, percent(type.expectedAnnualReturn(), "%.1f"),
-            percent(type.expectedMonthlyReturn(), "%.2f"), percent(type.annualVolatility, "%.0f")));
+        if (type == InvestmentType.BONDS) lines.add(new Line("confirm.invest.issuer", hl, issuerName(bondFactionId)));
+        float expected = com.bankofstarsector.core.BankData.get().getInterestEngine().expectedAnnualReturn(type, bondFactionId);
+        lines.add(new Line("confirm.invest.return", hl, percent(expected, "%.1f"),
+            percent(InvestmentType.toMonthly(expected), "%.2f"), Str.get(type.riskKey())));
+        lines.add(new Line("confirm.invest.source", Misc.getGrayColor(), Str.get("invest." + type.name() + ".source")));
         if (type.annualVolatility >= 0.05f) lines.add(new Line("confirm.invest.risk", Misc.getNegativeHighlightColor()));
         if (type.lockMonths > 0) {
             lines.add(new Line("confirm.invest.lock", Misc.getNegativeHighlightColor(), "" + type.lockMonths,
@@ -94,6 +102,15 @@ public final class Quote {
             lines.add(new Line("confirm.invest.noLock", Misc.getPositiveHighlightColor()));
         }
         return lines;
+    }
+
+    /** A bond issuer's name, or "the sovereign bond fund". */
+    public static String issuerName(String bondFactionId) {
+        if (bondFactionId == null || com.bankofstarsector.economy.SectorEconomy.BOND_FUND.equals(bondFactionId)) {
+            return Str.get("flow.bondFund");
+        }
+        com.fs.starfarer.api.campaign.FactionAPI f = com.fs.starfarer.api.Global.getSector().getFaction(bondFactionId);
+        return f != null ? f.getDisplayName() : bondFactionId;
     }
 
     /** 0.035 -> "3.5%" */

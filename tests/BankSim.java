@@ -62,7 +62,9 @@ public class BankSim {
         scenarioInsuranceClaims();
         scenarioInsuranceLapseAndCap();
         scenarioSectorScansAreCached();
-        scenarioRealisticInvestmentReturns();
+        scenarioMoneyFlowsCalm();
+        scenarioSovereignDebtCycle();
+        scenarioLegacyDebtMigration();
         scenarioRelationshipBanking();
         scenarioRelationshipFromBehaviour();
 
@@ -695,58 +697,139 @@ public class BankSim {
         check("[insurance limits] a second unpaid premium cancels the policy", cancelled);
     }
 
-    // ------------------------------------------------------------------ realistic investment returns (0.3.2)
+    // ------------------------------------------------------------------ real money flows (0.4.0)
 
-    static void scenarioRealisticInvestmentReturns() {
+    static float priceLevel = 1f;
+
+    /** A calm sector: three political factions with profitable markets, no wars. */
+    static void economySector() {
+        for (int i = 0; i < 3; i++) { Colony c = colony("heg" + i, "hegemony", 4, 100_000f); c.grossIncome = 300_000f; }
+        for (int i = 0; i < 2; i++) { Colony c = colony("tt" + i, "tritachyon", 5, 80_000f); c.grossIncome = 200_000f; }
+        for (int i = 0; i < 2; i++) { Colony c = colony("pl" + i, "persean", 4, 50_000f); c.grossIncome = 150_000f; }
+    }
+
+    static Map<InvestmentType, BankAccount> investInEverything(BankData data) {
+        Map<InvestmentType, BankAccount> held = new LinkedHashMap<InvestmentType, BankAccount>();
+        for (InvestmentType t : InvestmentType.values()) held.put(t, data.getInvestmentManager().invest(t, 1_000_000f));
+        return held;
+    }
+
+    static void scenarioMoneyFlowsCalm() {
         reset(100_000_000f);
+        economySector();
         BankData data = BankData.get();
-        InterestEngine engine = data.getInterestEngine();
-        try { // fixed seed: the statistical checks are deterministic
-            java.lang.reflect.Field rf = InterestEngine.class.getDeclaredField("random");
-            rf.setAccessible(true);
-            rf.set(engine, new Random(2026));
-        } catch (Exception e) { throw new RuntimeException(e); }
-        int months = 24_000;
-        boolean allMatch = true, savingsNeverLose = true;
-        float bestInvestment = 0f;
-        for (InvestmentType type : InvestmentType.values()) {
-            BankAccount inv = data.getInvestmentManager().invest(type, Math.max(type.minInvestment, 1_000_000f));
-            double sumLog = 0, sum = 0, sumSq = 0;
-            for (int i = 0; i < months; i++) {
-                inv.currentValue = 1_000_000f;
-                double r = engine.calculateInvestmentReturn(inv) / 1_000_000.0;
-                if (type == InvestmentType.SAVINGS && r < 0) savingsNeverLose = false;
-                sumLog += Math.log(1 + r);
-                sum += r;
-                sumSq += r * r;
-            }
-            double geoAnnual = Math.exp(sumLog / months * 12) - 1;
-            double sdMonthly = Math.sqrt(sumSq / months - (sum / months) * (sum / months));
-            double volAnnual = sdMonthly * Math.sqrt(12);
-            double tolerance = 0.003 + 3 * type.annualVolatility / Math.sqrt(months / 12.0);
-            boolean ok = Math.abs(geoAnnual - type.annualReturn) <= tolerance
-                && (type == InvestmentType.SAVINGS || Math.abs(volAnnual - type.annualVolatility) <= 0.05 * type.annualVolatility);
-            allMatch &= ok;
-            System.out.printf("[returns] %-11s target %5.1f%%/yr vol %4.1f%% | simulated %5.2f%%/yr vol %4.1f%%%s%n",
-                type.name(), type.annualReturn * 100, type.annualVolatility * 100, geoAnnual * 100, volAnnual * 100, ok ? "" : "  <-- off");
-            // Best case for the investor: war surcharge at its cap, sovereign debt maxed, markets disrupted.
-            float best = type.annualReturn + (type == InvestmentType.MILITARY ? BankSettings.WAR_SURCHARGE * BankSettings.INVESTMENT_WAR_BONUS : 0f)
-                + (type == InvestmentType.BONDS ? 0.02f : 0f)
-                + (type == InvestmentType.COMMODITIES ? BankSettings.MARKET_DISRUPTION_RATE_MODIFIER : 0f);
-            bestInvestment = Math.max(bestInvestment, best);
+        months(1); // the first month end sets up the treasuries and the baselines
+        Map<InvestmentType, BankAccount> held = investInEverything(data);
+        Map<InvestmentType, Float> start = new LinkedHashMap<InvestmentType, Float>();
+        for (Map.Entry<InvestmentType, BankAccount> e : held.entrySet()) start.put(e.getKey(), e.getValue().currentValue);
+        months(12);
+        com.bankofstarsector.economy.PbcLedger ledger = data.getSectorEconomy().getLedger();
+        float sumReturns = 0f;
+        for (BankAccount a : held.values()) sumReturns += a.lastReturn;
+        float coupons = 0f;
+        for (com.bankofstarsector.economy.FactionTreasury t : data.getSectorEconomy().getTreasuries().values()) coupons += t.couponsPaid;
+        StringBuilder sb = new StringBuilder();
+        Map<InvestmentType, Float> annual = new LinkedHashMap<InvestmentType, Float>();
+        for (Map.Entry<InvestmentType, BankAccount> e : held.entrySet()) {
+            float r = e.getValue().currentValue / start.get(e.getKey()) - 1f;
+            annual.put(e.getKey(), r);
+            sb.append(String.format("%s %.2f%% ", e.getKey().name(), r * 100));
         }
-        // Cheapest loan that pays out cash: best credit bracket, no war, no disruption.
+        System.out.println("[money flows] calm sector, 12 months: " + sb.toString().trim());
+        System.out.printf("[money flows] last month: investments returned %.0f; ledger by payer %.0f (treasuries %.0f, PBC %.0f, commodity markets %.0f, companies %.0f, military spending %.0f, fees %.0f) | coupons debited from treasuries %.0f | PBC reserves %.0f%n",
+            sumReturns, ledger.playerReturnsThisMonth(), ledger.paidByTreasuries, ledger.paidByPbc, ledger.paidByCommodityMarkets,
+            ledger.paidByCompanies, ledger.paidByMilitarySpending, ledger.feesIn, coupons, ledger.reserves);
+        check("[money flows] every credit returned has a payer in the ledger", Math.abs(sumReturns - ledger.playerReturnsThisMonth()) < 1f);
+        check("[money flows] bond coupons are taken from the issuers' treasuries", Math.abs(coupons - ledger.paidByTreasuries) < 1f && coupons > 0f);
+        check("[money flows] savings ~3%: the PBC's deposit rate", Math.abs(annual.get(InvestmentType.SAVINGS) - 0.030f) < 0.002f);
+        check("[money flows] bonds ~4.6%: the coupon locked in at purchase", Math.abs(annual.get(InvestmentType.BONDS) - 0.046f) < 0.003f);
+        check("[money flows] commodities ~3% with flat prices: the collateral's interest", Math.abs(annual.get(InvestmentType.COMMODITIES) - 0.030f) < 0.002f);
+        check("[money flows] venture ~11%: companies' earnings minus the fee", Math.abs(annual.get(InvestmentType.VENTURE) - 0.11f) < 0.01f);
+        check("[money flows] military ~8%: military spending minus the fee", Math.abs(annual.get(InvestmentType.MILITARY) - 0.08f) < 0.01f);
+
+        // No borrow-to-invest arbitrage: the best expected return stays under the cheapest cash loan.
+        float best = 0f;
+        for (InvestmentType t : InvestmentType.values()) best = Math.max(best, data.getInterestEngine().expectedAnnualReturn(t));
         float cheapestLoan = Float.MAX_VALUE;
         for (LoanType t : LoanType.values()) {
-            if (t.isBuilder()) continue; // its money stays at the bank
-            float monthly = engine.calculateEffectiveLoanRate(t, 850);
+            if (t.isBuilder()) continue;
+            float monthly = data.getInterestEngine().calculateEffectiveLoanRate(t, 850);
             cheapestLoan = Math.min(cheapestLoan, (float) (Math.pow(1 + monthly, 12) - 1));
         }
-        System.out.printf("[returns] best investment in the best conditions %.1f%%/yr vs cheapest cash loan %.1f%%/yr%n",
-            bestInvestment * 100, cheapestLoan * 100);
-        check("[returns] every product compounds at its real-world return and volatility", allMatch);
-        check("[returns] savings never lose money", savingsNeverLose);
-        check("[returns] no investment out-earns the cheapest loan (no borrow-to-invest arbitrage)", bestInvestment < cheapestLoan);
+        System.out.printf("[money flows] best expected return %.1f%%/yr vs cheapest cash loan %.1f%%/yr%n", best * 100, cheapestLoan * 100);
+        check("[money flows] no investment out-earns the cheapest loan", best < cheapestLoan);
+
+        // Commodity futures follow the price index.
+        BankAccount commodities = held.get(InvestmentType.COMMODITIES);
+        float before = commodities.currentValue;
+        priceLevel = 1.10f;
+        months(1);
+        float jump = commodities.currentValue / before - 1f;
+        System.out.printf("[money flows] commodity prices +10%%: commodity futures %+.2f%% that month%n", jump * 100);
+        check("[money flows] commodity futures follow the Sector's prices", Math.abs(jump - 0.1025f) < 0.003f);
+
+        // A war raises military spending, and the military fund earns more.
+        float calmMilitary = held.get(InvestmentType.MILITARY).lastReturn;
+        relations.put(key("hegemony", "tritachyon"), -0.8f);
+        months(1);
+        float warMilitary = held.get(InvestmentType.MILITARY).lastReturn;
+        System.out.printf("[money flows] war: military fund %.0f -> %.0f a month%n", calmMilitary, warMilitary);
+        check("[money flows] wars pay military contractors more", warMilitary > calmMilitary * 1.1f);
+
+        // A venture stake whose market is lost is written off.
+        BankAccount venture = held.get(InvestmentType.VENTURE);
+        int stakes = data.getSectorEconomy().getVentureStakes();
+        colonies.get("heg0").inEconomy = false;
+        float v0 = venture.currentValue;
+        months(1);
+        System.out.printf("[money flows] one of %d venture stakes lost: venture %+.1f%% that month (%s)%n", stakes,
+            (venture.currentValue / v0 - 1f) * 100, venture.lastSourceKey);
+        check("[money flows] a lost market is written off the venture portfolio",
+            venture.currentValue < v0 * (1f - 0.8f / stakes) && "flow.ventureLoss".equals(venture.lastSourceKey));
+    }
+
+    /** A save from before 0.4.0: the old random simulation left the Hegemony owing far past its ceiling. */
+    static void scenarioLegacyDebtMigration() {
+        reset(100_000_000f);
+        economySector();
+        BankData data = BankData.get();
+        data.getAssetSeizureManager().simulateFactionDebt("hegemony", 50_000_000f);
+        BankAccount bonds = data.getInvestmentManager().invest(InvestmentType.BONDS, 1_000_000f);
+        months(1);
+        com.bankofstarsector.economy.FactionTreasury t = data.getSectorEconomy().getTreasury("hegemony");
+        float debt = data.getAssetSeizureManager().getFactionDebt("hegemony");
+        System.out.printf("[sovereign] legacy debt 50M -> %.0f after the first month (annual gross %.0f), defaulted: %s, fund bond %.0f%n",
+            debt, 12f * t.gross, t.defaultedTs != 0L, bonds.currentValue);
+        check("[sovereign] legacy debt from older saves is restructured, not defaulted",
+            t.defaultedTs == 0L && debt <= 0.5f * 12f * t.gross + 1f && bonds.currentValue > 990_000f);
+    }
+
+    static void scenarioSovereignDebtCycle() {
+        reset(100_000_000f);
+        economySector();
+        // The League runs a deficit: its markets cost more than they earn.
+        for (int i = 0; i < 2; i++) { colonies.get("pl" + i).netIncome = -150_000f; colonies.get("pl" + i).grossIncome = 100_000f; }
+        BankData data = BankData.get();
+        months(1);
+        BankAccount bond = data.getInvestmentManager().invest(InvestmentType.BONDS, 1_000_000f, "persean");
+        float coupon = bond.bondYield;
+        com.bankofstarsector.economy.FactionTreasury t = data.getSectorEconomy().getTreasury("persean");
+        float firstYield = t.yield;
+        float peakDebt = 0f, peakYield = 0f;
+        int month = 0;
+        while (t.defaultedTs == 0L && month < 36) {
+            months(1);
+            month++;
+            peakDebt = Math.max(peakDebt, data.getAssetSeizureManager().getFactionDebt("persean"));
+            peakYield = Math.max(peakYield, t.yield);
+        }
+        System.out.printf("[sovereign] League deficit 300k/mo: bought at %.2f%%, yield %.2f%% -> %.2f%%, debt peaked at %.0f, default after %d months, bond now %.0f (%s), PBC wrote off %.0f in total%n",
+            coupon * 100, firstYield * 100, peakYield * 100, peakDebt, month, bond.currentValue, bond.lastSourceKey,
+            data.getSectorEconomy().getLedger().totalWriteOffs + data.getSectorEconomy().getLedger().writeOffs);
+        check("[sovereign] a faction in deficit borrows from the PBC", peakDebt > 1_000_000f);
+        check("[sovereign] its yield rises with its debt", peakYield > firstYield + 0.01f);
+        check("[sovereign] past its debt ceiling it defaults", t.defaultedTs != 0L);
+        check("[sovereign] bondholders take the haircut", bond.currentValue < 600_000f && "flow.bondsDefault".equals(bond.lastSourceKey));
     }
 
     // ------------------------------------------------------------------ relationship banking (0.4.0)
@@ -944,6 +1027,7 @@ public class BankSim {
         factions.clear();
         relations.clear();
         fleetMembers.clear();
+        priceLevel = 1f;
         credits.set(startCredits);
         now = 1_000_000_000L;
     }
@@ -983,7 +1067,7 @@ public class BankSim {
     static final class Colony {
         String id, name, factionId;
         int size;
-        float hazard = 1f, netIncome;
+        float hazard = 1f, netIncome, grossIncome = -1f, stability = 7f;
         boolean inEconomy = true;
         final Set<String> conditions = new LinkedHashSet<String>();
         final List<float[]> industries = new ArrayList<float[]>(); // {buildCost, improved 0/1}
@@ -1006,6 +1090,9 @@ public class BankSim {
                     if (n.equals("getSize")) return c.size;
                     if (n.equals("getHazardValue")) return c.hazard;
                     if (n.equals("getNetIncome")) return c.netIncome;
+                    if (n.equals("getGrossIncome")) return c.grossIncome >= 0f ? c.grossIncome : Math.max(0f, c.netIncome) * 2f;
+                    if (n.equals("getStabilityValue")) return c.stability;
+                    if (n.equals("getSupplyPrice")) return 100f * priceLevel;
                     if (n.equals("isInEconomy")) return c.inEconomy;
                     if (n.equals("isHidden")) return false;
                     if (n.equals("hasCondition")) return c.conditions.contains((String) a[0]);

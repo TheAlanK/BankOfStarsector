@@ -50,59 +50,31 @@ public class InterestEngine implements Serializable {
         return 1f - BankSettings.RELATIONSHIP_RATE_DISCOUNT * CreditScoreManager.pbcRelationship();
     }
 
-    /** Government bonds yield more when sovereign borrowing is high (see AssetSeizureManager): up to +2%/yr. */
-    public float getSovereignYieldBonus(float totalSovereignDebt) {
-        return Math.min(0.02f, totalSovereignDebt / 50_000_000f * 0.02f);
-    }
-
     public float calculateOverdueRate(float baseRate, int monthsOverdue) {
         float penalty = BankSettings.OVERDUE_PENALTY_PER_MONTH * monthsOverdue;
         return baseRate * (1f + penalty);
     }
 
     /**
-     * One month's return of an investment, in credits. Each product has a real-world expected annual
-     * return and volatility (see InvestmentType); sector conditions shift the expected return:
-     * military contracts earn up to +5%/yr at the war surcharge cap, government bonds up to +2%/yr when
-     * sovereign debt is high, commodity futures gain from shortages (+ the disruption rate per year)
-     * while disruption drags the other products down. The month's draw is normal around that mean, with
-     * the mean raised by half the variance so the compound (geometric) return matches the target.
-     * Savings never lose money.
+     * One month's return of an investment, in credits, paid by its real source in the Sector (see
+     * economy/SectorEconomy): savings by the PBC out of its loan income, bonds by the issuing faction's
+     * treasury, commodity futures by the price index, venture stakes by companies' earnings, military
+     * contracts by the factions' military spending.
      */
     public float calculateInvestmentReturn(BankAccount investment) {
         if (investment.investmentType == null) return 0f;
-        ensureRandom();
-        InvestmentType type = investment.investmentType;
-        float annual = expectedAnnualReturn(type);
-        float sd = type.monthlyVolatility();
-        float mean = InvestmentType.toMonthly(annual) + sd * sd / 2f;
-        float r = mean + (float) random.nextGaussian() * sd;
-        if (type == InvestmentType.SAVINGS) r = Math.max(0f, r);
-        return investment.currentValue * r;
+        return com.bankofstarsector.core.BankData.get().getSectorEconomy().investmentReturn(investment);
     }
 
-    /** Expected annual return of a product right now, with the sector's war, debt and disruption. */
+    /** Expected annual return of a product right now (bonds: the diversified fund), with the relationship bonus. */
     public float expectedAnnualReturn(InvestmentType type) {
-        float annual = type.expectedAnnualReturn()
+        return expectedAnnualReturn(type, null);
+    }
+
+    /** Expected annual return; for bonds, of the given issuer (null = the fund). */
+    public float expectedAnnualReturn(InvestmentType type, String bondFactionId) {
+        return com.bankofstarsector.core.BankData.get().getSectorEconomy().expectedAnnual(type, bondFactionId)
             + BankSettings.RELATIONSHIP_RETURN_BONUS * CreditScoreManager.pbcRelationship();
-        float disruption = getMarketDisruptionModifier();
-        switch (type) {
-            case MILITARY:
-                annual += getWarSurcharge() * BankSettings.INVESTMENT_WAR_BONUS;
-                break;
-            case BONDS:
-                float total = 0f;
-                for (Float d : com.bankofstarsector.core.BankData.get().getAssetSeizureManager()
-                        .getAllFactionDebts().values()) total += d;
-                annual += getSovereignYieldBonus(total);
-                break;
-            case COMMODITIES:
-                // Scarcity spikes prices: shortages add to commodity returns instead of dragging them.
-                return annual + disruption;
-            default:
-                break;
-        }
-        return annual * (1f - disruption);
     }
 
     /** Recomputes the cached sector numbers when a game day has passed since the last time. */

@@ -1,6 +1,17 @@
 Bank of Starsector
 
 0.4.0-beta (in development)
+- New: real money flows. Every investment return now has a payer in the Sector: savings are paid by the PBC
+  out of its loan interest; government bonds by the issuing faction's treasury (buy one faction's bonds or the
+  fund; the coupon is locked in at purchase and the price moves with the faction's yield); commodity futures
+  follow a real price index of the Sector's commodities; venture stakes earn what growing NPC markets earn
+  (lost markets are written off); military contracts take a share of the factions' military spending, which
+  rises in war.
+- New: faction treasuries. Each major faction collects its markets' net income, pays for its wars and the
+  interest on its debt, borrows from the PBC when short and defaults when its debt outgrows its economy
+  (bondholders lose half). Replaces the old random sovereign debt. The Overview shows the Sovereign Desk:
+  every faction's income, treasury, debt, bond yield and wars, and the PBC's own books.
+- Changed: each investment shows what it earned last month and who paid it (also in NexusUI).
 - New: relationship banking. The PBC prices and approves loans on an internal score = credit bureau score +
   up to 25 points for the relationship (minus for a bad one); the bureau score itself is unchanged. A good
   relation also lowers loan rates (up to 10%) and raises investment returns (up to +0.5%/yr); a bad one does

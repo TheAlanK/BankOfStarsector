@@ -131,8 +131,19 @@ public class BankSettings {
 
     /** Multiplies every investment's expected return (1 = real-world long-run returns). */
     public static float INVESTMENT_RETURN_MULT = 1f;
-    /** Military contracts: extra annual return per unit of war surcharge (0.2 x 25% cap = +5%/yr). */
-    public static float INVESTMENT_WAR_BONUS = 0.2f;
+    // Real money flows (0.4.0): faction treasuries, sovereign debt and where investment returns come from
+    public static float PBC_STARTING_RESERVES = 100_000_000f;
+    public static float WAR_COST_PER_WAR = 0.03f;          // extra war spending per war, share of a faction's gross income
+    public static float MILITARY_BASE_SHARE = 0.05f;       // peacetime military spending, share of gross income
+    public static float SOVEREIGN_DEBT_CEILING = 1.5f;     // debt above this many years of gross income -> default
+    public static float SOVEREIGN_SPREAD_PER_DEBT_RATIO = 0.02f; // bond spread per year of gross income owed
+    public static float SOVEREIGN_WAR_PREMIUM = 0.005f;    // per war
+    public static float SOVEREIGN_DEFAULT_PREMIUM = 0.05f; // for a year after a default
+    public static float SOVEREIGN_HAIRCUT = 0.5f;          // share of the debt (and of bonds) lost in a default
+    public static float BOND_DURATION = 5f;                // bond price change per unit of yield change
+    public static float MANAGED_FEE = 0.01f;               // per year on venture and military funds, to the PBC
+    public static int VENTURE_PORTFOLIO_SIZE = 20;         // stakes in growing NPC markets
+    public static float ECONOMY_EMA_MONTHS = 12f;          // smoothing of earnings and spending baselines
 
     public static void load() {
         try {
@@ -220,7 +231,18 @@ public class BankSettings {
             RELATION_DEFAULT = f(j, "relationDefault", RELATION_DEFAULT);
             if (j.has("relationCapLevel")) RELATION_CAP_LEVEL = j.optString("relationCapLevel", RELATION_CAP_LEVEL);
             if (j.has("relationFloorLevel")) RELATION_FLOOR_LEVEL = j.optString("relationFloorLevel", RELATION_FLOOR_LEVEL);
-            INVESTMENT_WAR_BONUS = f(j, "investmentWarBonus", INVESTMENT_WAR_BONUS);
+            PBC_STARTING_RESERVES = f(j, "pbcStartingReserves", PBC_STARTING_RESERVES);
+            WAR_COST_PER_WAR = f(j, "warCostPerWar", WAR_COST_PER_WAR);
+            MILITARY_BASE_SHARE = f(j, "militaryBaseShare", MILITARY_BASE_SHARE);
+            SOVEREIGN_DEBT_CEILING = f(j, "sovereignDebtCeiling", SOVEREIGN_DEBT_CEILING);
+            SOVEREIGN_SPREAD_PER_DEBT_RATIO = f(j, "sovereignSpreadPerDebtRatio", SOVEREIGN_SPREAD_PER_DEBT_RATIO);
+            SOVEREIGN_WAR_PREMIUM = f(j, "sovereignWarPremium", SOVEREIGN_WAR_PREMIUM);
+            SOVEREIGN_DEFAULT_PREMIUM = f(j, "sovereignDefaultPremium", SOVEREIGN_DEFAULT_PREMIUM);
+            SOVEREIGN_HAIRCUT = f(j, "sovereignHaircut", SOVEREIGN_HAIRCUT);
+            BOND_DURATION = f(j, "bondDuration", BOND_DURATION);
+            MANAGED_FEE = f(j, "managedFundFee", MANAGED_FEE);
+            VENTURE_PORTFOLIO_SIZE = i(j, "venturePortfolioSize", VENTURE_PORTFOLIO_SIZE);
+            ECONOMY_EMA_MONTHS = Math.max(1f, f(j, "economySmoothingMonths", ECONOMY_EMA_MONTHS));
             log.info("Bank of Starsector: Settings loaded from " + SETTINGS_FILE);
         } catch (Exception e) {
             log.warn("Bank of Starsector: Could not read " + SETTINGS_FILE + ", using defaults (" + e.getMessage() + ")");

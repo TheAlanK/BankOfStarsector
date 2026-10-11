@@ -105,19 +105,19 @@ House Varenne's underwriters insure every ship in your fleet. **Standard** pays 
 </details>
 
 ### Investments and the sovereign debt market
-Savings accounts, government bonds, commodity futures, venture funds and military contracts, with **real-world long-run returns and risk**. Major factions **borrow from the Confederation to fund their wars** and repay in peace: bonds pay more when sovereign debt is high, military contracts pay more in wartime, commodity futures gain from shortages, and if an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
+Savings accounts, government bonds, commodity futures, venture funds and military contracts. **Every credit they earn is paid by someone in the Sector**, and the terminal shows who paid it each month. Major factions **borrow from the Confederation to fund their wars** and repay in peace: bonds pay more when sovereign debt is high, military contracts pay more in wartime, commodity futures gain from shortages, and if an indebted faction collapses (Nexerelin), it defaults and bonds take a haircut.
 
-<details><summary>Expected returns and where they come from</summary>
+<details><summary>Where the returns come from</summary>
 
-| Product | Expected return per year | Volatility per year | Real-world reference |
+| Product | Paid by | Losses come from | Calm-Sector return |
 |---|---|---|---|
-| Savings account | 3% | ~0 (never loses money) | 3-month T-bills 1928–2025: 3.4%/yr |
-| Government bonds | 4.5% (+ up to 2% when sovereign debt is high) | 7.9% | 10-year US Treasuries 1928–2025: 4.5%/yr, 7.9% s.d. |
-| Commodity futures | 4% (+ shortages) | 18% | Commodity futures indices: low single-digit returns, 14–23% volatility |
-| Venture fund | 12% | 35% | Venture capital net IRRs ~10–15%; US small caps 1928–2025: 12.0%/yr, 38% s.d. |
-| Military contract | 9% (+ up to 5% in wartime) | 18% | Defense contractors trade like stocks: S&P 500 1928–2025 10.0%/yr, 19.4% s.d. |
+| Savings account | The PBC, out of the interest it earns lending your deposits | — | ~3%/yr |
+| Government bonds | The issuing faction's treasury (pick a faction, or the diversified fund). The coupon is locked in when you buy; the price moves with the faction's yield | A default: bondholders lose half | 4.5%/yr + the faction's spread |
+| Commodity futures | A real price index of the Sector's commodities, plus interest on the collateral | Falling prices | ~3%/yr + price moves |
+| Venture fund | Earnings and growth of stakes in growing NPC markets | Markets that are lost or decivilized are written off | ~11%/yr after fees |
+| Military contract | A share of the factions' military spending, which rises in war | Peace | ~8%/yr after fees |
 
-Stock, bond and bill figures are computed from Aswath Damodaran's [historical returns data](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histretSP.html) (NYU Stern). Each month's result is drawn around the expected return, so risky products can lose money in a bad year. Investments never out-earn the cheapest loan, so borrowing to invest doesn't pay. Want richer returns? Raise `investmentReturnMultiplier` in `bos_settings.json` or LunaLib.
+**Faction treasuries**: every major faction collects the net income of its markets, pays for its wars and the interest on its debt, borrows from the Confederation when it runs short, and defaults when its debt outgrows its economy. Its bond yield follows its debt, its wars and its stability. The Overview's **Sovereign Desk** shows every faction's income, treasury, debt, yield and wars, and the PBC's own books. The calm-Sector levels match real long-run returns (Damodaran's [1928–2025 data](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histretSP.html)); investments never out-earn the cheapest loan. Raise `investmentReturnMultiplier` for richer returns.
 
 </details>
 
@@ -194,6 +194,7 @@ Saves from earlier versions load fine (every release is checked against the prev
 ## Changelog
 
 ### 0.4.0-beta (in development)
+- **New:** real money flows: every investment return has a payer (the PBC, faction treasuries, commodity prices, companies' earnings, military spending). Faction treasuries borrow, pay interest and default for real; the Overview's Sovereign Desk shows them.
 - **New:** relationship banking: an internal PBC score (bureau score + up to 25 points for the relationship), relationship pricing (up to −10% on loan rates) and a small return bonus; paying on time improves your relation with the PBC, missed payments and defaults hurt it.
 
 ### 0.3.2-beta

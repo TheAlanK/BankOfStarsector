@@ -188,24 +188,8 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         info.addPara(Str.get("terminal.sector.disruption"), opad,
             disruption > 0 ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(), d, d, d, d);
 
-        // Sovereign debt ledger (NPC factions borrowing from the Confederation)
-        final java.util.Map<String, Float> debts = data.getAssetSeizureManager().getAllFactionDebts();
-        if (!debts.isEmpty()) {
-            info.addSpacer(opad);
-            heading(info, "terminal.sovereign.heading", opad);
-            java.util.List<String> ids = new java.util.ArrayList<String>(debts.keySet());
-            java.util.Collections.sort(ids, new java.util.Comparator<String>() {
-                public int compare(String a, String b) { return Float.compare(debts.get(b), debts.get(a)); }
-            });
-            for (int i = 0; i < ids.size() && i < 6; i++) {
-                com.fs.starfarer.api.campaign.FactionAPI f = Global.getSector().getFaction(ids.get(i));
-                info.addPara("%s: %s", 3f, f != null ? f.getBaseUIColor() : Misc.getHighlightColor(),
-                    f != null ? f.getDisplayName() : ids.get(i), Misc.getDGSCredits(debts.get(ids.get(i))));
-            }
-            float total = data.getAssetSeizureManager().getTotalSovereignDebt();
-            info.addPara(Str.get("terminal.sovereign.bonus"), opad, Misc.getHighlightColor(),
-                pct(engine.getSovereignYieldBonus(total), "%.2f"));
-        }
+        // The Sovereign Desk: faction treasuries, their debt to the Confederation, and the PBC's own books
+        renderSovereignDesk(info, data, width, opad);
 
         // Bankruptcy status
         BankruptcyManager.BankruptcyState bState = data.getBankruptcyManager().getState();
@@ -675,11 +659,22 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                 float returnPct = inv.investedAmount > 0 ?
                     ((inv.currentValue - inv.investedAmount) / inv.investedAmount) * 100 : 0;
 
+                String name = inv.investmentType.getDisplayName();
+                if (inv.investmentType == InvestmentType.BONDS) {
+                    name += " (" + com.bankofstarsector.ui.Quote.issuerName(inv.bondFactionId)
+                        + (inv.bondYield > 0f ? ", " + pct(inv.bondYield, "%.1f") + "%" : "") + ")";
+                }
                 info.addPara(Str.get("terminal.invest.row"), opad, Misc.getHighlightColor(),
-                    inv.investmentType.getDisplayName(),
+                    name,
                     Misc.getDGSCredits(inv.currentValue),
                     String.format("%+.1f", returnPct),
                     inv.getStatusDisplay());
+                if (inv.lastSourceKey != null && !inv.lastSourceKey.isEmpty()) {
+                    info.addPara(Str.get("terminal.invest.flow"), 3f,
+                        inv.lastReturn >= 0f ? Misc.getPositiveHighlightColor() : Misc.getNegativeHighlightColor(),
+                        (inv.lastReturn < 0f ? "-" : "+") + Misc.getDGSCredits(Math.abs(inv.lastReturn)),
+                        Str.f(inv.lastSourceKey, inv.lastSourceArg != null ? inv.lastSourceArg : ""));
+                }
 
                 if (!inv.isLocked()) {
                     info.addButton(Str.f("terminal.invest.withdraw", Misc.getDGSCredits(inv.currentValue)),
@@ -708,11 +703,12 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
                 info.addPara("%s", opad, typeColor, type.getDisplayName());
                 info.addPara(Str.get("terminal.invest.terms"), 3f, Misc.getGrayColor(),
-                    pct(type.expectedAnnualReturn(), "%.1f"),
-                    pct(type.annualVolatility, "%.0f"),
+                    pct(data.getInterestEngine().expectedAnnualReturn(type), "%.1f"),
+                    Str.get(type.riskKey()),
                     type.lockMonths > 0 ? Str.f("common.months", type.lockMonths) : Str.get("common.none"),
                     Misc.getDGSCredits(type.minInvestment));
                 info.addPara("  %s", 3f, Misc.getGrayColor(), type.getDescription());
+                info.addPara("  %s", 3f, Misc.getGrayColor(), Str.get("invest." + type.name() + ".source"));
 
                 if (canAfford) {
                     float[] amounts = {type.minInvestment, type.minInvestment * 2,
@@ -724,12 +720,88 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                                 Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 2f);
                         }
                     }
+                    if (type == InvestmentType.BONDS) renderBondIssuers(info, data, playerCredits, opad);
                 } else {
                     info.addPara("  [%s]", 3f, Misc.getNegativeHighlightColor(), Str.get("terminal.invest.noCredits"));
                 }
                 info.addSpacer(opad / 2);
             }
         }
+    }
+
+    /** Bonds of one faction: its treasury pays the coupon at the yield locked in now. */
+    private void renderBondIssuers(TooltipMakerAPI info, BankData data, float playerCredits, float opad) {
+        java.util.List<com.bankofstarsector.economy.FactionTreasury> issuers =
+            new java.util.ArrayList<com.bankofstarsector.economy.FactionTreasury>(data.getSectorEconomy().getTreasuries().values());
+        if (issuers.isEmpty()) {
+            info.addPara("  %s", 3f, Misc.getGrayColor(), Str.get("terminal.invest.issuersLater"));
+            return;
+        }
+        java.util.Collections.sort(issuers, new java.util.Comparator<com.bankofstarsector.economy.FactionTreasury>() {
+            public int compare(com.bankofstarsector.economy.FactionTreasury a, com.bankofstarsector.economy.FactionTreasury b) {
+                return Float.compare(b.gross, a.gross);
+            }
+        });
+        info.addPara("%s", opad / 2, Misc.getHighlightColor(), Str.get("terminal.invest.issuers"));
+        float min = InvestmentType.BONDS.minInvestment;
+        for (int i = 0; i < issuers.size() && i < 8; i++) {
+            com.bankofstarsector.economy.FactionTreasury t = issuers.get(i);
+            com.fs.starfarer.api.campaign.FactionAPI f = Global.getSector().getFaction(t.factionId);
+            float debt = data.getAssetSeizureManager().getFactionDebt(t.factionId);
+            float years = t.gross > 0f ? debt / (12f * t.gross) : 0f;
+            info.addPara(Str.get("terminal.invest.issuer"), 3f, f != null ? f.getBaseUIColor() : Misc.getHighlightColor(),
+                f != null ? f.getDisplayName() : t.factionId, pct(t.yield, "%.1f") + "%",
+                Misc.getDGSCredits(debt), String.format("%.2f", years), "" + t.wars);
+            for (float amt : new float[]{min, min * 2, min * 5}) {
+                if (amt > playerCredits) continue;
+                info.addButton(Str.f("terminal.invest.invest", Misc.getDGSCredits(amt)),
+                    "invest_bond_" + t.factionId + "|" + (int) amt,
+                    Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 140, 20f, 2f);
+            }
+        }
+    }
+
+    /** Overview: faction treasuries and debt, and the Confederation's own books this month. */
+    private void renderSovereignDesk(TooltipMakerAPI info, BankData data, float width, float opad) {
+        com.bankofstarsector.economy.SectorEconomy eco = data.getSectorEconomy();
+        if (!eco.isReady()) return;
+        info.addSpacer(opad);
+        heading(info, "terminal.sovereign.heading", opad);
+        java.util.List<com.bankofstarsector.economy.FactionTreasury> list =
+            new java.util.ArrayList<com.bankofstarsector.economy.FactionTreasury>(eco.getTreasuries().values());
+        java.util.Collections.sort(list, new java.util.Comparator<com.bankofstarsector.economy.FactionTreasury>() {
+            public int compare(com.bankofstarsector.economy.FactionTreasury a, com.bankofstarsector.economy.FactionTreasury b) {
+                return Float.compare(b.gross, a.gross);
+            }
+        });
+        float col = Math.max(70f, Math.min(110f, (width - 200f) / 5f));
+        info.beginTable(Global.getSector().getFaction("pbc"), 20f,
+            Str.get("terminal.sovereign.colFaction"), 180f, Str.get("terminal.sovereign.colIncome"), col,
+            Str.get("terminal.sovereign.colTreasury"), col, Str.get("terminal.sovereign.colDebt"), col,
+            Str.get("terminal.sovereign.colYield"), col * 0.7f, Str.get("terminal.sovereign.colWars"), col * 0.6f);
+        for (int i = 0; i < list.size() && i < 10; i++) {
+            com.bankofstarsector.economy.FactionTreasury t = list.get(i);
+            com.fs.starfarer.api.campaign.FactionAPI f = Global.getSector().getFaction(t.factionId);
+            float debt = data.getAssetSeizureManager().getFactionDebt(t.factionId);
+            info.addRow(Alignment.LMID, f != null ? f.getBaseUIColor() : Misc.getTextColor(), f != null ? f.getDisplayName() : t.factionId,
+                Alignment.RMID, t.income >= 0f ? Misc.getTextColor() : Misc.getNegativeHighlightColor(), signedCredits(t.income),
+                Alignment.RMID, Misc.getTextColor(), Misc.getDGSCredits(t.balance),
+                Alignment.RMID, debt > 0f ? Misc.getHighlightColor() : Misc.getGrayColor(), Misc.getDGSCredits(debt),
+                Alignment.MID, Misc.getTextColor(), pct(t.yield, "%.1f") + "%",
+                Alignment.MID, t.wars > 0 ? Misc.getNegativeHighlightColor() : Misc.getGrayColor(), "" + t.wars);
+        }
+        info.addTable("", 0, opad / 2);
+        com.bankofstarsector.economy.PbcLedger l = eco.getLedger();
+        info.addPara(Str.get("terminal.sovereign.books"), opad, Misc.getHighlightColor(),
+            Misc.getDGSCredits(l.reserves), Misc.getDGSCredits(l.loanInterestIn + l.sovereignInterestIn),
+            Misc.getDGSCredits(l.depositInterestOut), Misc.getDGSCredits(l.writeOffs));
+        info.addPara(Str.get("terminal.sovereign.markets"), 3f, Misc.getHighlightColor(),
+            String.format("%+.1f%%", eco.getCommodityIndexChange() * 100f), Misc.getDGSCredits(eco.getMilitarySpending()),
+            "" + eco.getVentureStakes());
+    }
+
+    private static String signedCredits(float v) {
+        return (v < 0f ? "-" : "") + Misc.getDGSCredits(Math.abs(v));
     }
 
     private void renderCreditScore(TooltipMakerAPI info, float width, float opad) {
@@ -980,6 +1052,16 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             return;
         }
 
+        if (id.startsWith("invest_bond_")) {
+            String rest = id.substring("invest_bond_".length());
+            int bar = rest.lastIndexOf('|');
+            if (bar > 0 && data.getBankruptcyManager().canInvest()) {
+                data.getInvestmentManager().invest(InvestmentType.BONDS, Integer.parseInt(rest.substring(bar + 1)), rest.substring(0, bar));
+            }
+            ui.updateUIForItem(this);
+            return;
+        }
+
         if (id.startsWith("invest_buy_")) {
             String rest = id.substring("invest_buy_".length());
             int lastUnderscore = rest.lastIndexOf('_');
@@ -1044,7 +1126,10 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         InvestmentType investType = lockedInvestButtonType(buttonId);
         if (investType != null) {
             prompt.addPara(Str.get("confirm.invest.title"), Misc.getHighlightColor(), 0f);
-            addQuote(prompt, com.bankofstarsector.ui.Quote.investment(investType, buttonSuffix(buttonId)));
+            String issuer = bondButtonIssuer(buttonId);
+            float amount = issuer != null ? Integer.parseInt(((String) buttonId).substring(((String) buttonId).lastIndexOf('|') + 1))
+                : buttonSuffix(buttonId);
+            addQuote(prompt, com.bankofstarsector.ui.Quote.investment(investType, amount, issuer));
             return;
         }
         if (!"bankruptcy_file".equals(buttonId)) {
@@ -1083,7 +1168,16 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     }
 
     /** "invest_buy_TYPE_AMOUNT" for a type with a lock period -> TYPE, else null (unlocked savings need no prompt). */
+    /** "invest_bond_FACTION|AMOUNT" -> FACTION, else null. */
+    private static String bondButtonIssuer(Object buttonId) {
+        if (!(buttonId instanceof String) || !((String) buttonId).startsWith("invest_bond_")) return null;
+        String rest = ((String) buttonId).substring("invest_bond_".length());
+        int bar = rest.lastIndexOf('|');
+        return bar > 0 ? rest.substring(0, bar) : null;
+    }
+
     private static InvestmentType lockedInvestButtonType(Object buttonId) {
+        if (bondButtonIssuer(buttonId) != null) return InvestmentType.BONDS;
         if (!(buttonId instanceof String) || !((String) buttonId).startsWith("invest_buy_")) return null;
         String rest = ((String) buttonId).substring("invest_buy_".length());
         InvestmentType type = InvestmentType.valueOf(rest.substring(0, rest.lastIndexOf('_')));

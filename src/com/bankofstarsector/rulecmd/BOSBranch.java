@@ -165,9 +165,10 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         else if ("inscancelq".equals(screen)) showInsuranceCancel();
         else if ("inscancel".equals(screen)) cancelInsurance();
         else if ("invest".equals(screen)) showInvestments();
-        else if ("inv".equals(screen)) showInvestAmount(InvestmentType.valueOf(p[1]));
-        else if ("iquote".equals(screen)) showInvestQuote(InvestmentType.valueOf(p[1]), selectedAmount());
-        else if ("buy".equals(screen)) buy(InvestmentType.valueOf(p[1]), Float.parseFloat(p[2]));
+        else if ("issuers".equals(screen)) showBondIssuers();
+        else if ("inv".equals(screen)) showInvestAmount(InvestmentType.valueOf(p[1]), issuerArg(p, 2));
+        else if ("iquote".equals(screen)) showInvestQuote(InvestmentType.valueOf(p[1]), selectedAmount(), issuerArg(p, 2));
+        else if ("buy".equals(screen)) buy(InvestmentType.valueOf(p[1]), Float.parseFloat(p[2]), issuerArg(p, 3));
         else showSummary(); // "back"
     }
 
@@ -379,6 +380,41 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
 
     // ------------------------------------------------------------------ investments
 
+    /** Option ids carry the bond issuer as their last part; "fund" means the diversified bond fund. */
+    private static String issuerArg(String[] p, int i) {
+        return p.length > i && !"fund".equals(p[i]) ? p[i] : null;
+    }
+
+    private static String issuerToken(String issuer) {
+        return issuer == null ? "fund" : issuer;
+    }
+
+    private void showBondIssuers() {
+        BankData data = BankData.get();
+        TextPanelAPI text = dialog.getTextPanel();
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        text.addPara(Str.get("branch.bonds.intro"));
+        text.addPara(Str.get("branch.bonds.fund"), Misc.getHighlightColor(),
+            Quote.percentText(data.getSectorEconomy().bondYield(null)));
+        options.addOption(Quote.issuerName(null), PREFIX + "inv:BONDS:fund");
+        java.util.List<com.bankofstarsector.economy.FactionTreasury> issuers =
+            new java.util.ArrayList<com.bankofstarsector.economy.FactionTreasury>(data.getSectorEconomy().getTreasuries().values());
+        java.util.Collections.sort(issuers, new java.util.Comparator<com.bankofstarsector.economy.FactionTreasury>() {
+            public int compare(com.bankofstarsector.economy.FactionTreasury a, com.bankofstarsector.economy.FactionTreasury b) {
+                return Float.compare(b.gross, a.gross);
+            }
+        });
+        for (int i = 0; i < issuers.size() && i < 8; i++) {
+            com.bankofstarsector.economy.FactionTreasury t = issuers.get(i);
+            float debt = data.getAssetSeizureManager().getFactionDebt(t.factionId);
+            text.addPara(Str.get("branch.bonds.issuer"), Misc.getHighlightColor(), Quote.issuerName(t.factionId),
+                Quote.percentText(t.yield), Misc.getDGSCredits(debt), "" + t.wars);
+            options.addOption(Quote.issuerName(t.factionId), PREFIX + "inv:BONDS:" + t.factionId);
+        }
+        addBack("invest");
+    }
+
     private void showInvestments() {
         float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         TextPanelAPI text = dialog.getTextPanel();
@@ -390,7 +426,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
                 Quote.percentText(type.expectedAnnualReturn()),
                 type.lockMonths > 0 ? Str.f("common.months", type.lockMonths) : Str.get("common.none"),
                 Misc.getDGSCredits(type.minInvestment));
-            String id = PREFIX + "inv:" + type.name();
+            String id = type == InvestmentType.BONDS ? PREFIX + "issuers" : PREFIX + "inv:" + type.name();
             options.addOption(type.getDisplayName(), id);
             if (credits < type.minInvestment) {
                 options.setEnabled(id, false);
@@ -400,7 +436,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         addBack("back");
     }
 
-    private void showInvestAmount(InvestmentType type) {
+    private void showInvestAmount(InvestmentType type, String issuer) {
         float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         float min = type.minInvestment;
         float max = (float) Math.floor(credits / 1000f) * 1000f;
@@ -417,24 +453,26 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         options.addSelector(Str.get("branch.amount"), SELECTOR, Misc.getHighlightColor(), 400f, 120f,
             min, max, ValueDisplayMode.VALUE, null);
         options.setSelectorValue(SELECTOR, min);
-        options.addOption(Str.get("branch.optReview"), PREFIX + "iquote:" + type.name());
-        addBack("invest");
+        options.addOption(Str.get("branch.optReview"), PREFIX + "iquote:" + type.name()
+            + (type == InvestmentType.BONDS ? ":" + issuerToken(issuer) : ""));
+        addBack(type == InvestmentType.BONDS ? "issuers" : "invest");
     }
 
-    private void showInvestQuote(InvestmentType type, float amount) {
+    private void showInvestQuote(InvestmentType type, float amount, String issuer) {
         float credits = Global.getSector().getPlayerFleet().getCargo().getCredits().get();
         amount = Math.max(type.minInvestment, Math.min(credits, amount));
-        addQuote(Quote.investment(type, amount));
+        addQuote(Quote.investment(type, amount, issuer));
         OptionPanelAPI options = dialog.getOptionPanel();
         options.clearOptions();
-        options.addOption(Str.f("branch.optInvestNow", Misc.getDGSCredits(amount)), PREFIX + "buy:" + type.name() + ":" + (long) amount);
-        options.addOption(Str.get("branch.optChangeAmount"), PREFIX + "inv:" + type.name());
+        String suffix = type == InvestmentType.BONDS ? ":" + issuerToken(issuer) : "";
+        options.addOption(Str.f("branch.optInvestNow", Misc.getDGSCredits(amount)), PREFIX + "buy:" + type.name() + ":" + (long) amount + suffix);
+        options.addOption(Str.get("branch.optChangeAmount"), PREFIX + "inv:" + type.name() + suffix);
         addBack("back");
     }
 
-    private void buy(InvestmentType type, float amount) {
+    private void buy(InvestmentType type, float amount, String issuer) {
         BankData data = BankData.get();
-        BankAccount inv = data.getBankruptcyManager().canInvest() ? data.getInvestmentManager().invest(type, amount) : null;
+        BankAccount inv = data.getBankruptcyManager().canInvest() ? data.getInvestmentManager().invest(type, amount, issuer) : null;
         if (inv == null) {
             dialog.getTextPanel().addPara(Str.get("branch.invest.refused"), Misc.getNegativeHighlightColor());
         } else {
