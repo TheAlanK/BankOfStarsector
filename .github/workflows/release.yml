@@ -80,6 +80,33 @@ jobs:
           # Stable name for the version checker's directDownloadURL (releases/latest/download/BankOfStarsector.zip)
           cp "${PKG}-${VERSION}.zip" "${PKG}.zip"
           ls -la *.zip
+      - name: Release notes
+        if: steps.changes.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.mod.outputs.version }}"
+          # This version's section of changelog.txt (header "0.3.1-beta" for tag "v0.3.1-beta").
+          CHANGES=$(awk -v ver="${VERSION#v}" '$0==ver{f=1;next} f&&/^[0-9]/{exit} f{print}' changelog.txt)
+          {
+            echo "## ${{ steps.mod.outputs.name }} ${VERSION}"
+            echo
+            echo "A banking and economy mod for Starsector: loans, a real credit score, credit lines, colony mortgages with foreclosure auctions, fleet insurance, investments and debt collection fleets."
+            echo
+            if [ -n "$CHANGES" ]; then
+              echo "### What's new"
+              echo "$CHANGES"
+              echo
+            fi
+            echo "### Installation"
+            echo "1. Download \`BankOfStarsector.zip\` below"
+            echo "2. Extract it to your \`Starsector/mods/\` folder"
+            echo "3. Enable **Bank of Starsector** in the launcher"
+            echo
+            echo "Saves from earlier versions load fine. No required dependencies; **Nexerelin**, **NexusUI** and **LunaLib** are optional (LunaLib's version checker will tell you about the next release)."
+            echo
+            echo "[Features, FAQ and lore](https://github.com/${{ github.repository }}#readme)"
+          } > release_notes.md
+          cat release_notes.md
+
       - name: Create GitHub Release
         if: steps.changes.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
@@ -87,15 +114,4 @@ jobs:
           name: "${{ steps.mod.outputs.name }} ${{ steps.mod.outputs.version }}"
           files: "*.zip"
           generate_release_notes: false
-          body: |
-            ## ${{ steps.mod.outputs.name }} ${{ steps.mod.outputs.version }}
-
-            ### Installation
-            1. Download the zip file below
-            2. Extract to your `Starsector/mods/` folder
-            3. Enable the mod in the launcher
-
-            ### Dependencies (all optional)
-            - **Nexerelin** (optional - enables diplomacy/war effects on banking)
-            - **NexusUI** (optional - adds a banking dashboard overlay)
-            - **LunaLib** (optional - in-game settings and version checker)
+          body_path: release_notes.md
