@@ -98,6 +98,9 @@ None required.
 
 ## Changelog
 
+### 0.3.1-beta
+- **Performance:** fixes stuttering with large mod lists. The war surcharge and market disruption are computed once per game day (they scanned every market several times a second), and the NexusUI dashboard only refreshes quickly while it is open.
+
 ### 0.3.0-beta
 - **New:** credit-builder loan, the realistic way to start (or rebuild) a credit file.
 - **New:** fleet insurance (Standard and Comprehensive policies, credit-based premiums, claims after post-battle recovery).

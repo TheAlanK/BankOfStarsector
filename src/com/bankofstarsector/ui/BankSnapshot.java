@@ -20,6 +20,8 @@ import java.util.List;
 public final class BankSnapshot {
 
     private static volatile BankSnapshot latest = null;
+    /** Last time (System.nanoTime) a reader asked for the snapshot: the NexusUI page or its data API. */
+    private static volatile long lastRead = 0L;
 
     public final String date;
     public final float netWorth, credits, debt, invested, held, late, dueNow, warSurcharge, disruption, sovereignDebt;
@@ -138,14 +140,14 @@ public final class BankSnapshot {
         InsuranceManager ins = data.getInsuranceManager();
         InsurancePlan plan = ins.getPlan();
         insurancePlan = plan != null ? plan.getDisplayName() : null;
-        insurancePremium = plan != null ? ins.premiumFor(plan, data) : 0f;
+        fleetValue = InsuranceManager.fleetValue();
+        insurancePremium = plan != null ? ins.premiumFor(plan, data, fleetValue) : 0f;
         insuranceCoverage = plan != null ? plan.coverage : 0f;
         insuranceDeductible = plan != null ? plan.deductible : 0f;
         insuranceLapsed = ins.isLapsed();
         insuranceWaitingDays = ins.waitingDaysLeft();
         insuranceClaims12 = ins.paidClaimsLast12Months();
         insurancePending = ins.getPending().size();
-        fleetValue = InsuranceManager.fleetValue();
         List<String[]> rc = new ArrayList<String[]>();
         for (int i = 0; i < ins.getClaims().size() && i < 5; i++) {
             InsuranceManager.Claim c = ins.getClaims().get(i);
@@ -188,7 +190,13 @@ public final class BankSnapshot {
 
     /** Any thread. May be null before the first capture. */
     public static BankSnapshot get() {
+        lastRead = System.nanoTime();
         return latest;
+    }
+
+    /** True if the page or the data API read the snapshot in the last few seconds. */
+    public static boolean isWatched() {
+        return lastRead != 0L && System.nanoTime() - lastRead < 3_000_000_000L;
     }
 
     public static void clear() {

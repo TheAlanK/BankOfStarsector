@@ -137,7 +137,12 @@ public class InsuranceManager implements Serializable {
 
     /** Monthly premium of this plan for the current fleet. */
     public float premiumFor(InsurancePlan p, BankData data) {
-        return p.getBaseRate() * p.coverage * fleetValue() * creditFactor(data.getCreditScoreManager())
+        return premiumFor(p, data, fleetValue());
+    }
+
+    /** Same, for a fleet value the caller already has (avoids rescanning the fleet). */
+    public float premiumFor(InsurancePlan p, BankData data, float fleetValue) {
+        return p.getBaseRate() * p.coverage * fleetValue * creditFactor(data.getCreditScoreManager())
             * claimsFactor() * (1f + data.getInterestEngine().getWarSurcharge());
     }
 
