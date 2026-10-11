@@ -32,7 +32,12 @@ And if you stop paying, the bank sends a fleet.
 2. Enable **Bank of Starsector** in the launcher and start a new game, or load an existing save (see the [FAQ](#faq)).
 3. Open **Intel → Economy → PBC Banking Terminal** from anywhere, or visit a **Confederation branch office** at any PBC market.
 
-No dependencies. Works with **Nexerelin**, **NexusUI** and **LunaLib** when they are installed.
+No dependencies. Works with **Nexerelin**, **[NexusUI](https://github.com/TheAlanK/NexusUI)** and **LunaLib** when they are installed.
+
+## Recommended companion mods
+
+- **[NexusUI](https://github.com/TheAlanK/NexusUI)**: an external dashboard for Starsector. It opens live panels in their own windows, outside the game, so you can keep your fleet, colonies or finances on a second monitor while you play; it also serves live game data to other tools through a local API. With NexusUI installed, Bank of Starsector adds a **banking page**: amounts due, autopay, loans, credit line, insurance and your credit trend, with pay buttons. Requires LazyLib.
+- **[Tripad Extension](https://github.com/TheAlanK/TripadExtension)**: a floating button bar for the campaign map. Mods add draggable buttons that you can arrange, lock together and toggle in LunaLib's settings. Install it with NexusUI and the dashboard button lives on that bar, next to your other mods' buttons. Requires LazyLib and LunaLib.
 
 ## Features
 
@@ -119,7 +124,7 @@ A full neutral faction with the **Aurum** star system (Bullion, Vault and Ledger
 
 ### Mod integration
 - **Nexerelin**: live wars drive interest rates, foreclosure invasions, market transfers after auctions, sovereign defaults. In a Nexerelin random sector, Nexerelin places the PBC markets.
-- **NexusUI**: a banking dashboard (amounts due, autopay, loans, credit line, insurance, credit trend) with pay/autopay buttons; the data is also exposed to NexusUI's data bridge as `pbc_banking`.
+- **[NexusUI](https://github.com/TheAlanK/NexusUI)**: a banking dashboard (amounts due, autopay, loans, credit line, insurance, credit trend) with pay/autopay buttons; the data is also exposed to NexusUI's data bridge as `pbc_banking`.
 - **LunaLib**: in-game settings menu and version checker (you get an update notice when a new release is out).
 
 ## FAQ
