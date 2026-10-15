@@ -18,6 +18,22 @@ Bank of Starsector
   the opposite. Paying on time improves the relation (+0.2 per payment, +1 per loan carried 3+ months and
   paid off), missed payments (-2) and defaults (-8) hurt it. Banking alone moves it between Inhospitable
   and Friendly. Shown in the Overview, the Credit tab, the monthly statement and NexusUI.
+- Compatibility: factions that hold markets without being states are no longer major factions: factions with
+  pirate behaviour in their faction file, and those Nexerelin flags as pirates or hostile to everyone (the
+  Hiver Swarm, the Starlight Cabal, ArmaA's pirates). A swarm at war with everyone used to add one war per
+  faction, pinning loan rates and insurance premiums at the war surcharge cap; it also issued bonds, ran up
+  sovereign debt and could bid at foreclosure auctions. Older saves close such a faction's sovereign book
+  quietly (no default). New settings politicalFactions / nonPoliticalFactions override the classification.
+  On a new game the PBC is hostile to modded raider factions, like the vanilla pirates.
+- Compatibility: fleet insurance has an "other insurance" clause. A ship also insured by Nexerelin's insurer
+  is covered for the excess only: the premium is charged on what the PBC adds over that policy, and a loss
+  pays what the other insurer does not. Shown in the terminal, the branch office and NexusUI.
+- Compatibility: a hull the PBC paid for that comes back to the fleet (Ship Mastery System's graveyard, or any
+  mod that returns lost ships) has its payout billed back at the next month end.
+- New: Console Commands bos_status (your accounts) and bos_factions (how the Sovereign Desk treats every
+  faction that holds markets, and why).
+- Fix: uses Nexerelin 0.12.2's non-deprecated corvus-mode check. build.bat now runs build.ps1, which finds the
+  optional mods' jars in versioned folders and refuses to install next to another enabled copy of the mod.
 
 0.3.2-beta
 - Changed: investment returns follow real long-run asset classes instead of 1-8% a month. Expected returns

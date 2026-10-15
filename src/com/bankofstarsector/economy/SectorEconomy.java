@@ -218,8 +218,19 @@ public class SectorEconomy implements Serializable {
             if (byFaction.containsKey(e.getKey())) continue;
             FactionAPI f = Global.getSector().getFaction(e.getKey());
             if (f == null) continue;
+            if (!PoliticalFactions.isPolitical(f)) {
+                // Not a state the desk deals with (a modded swarm or pirate band that older versions counted, or one
+                // a player moved off the desk in the settings): its book is closed quietly, like legacy debt.
+                log.info("BOS: closed the sovereign book of non-political faction " + e.getKey() + " (" + e.getValue() + " owed)");
+                debts.simulateFactionDebt(e.getKey(), -debts.getFactionDebt(e.getKey()));
+                continue;
+            }
             defaultedDebt += defaultFaction(data, f, e.getValue(), now);
             debts.simulateFactionDebt(e.getKey(), -debts.getFactionDebt(e.getKey()));
+        }
+        for (java.util.Iterator<String> it = treasuries.keySet().iterator(); it.hasNext(); ) {
+            FactionAPI f = Global.getSector().getFaction(it.next());
+            if (f != null && !PoliticalFactions.isPolitical(f)) it.remove();
         }
 
         previousMilitaryEma = militaryEma > 0f ? militaryEma : spending;

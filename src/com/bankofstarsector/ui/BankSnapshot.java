@@ -45,6 +45,9 @@ public final class BankSnapshot {
     public final float insurancePremium, insuranceCoverage, insuranceDeductible, fleetValue;
     public final boolean insuranceLapsed;
     public final int insuranceWaitingDays, insuranceClaims12, insurancePending;
+    /** 0.4.0: ships also insured elsewhere (Nexerelin) and their cover; what this plan insures; payouts billed back. */
+    public final int insuranceOtherShips;
+    public final float insuranceOtherCover, insuredExposure, insuranceRecoveryDue;
     public final List<String[]> recentClaims; // {ship, payout, outcome text}
 
     public static final class Collateral {
@@ -157,7 +160,12 @@ public final class BankSnapshot {
         InsurancePlan plan = ins.getPlan();
         insurancePlan = plan != null ? plan.getDisplayName() : null;
         fleetValue = InsuranceManager.fleetValue();
-        insurancePremium = plan != null ? ins.premiumFor(plan, data, fleetValue) : 0f;
+        insuredExposure = plan != null ? InsuranceManager.insuredExposure(plan) : 0f;
+        insurancePremium = plan != null ? ins.premiumForExposure(plan, data, insuredExposure) : 0f;
+        float[] other = InsuranceManager.otherCover();
+        insuranceOtherShips = (int) other[0];
+        insuranceOtherCover = other[1];
+        insuranceRecoveryDue = ins.getRecoveryDue();
         insuranceCoverage = plan != null ? plan.coverage : 0f;
         insuranceDeductible = plan != null ? plan.deductible : 0f;
         insuranceLapsed = ins.isLapsed();
@@ -279,7 +287,9 @@ public final class BankSnapshot {
             in.put("plan", insurancePlan != null ? (Object) insurancePlan : JSONObject.NULL);
             in.put("premium", insurancePremium).put("coverage", insuranceCoverage).put("deductible", insuranceDeductible)
                 .put("lapsed", insuranceLapsed).put("waitingDaysLeft", insuranceWaitingDays)
-                .put("claimsPaid12Months", insuranceClaims12).put("pendingClaims", insurancePending).put("fleetValue", fleetValue);
+                .put("claimsPaid12Months", insuranceClaims12).put("pendingClaims", insurancePending).put("fleetValue", fleetValue)
+                .put("insuredValue", insuredExposure).put("recoveryDue", insuranceRecoveryDue)
+                .put("otherInsurance", new JSONObject().put("ships", insuranceOtherShips).put("cover", insuranceOtherCover));
             JSONArray rcs = new JSONArray();
             for (String[] c : recentClaims) rcs.put(new JSONObject().put("ship", c[0]).put("payout", Float.parseFloat(c[1])).put("outcome", c[2]));
             in.put("recentClaims", rcs);

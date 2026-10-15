@@ -30,6 +30,16 @@ public class PBCFactionSetup {
         setRelation(pbc, Factions.PLAYER, 0.0f);
         setRelation(pbc, Factions.REMNANTS, -0.5f);
 
+        // Modded raiders (pirate behaviour, or Nexerelin's pirate / hostile-to-all flags): treated like the
+        // vanilla pirates, never friendlier than their own faction file says.
+        for (FactionAPI f : Global.getSector().getAllFactions()) {
+            if (Factions.LUDDIC_PATH.equals(f.getId())) continue; // set above: wary, not at war
+            if (com.bankofstarsector.economy.PoliticalFactions.isRaider(f) && pbc.getRelationship(f.getId()) > -0.5f) {
+                pbc.setRelationship(f.getId(), -0.5f);
+                log.info("PBC: hostile to raider faction " + f.getId());
+            }
+        }
+
         log.info("PBC faction relationships configured.");
     }
 

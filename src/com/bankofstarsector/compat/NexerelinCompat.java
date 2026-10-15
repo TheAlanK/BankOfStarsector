@@ -16,11 +16,56 @@ public class NexerelinCompat {
     private static final Logger log = Logger.getLogger(NexerelinCompat.class);
     private static Boolean available = null;
 
+    /** Faction config flags: a pirate band, or hostile to every other faction (a swarm, a cult). */
+    public static final int ROLE_PIRATE = 1, ROLE_HOSTILE_TO_ALL = 2;
+    /** Faction configs are static data and the lookup is a linear search: cached until the next game load. */
+    private static final java.util.Map<String, Integer> roleFlags = new java.util.HashMap<String, Integer>();
+
     public static boolean isAvailable() {
         if (available == null) {
             available = Global.getSettings().getModManager().isModEnabled("nexerelin");
         }
         return available;
+    }
+
+    /** Forgets cached faction data (on every game load, with the settings). */
+    public static void clearCaches() {
+        roleFlags.clear();
+    }
+
+    /** ROLE_* flags from Nexerelin's faction config; 0 without Nexerelin or without a config for this faction. */
+    public static int factionRoleFlags(String factionId) {
+        if (!isAvailable() || factionId == null) return 0;
+        Integer cached = roleFlags.get(factionId);
+        if (cached != null) return cached;
+        int flags = 0;
+        try {
+            flags = NexerelinBridge.factionRoleFlags(factionId);
+        } catch (Throwable t) {
+            log.warn("BOS: could not read Nexerelin's config for " + factionId + ": " + t);
+        }
+        roleFlags.put(factionId, flags);
+        return flags;
+    }
+
+    /** What Nexerelin's insurer pays if this ship is lost (0 without Nexerelin, a policy, or with legacy insurance). */
+    public static float insuredAmount(String memberId) {
+        if (!isAvailable()) return 0f;
+        try {
+            return NexerelinBridge.insuredAmount(memberId);
+        } catch (Throwable t) {
+            return 0f;
+        }
+    }
+
+    /** What Nexerelin's insurer paid for this ship in the last maxAgeDays days. */
+    public static float insurancePaidFor(String memberId, float maxAgeDays) {
+        if (!isAvailable()) return 0f;
+        try {
+            return NexerelinBridge.paidFor(memberId, maxAgeDays);
+        } catch (Throwable t) {
+            return 0f;
+        }
     }
 
     public static boolean isFactionAlive(String factionId) {

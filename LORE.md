@@ -85,6 +85,8 @@ When a debt falls badly past due, the Confederation follows a fixed procedure, u
 
 House Varenne never forgot its first trade. Its underwriters still sit in every branch office, insuring captains' hulls against the void for a monthly premium priced on the fleet, the war, and the captain's Standing. A captain with a clean file pays less, because a Varenne underwriter trusts nothing so much as a ledger.
 
+Two clauses in every Varenne policy date from the Collapse. The **other-insurance clause**: a hull insured twice is paid once, and Varenne covers only what the other underwriter does not. And **salvage rights**: a hull Varenne has paid for belongs to Varenne. When a written-off ship turns up in its old captain's fleet, dragged out of some graveyard, the underwriter is waiting with the bill.
+
 Debts secured by a colony follow a different road. A defaulted colony is first placed in **receivership**: Confederation administrators take over its books and collect its income until the debt is current. If that fails, the Recovery Directorate forecloses and takes the colony. It never keeps it. Article 4 forbids conquest, so every foreclosed world goes to auction on Bullion, where the great powers bid for it. The proceeds settle the debt, and anything left over is returned to the debtor, to the credit.
 
 Destroying a Collection Fleet does not clear a debt. The Recovery Directorate records the loss, adds it to the cost of collection, and sends a larger fleet. Spacers say the PBC has never lost a war, because it has never fought one: it has only ever collected.

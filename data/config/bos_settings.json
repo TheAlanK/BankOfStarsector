@@ -114,4 +114,11 @@
 	"managedFundFee":0.01,              # yearly fee on venture and military funds, paid to the PBC
 	"venturePortfolioSize":20,          # stakes in growing NPC markets
 	"economySmoothingMonths":12,        # how fast earnings and spending baselines adapt
+
+	# Modded factions. The Sovereign Desk (bonds, treasuries, the war surcharge, foreclosure bids) deals with
+	# political factions only. Factions with pirate behaviour in their faction file, and those Nexerelin flags
+	# as pirates or hostile to everyone (the Hiver Swarm, the Starlight Cabal...), are left out automatically.
+	# Override by faction id; the console command bos_factions lists how every faction is treated.
+	"politicalFactions":[],             # always on the desk
+	"nonPoliticalFactions":[],          # never on the desk
 }

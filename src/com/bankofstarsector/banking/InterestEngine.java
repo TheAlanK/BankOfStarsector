@@ -2,6 +2,7 @@ package com.bankofstarsector.banking;
 
 import com.bankofstarsector.compat.NexerelinCompat;
 import com.bankofstarsector.core.BankSettings;
+import com.bankofstarsector.economy.PoliticalFactions;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.FactionAPI;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
@@ -25,14 +26,6 @@ public class InterestEngine implements Serializable {
     private transient boolean sectorCacheValid;
     private transient int cachedWarCount;
     private transient float cachedDisruption;
-
-    /** Factions whose permanent hostility says nothing about the sector's political climate. */
-    private static final Set<String> NOT_POLITICAL = new HashSet<String>();
-    static {
-        String[] ids = {"pirates", "luddic_path", "remnant", "derelict", "omega", "threat", "dweller",
-            "neutral", "poor", "scavengers", "mercenary", "sleeper", "player"};
-        for (String id : ids) NOT_POLITICAL.add(id);
-    }
 
     /** Loan rate: base rate, raised by war, scaled by the credit bracket shown in the terminal. */
     public float calculateEffectiveLoanRate(LoanType type, int creditScore) {
@@ -94,15 +87,18 @@ public class InterestEngine implements Serializable {
         return Math.min(BankSettings.WAR_SURCHARGE, warCount * BankSettings.WAR_SURCHARGE_PER_WAR);
     }
 
-    /** Political factions that hold real territory (a size 4+ market), excluding the PBC itself. */
+    /**
+     * Political factions that hold real territory (a size 4+ market), excluding the PBC itself. Pirate
+     * bands and factions at war with everyone, vanilla or modded, are not political (see PoliticalFactions).
+     */
     public List<FactionAPI> getMajorFactions() {
         List<FactionAPI> majors = new ArrayList<FactionAPI>();
         Set<String> seen = new HashSet<String>();
         for (MarketAPI market : Global.getSector().getEconomy().getMarketsCopy()) {
             if (market.isHidden() || market.getSize() < 4) continue;
             FactionAPI f = market.getFaction();
-            if (f == null || f.isPlayerFaction() || NOT_POLITICAL.contains(f.getId()) || "pbc".equals(f.getId())) continue;
-            if (!seen.add(f.getId())) continue; // each faction is checked once, not once per market
+            if (f == null || !seen.add(f.getId())) continue; // each faction is checked once, not once per market
+            if (!PoliticalFactions.isPolitical(f)) continue;
             if (NexerelinCompat.isFactionAlive(f.getId())) majors.add(f);
         }
         return majors;

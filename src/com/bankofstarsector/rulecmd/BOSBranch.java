@@ -327,6 +327,13 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         OptionPanelAPI options = dialog.getOptionPanel();
         options.clearOptions();
         text.addPara(Str.get("branch.insurance.intro"));
+        float[] other = com.bankofstarsector.banking.InsuranceManager.otherCover();
+        if (other[0] > 0f) {
+            text.addPara(Str.get("branch.insurance.other"), Misc.getHighlightColor(), "" + (int) other[0], Misc.getDGSCredits(other[1]));
+        }
+        if (ins.getRecoveryDue() > 0f) {
+            text.addPara(Str.get("branch.insurance.recoveryDue"), Misc.getNegativeHighlightColor(), Misc.getDGSCredits(ins.getRecoveryDue()));
+        }
         if (ins.hasPolicy()) {
             text.addPara(Str.get("branch.insurance.current"), Misc.getHighlightColor(), ins.getPlan().getDisplayName(),
                 Misc.getDGSCredits(ins.premiumFor(ins.getPlan(), data)));

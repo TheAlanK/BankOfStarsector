@@ -25,8 +25,8 @@ $failed = 0
 
 $ErrorActionPreference = 'Continue'
 $gameJars = @(Get-ChildItem $core -Filter *.jar | ForEach-Object FullName)
-$optional = @('mods\Nexerelin\jars\ExerelinCore.jar', 'mods\NexusUI\jars\NexusUI.jar', 'mods\LunaLib-2.0.5\jars\LunaLib.jar') |
-    ForEach-Object { Join-Path $StarsectorDir $_ } | Where-Object { Test-Path $_ }
+. (Join-Path $ModDir 'deps.ps1')
+$optional = @((Get-ModJars $StarsectorDir).Values)
 $cp = (@($gameJars) + $jar) -join ';'
 
 Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue

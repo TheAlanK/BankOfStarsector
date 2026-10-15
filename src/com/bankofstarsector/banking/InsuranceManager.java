@@ -1,5 +1,6 @@
 package com.bankofstarsector.banking;
 
+import com.bankofstarsector.compat.OtherInsurance;
 import com.bankofstarsector.core.BankData;
 import com.bankofstarsector.core.BankSettings;
 import com.bankofstarsector.core.Str;
@@ -29,6 +30,14 @@ import java.util.Set;
  * (coverage x base value - deductible) unless the policy is in its waiting period, the ship joined the
  * fleet less than INSURANCE_WAITING_DAYS before the loss, the premium is unpaid (lapsed), or this
  * month's payout cap is used up. One missed premium lapses the policy; two cancel it.
+ *
+ * Other insurance (0.4.0): a ship also insured elsewhere (Nexerelin's per-ship policies) is covered for the
+ * excess only. The premium is charged on what this policy adds over the other one, and a loss pays what the
+ * other insurer does not, so the two together never pay more than this policy would alone.
+ *
+ * Salvage (0.4.0): a ship paid as lost that later comes back to the fleet (Ship Mastery System's graveyard,
+ * or any mod that returns lost hulls) belongs to the insurer that paid for it; the payout is billed back at
+ * the next month end.
  */
 public class InsuranceManager implements Serializable {
 
@@ -46,12 +55,16 @@ public class InsuranceManager implements Serializable {
     private Map<String, Long> firstSeen;
     private List<PendingClaim> pending;
     private List<Claim> claims;
+    /** Payouts for ships that came back to the fleet, billed at the next month end (0.4.0). */
+    private float recoveryDue;
 
     public static class PendingClaim implements Serializable {
         private static final long serialVersionUID = 1L;
         public String memberId, shipName;
         public float baseValue;
         public long lossTs, joinedTs;
+        /** Other insurance on the ship when it was lost (0.4.0; 0 in older saves). */
+        public float otherCover;
     }
 
     /** A settled claim: paid, or denied with a reason ("claim.reason.*"). */
@@ -60,6 +73,10 @@ public class InsuranceManager implements Serializable {
         public long ts;
         public String shipName, outcome;
         public float baseValue, payout;
+        /** 0.4.0 (null / 0 / false in older saves): the ship, what another insurer paid, and whether the hull came back. */
+        public String memberId;
+        public float otherPaid;
+        public boolean recovered;
     }
 
     private void ensure() {
@@ -115,6 +132,35 @@ public class InsuranceManager implements Serializable {
         return total;
     }
 
+    /** What a plan insures on one ship: its cover, less what another insurer already pays for that ship. */
+    public static float exposure(FleetMemberAPI m, InsurancePlan p) {
+        return Math.max(0f, p.coverage * m.getBaseValue() - OtherInsurance.insuredAmount(m.getId()));
+    }
+
+    /** What a plan insures on the whole fleet (coverage x fleet value when no ship is insured elsewhere). */
+    public static float insuredExposure(InsurancePlan p) {
+        float total = 0f;
+        for (FleetMemberAPI m : fleet()) total += exposure(m, p);
+        return total;
+    }
+
+    /** Ships in the fleet insured elsewhere, and what those policies pay: {ships, credits}. */
+    public static float[] otherCover() {
+        float ships = 0f, credits = 0f;
+        for (FleetMemberAPI m : fleet()) {
+            float other = OtherInsurance.insuredAmount(m.getId());
+            if (other <= 0f) continue;
+            ships++;
+            credits += other;
+        }
+        return new float[]{ships, credits};
+    }
+
+    /** Payouts billed back for recovered hulls at the next month end. */
+    public float getRecoveryDue() {
+        return recoveryDue;
+    }
+
     /** Insurers use credit-based insurance scores: better credit, cheaper cover. */
     public static float creditFactor(CreditScoreManager csm) {
         if (!csm.hasScore()) return 1.5f;
@@ -137,12 +183,12 @@ public class InsuranceManager implements Serializable {
 
     /** Monthly premium of this plan for the current fleet. */
     public float premiumFor(InsurancePlan p, BankData data) {
-        return premiumFor(p, data, fleetValue());
+        return premiumForExposure(p, data, insuredExposure(p));
     }
 
-    /** Same, for a fleet value the caller already has (avoids rescanning the fleet). */
-    public float premiumFor(InsurancePlan p, BankData data, float fleetValue) {
-        return p.getBaseRate() * p.coverage * fleetValue * creditFactor(data.getCreditScoreManager())
+    /** Same, for an insured exposure the caller already has (avoids rescanning the fleet). */
+    public float premiumForExposure(InsurancePlan p, BankData data, float exposure) {
+        return p.getBaseRate() * exposure * creditFactor(data.getCreditScoreManager())
             * claimsFactor() * (1f + data.getInterestEngine().getWarSurcharge());
     }
 
@@ -196,6 +242,7 @@ public class InsuranceManager implements Serializable {
             p.lossTs = now;
             Long joined = firstSeen.get(m.getId());
             p.joinedTs = joined != null ? joined : now;
+            p.otherCover = OtherInsurance.insuredAmount(m.getId()); // the other insurer may close its policy first
             pending.add(p);
         }
     }
@@ -220,6 +267,23 @@ public class InsuranceManager implements Serializable {
         Set<String> keep = new HashSet<String>(inFleet);
         for (PendingClaim p : pending) keep.add(p.memberId);
         firstSeen.keySet().retainAll(keep);
+
+        // A hull paid as lost is back in the fleet: House Varenne paid for it, so the payout is billed back.
+        for (Claim c : claims) {
+            if (c.recovered || c.payout <= 0f || c.memberId == null || !inFleet.contains(c.memberId)) continue;
+            c.recovered = true;
+            recoveryDue += c.payout;
+            data.addTransaction("RECOVERY", -c.payout, Str.f("txd.recovery", c.shipName));
+            Global.getSector().getCampaignUI().addMessage(Str.f("insurance.msg.recovered", c.shipName, Misc.getDGSCredits(c.payout)),
+                Misc.getNegativeHighlightColor());
+        }
+    }
+
+    /** Month end: the recovered-hull payouts to bill now (cleared once taken). */
+    public float takeRecoveryDue() {
+        float due = recoveryDue;
+        recoveryDue = 0f;
+        return due;
     }
 
     private void settle(BankData data, PendingClaim p) {
@@ -227,6 +291,7 @@ public class InsuranceManager implements Serializable {
         c.ts = Global.getSector().getClock().getTimestamp();
         c.shipName = p.shipName;
         c.baseValue = p.baseValue;
+        c.memberId = p.memberId;
         InsurancePlan at = plan;
         if (at == null) {
             c.outcome = "claim.reason.noPolicy";
@@ -237,16 +302,20 @@ public class InsuranceManager implements Serializable {
         } else if (daysBetween(p.joinedTs, p.lossTs) < BankSettings.INSURANCE_WAITING_DAYS) {
             c.outcome = "claim.reason.newShip";
         } else {
-            float due = at.coverage * p.baseValue - at.deductible;
+            // Other insurance clause: only the excess over another policy on this ship (what it covered at the
+            // loss, or what it paid since, whichever is more).
+            float other = Math.max(p.otherCover, OtherInsurance.paidFor(p.memberId, BankSettings.INSURANCE_SETTLE_DAYS + 7f));
+            c.otherPaid = other;
+            float due = at.coverage * p.baseValue - at.deductible - other;
             float room = Math.max(0f, insuredValue * BankSettings.INSURANCE_MONTHLY_CAP_PCT - paidThisMonth);
             if (insuredValue <= 0f) room = Float.MAX_VALUE; // no month end yet: the cap starts with the first premium
             if (due <= 0f) {
-                c.outcome = "claim.reason.deductible";
+                c.outcome = other > 0f ? "claim.reason.otherInsurance" : "claim.reason.deductible";
             } else if (room <= 0f) {
                 c.outcome = "claim.reason.cap";
             } else {
                 c.payout = Math.min(due, room);
-                c.outcome = c.payout < due ? "claim.reason.partial" : "claim.reason.paid";
+                c.outcome = c.payout < due ? "claim.reason.partial" : other > 0f ? "claim.reason.excess" : "claim.reason.paid";
                 paidThisMonth += c.payout;
                 Global.getSector().getPlayerFleet().getCargo().getCredits().add(c.payout);
                 data.addTransaction("CLAIM", c.payout, Str.f("txd.claim", p.shipName));
@@ -274,8 +343,8 @@ public class InsuranceManager implements Serializable {
     public float monthEnd(BankData data, float available) {
         paidThisMonth = 0f;
         if (plan == null) return 0f;
-        float premium = premiumFor(plan, data);
-        insuredValue = plan.coverage * fleetValue();
+        insuredValue = insuredExposure(plan);
+        float premium = premiumForExposure(plan, data, insuredValue);
         if (premium <= available) {
             lastPremium = premium;
             missedPremiums = 0;

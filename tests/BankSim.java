@@ -67,6 +67,9 @@ public class BankSim {
         scenarioLegacyDebtMigration();
         scenarioRelationshipBanking();
         scenarioRelationshipFromBehaviour();
+        scenarioModdedFactions();
+        scenarioOtherInsurance();
+        scenarioRecoveredHull();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -1019,6 +1022,142 @@ public class BankSim {
         check("same-type applications within 45 days count as one inquiry", inq == 2);
     }
 
+    // ------------------------------------------------------------------ mod compatibility (0.4.0)
+
+    /**
+     * The user's sector: the Hiver Swarm holds size 4+ worlds and is hostile to everyone. Older versions put it
+     * on the Sovereign Desk, so every faction counted a war with it and it ran up a sovereign debt.
+     */
+    static void scenarioModdedFactions() {
+        reset(100_000_000f);
+        economySector();
+        for (int i = 0; i < 4; i++) colony("hive" + i, "HIVER", 6, 200_000f);
+        pirateLike.add("HIVER");
+        for (String other : new String[]{"hegemony", "tritachyon", "persean", "pbc"}) relations.put(key("HIVER", other), -0.75f);
+        BankData data = BankData.get();
+        InterestEngine engine = data.getInterestEngine();
+
+        BankSettings.POLITICAL_FACTIONS.add("HIVER"); // what older versions did
+        months(1);
+        int warsBefore = engine.getWarCount();
+        float surchargeBefore = engine.getWarSurcharge();
+        boolean deskBefore = data.getSectorEconomy().getTreasury("HIVER") != null;
+        data.getAssetSeizureManager().simulateFactionDebt("HIVER", 2_000_000f);
+
+        BankSettings.POLITICAL_FACTIONS.clear();       // this version: pirate behaviour in its faction file
+        int msgs = messages.size();
+        months(1);
+        int warsAfter = engine.getWarCount();
+        boolean deskAfter = data.getSectorEconomy().getTreasury("HIVER") != null;
+        float debtAfter = data.getAssetSeizureManager().getFactionDebt("HIVER");
+        boolean announced = false;
+        for (String m : messages.subList(msgs, messages.size())) announced |= m.contains("HIVER");
+        List<String> majors = new ArrayList<String>();
+        for (com.fs.starfarer.api.campaign.FactionAPI f : engine.getMajorFactions()) majors.add(f.getId());
+
+        BankSettings.NON_POLITICAL_FACTIONS.add("persean");
+        boolean perseanOff = true;
+        for (com.fs.starfarer.api.campaign.FactionAPI f : engine.getMajorFactions()) perseanOff &= !"persean".equals(f.getId());
+        BankSettings.NON_POLITICAL_FACTIONS.clear();
+
+        System.out.printf("[modded factions] swarm on the desk: %d wars, surcharge %.0f%%, treasury %s | off the desk: majors %s, %d wars, treasury %s, old debt %.0f, default announced %s%n",
+            warsBefore, surchargeBefore * 100, deskBefore, majors, warsAfter, deskAfter, debtAfter, announced);
+        check("[modded factions] a faction hostile to everyone inflated the war count", warsBefore == 3 && deskBefore);
+        check("[modded factions] pirate behaviour in its faction file keeps it off the Sovereign Desk",
+            !majors.contains("HIVER") && majors.size() == 3 && warsAfter == 0 && !deskAfter);
+        check("[modded factions] its old sovereign debt is closed quietly, not announced as a default", debtAfter == 0f && !announced);
+        check("[modded factions] bos_settings.json can keep any faction off the desk", perseanOff);
+    }
+
+    static Map<String, Float> otherPolicies = new HashMap<String, Float>(), otherPaid = new HashMap<String, Float>();
+
+    /** Nexerelin's insurer, as the tests see it: per-ship policies, and what it paid after a battle. */
+    static void fakeOtherInsurer() {
+        otherPolicies.clear();
+        otherPaid.clear();
+        com.bankofstarsector.compat.OtherInsurance.source = new com.bankofstarsector.compat.OtherInsurance.Source() {
+            public float insuredAmount(String id) { Float v = otherPolicies.get(id); return v != null ? v : 0f; }
+            public float paidFor(String id, float maxAgeDays) { Float v = otherPaid.get(id); return v != null ? v : 0f; }
+        };
+    }
+
+    /** The other insurer settles a loss: pays and closes the policy (Nexerelin does it right after the battle). */
+    static void otherInsurerPays(String id) {
+        Float amount = otherPolicies.remove(id);
+        if (amount == null) return;
+        otherPaid.put(id, amount);
+        credits.set(credits.get() + amount);
+    }
+
+    static void scenarioOtherInsurance() {
+        BankData data = scoredFile(10_000_000f);
+        fakeOtherInsurer();
+        InsuranceManager ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI a = ship("a", 1_000_000f);
+        com.fs.starfarer.api.fleet.FleetMemberAPI b = ship("b", 1_000_000f);
+        ship("c", 1_000_000f);
+        otherPolicies.put("a", 800_000f); // Nexerelin's default: 80% of the base value
+        otherPolicies.put("b", 300_000f); // a smaller policy
+        float standard = ins.premiumFor(InsurancePlan.STANDARD, data);
+        float comprehensive = ins.premiumFor(InsurancePlan.COMPREHENSIVE, data);
+        advanceDays(1);
+        ins.buy(InsurancePlan.COMPREHENSIVE, data);
+        months(1);
+
+        otherInsurerPays("a");            // the other insurer settles before the bank hears of the loss...
+        lose(a, false);
+        lose(b, false);                   // ...or after it
+        otherInsurerPays("b");
+        float before = credits.get();
+        advanceDays(3);
+        float paid = credits.get() - before;
+        InsuranceManager.Claim cb = ins.getClaims().get(0), ca = ins.getClaims().get(1);
+
+        System.out.printf("[other insurance] premiums on the excess: standard %.0f, comprehensive %.0f | ship a (80%% elsewhere): %s %.0f | ship b (30%% elsewhere): %s %.0f%n",
+            standard, comprehensive, ca.outcome, ca.payout, cb.outcome, cb.payout);
+        check("[other insurance] the premium is charged only on the cover this policy adds",
+            Math.abs(standard - 0.008f * (0f + 300_000f + 600_000f)) < 1f && Math.abs(comprehensive - 0.013f * (0f + 500_000f + 800_000f)) < 1f);
+        check("[other insurance] a ship fully paid by the other insurer is not paid twice",
+            ca.payout == 0f && "claim.reason.otherInsurance".equals(ca.outcome));
+        check("[other insurance] a ship partly insured elsewhere is paid the excess: both together = this policy alone",
+            Math.abs(cb.payout + 300_000f - (0.8f * 1_000_000f - 5_000f)) < 1f && "claim.reason.excess".equals(cb.outcome) && Math.abs(paid - cb.payout) < 1f);
+    }
+
+    /** Ship Mastery System's graveyard (or any mod) brings a hull back after the insurer paid for it. */
+    static void scenarioRecoveredHull() {
+        reset(10_000_000f); // no loans: the month end bills only insurance
+        BankData data = BankData.get();
+        InsuranceManager ins = data.getInsuranceManager();
+        com.fs.starfarer.api.fleet.FleetMemberAPI x = ship("x", 1_000_000f);
+        ship("y", 1_000_000f);
+        advanceDays(1);
+        ins.buy(InsurancePlan.STANDARD, data);
+        months(1);
+        lose(x, false);
+        advanceDays(3);
+        float payout = ins.getClaims().get(0).payout;
+
+        advanceDays(5);
+        fleetMembers.add(x);              // salvaged from the graveyard
+        int msgs = messages.size();
+        advanceDays(1);
+        float due = ins.getRecoveryDue();
+        boolean told = messages.size() > msgs;
+        advanceDays(1);
+        float dueNextDay = ins.getRecoveryDue();
+        float premium = ins.premiumFor(InsurancePlan.STANDARD, data);
+        float before = credits.get();
+        advanceDays(15);
+        monthEnd();
+        float charged = before - credits.get();
+
+        System.out.printf("[recovered hull] paid %.0f for the lost hull | back in the fleet: %.0f billed back (next day %.0f), told %s | month end charged %.0f (premium %.0f), still due %.0f%n",
+            payout, due, dueNextDay, told, charged, premium, ins.getRecoveryDue());
+        check("[recovered hull] a hull back in the fleet bills its payout back, once", payout > 0f && due == payout && dueNextDay == payout && told
+            && ins.getClaims().get(0).recovered);
+        check("[recovered hull] the payout is charged at month end with the premium", Math.abs(charged - (payout + premium)) < 1f && ins.getRecoveryDue() == 0f);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     static void reset(float startCredits) {
@@ -1027,6 +1166,10 @@ public class BankSim {
         factions.clear();
         relations.clear();
         fleetMembers.clear();
+        pirateLike.clear();
+        com.bankofstarsector.compat.OtherInsurance.source = null;
+        BankSettings.POLITICAL_FACTIONS.clear();
+        BankSettings.NON_POLITICAL_FACTIONS.clear();
         priceLevel = 1f;
         credits.set(startCredits);
         now = 1_000_000_000L;
@@ -1062,6 +1205,8 @@ public class BankSim {
     static final Map<String, Colony> colonies = new LinkedHashMap<String, Colony>();
     static final Map<String, Object> factions = new HashMap<String, Object>();
     static final Map<String, Float> relations = new HashMap<String, Float>();
+    /** Factions whose faction file sets "pirateBehavior" (modded swarms and raiders). */
+    static final Set<String> pirateLike = new HashSet<String>();
 
     /** A market the tests can shape: size, hazard, income, conditions, industries, owner. */
     static final class Colony {
@@ -1150,6 +1295,7 @@ public class BankSim {
                         String n = m.getName();
                         if (n.equals("getId") || n.equals("getDisplayName")) return id;
                         if (n.equals("isPlayerFaction")) return "player".equals(id);
+                        if (n.equals("getCustomBoolean")) return "pirateBehavior".equals(a[0]) && pirateLike.contains(id);
                         if (n.equals("getRelationship")) return relation(id, (String) a[0]);
                         if (n.equals("adjustRelationship") && a[0] instanceof String) {
                             float cur = relation(id, (String) a[0]) + ((Number) a[1]).floatValue();

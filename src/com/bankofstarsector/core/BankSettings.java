@@ -144,6 +144,9 @@ public class BankSettings {
     public static float MANAGED_FEE = 0.01f;               // per year on venture and military funds, to the PBC
     public static int VENTURE_PORTFOLIO_SIZE = 20;         // stakes in growing NPC markets
     public static float ECONOMY_EMA_MONTHS = 12f;          // smoothing of earnings and spending baselines
+    // Modded factions (economy/PoliticalFactions): force a faction onto the Sovereign Desk, or keep it off
+    public static java.util.Set<String> POLITICAL_FACTIONS = new java.util.HashSet<String>();
+    public static java.util.Set<String> NON_POLITICAL_FACTIONS = new java.util.HashSet<String>();
 
     public static void load() {
         try {
@@ -243,12 +246,15 @@ public class BankSettings {
             MANAGED_FEE = f(j, "managedFundFee", MANAGED_FEE);
             VENTURE_PORTFOLIO_SIZE = i(j, "venturePortfolioSize", VENTURE_PORTFOLIO_SIZE);
             ECONOMY_EMA_MONTHS = Math.max(1f, f(j, "economySmoothingMonths", ECONOMY_EMA_MONTHS));
+            POLITICAL_FACTIONS = ids(j, "politicalFactions");
+            NON_POLITICAL_FACTIONS = ids(j, "nonPoliticalFactions");
             log.info("Bank of Starsector: Settings loaded from " + SETTINGS_FILE);
         } catch (Exception e) {
             log.warn("Bank of Starsector: Could not read " + SETTINGS_FILE + ", using defaults (" + e.getMessage() + ")");
         }
         // In-game settings (LunaLib), when available, take precedence over the JSON file.
         com.bankofstarsector.compat.LunaLibCompat.applyOverrides();
+        com.bankofstarsector.compat.NexerelinCompat.clearCaches();
         Str.load(LANGUAGE);
         Str.applyDescriptions();
     }
@@ -259,5 +265,18 @@ public class BankSettings {
 
     private static int i(JSONObject j, String key, int def) {
         return j.optInt(key, def);
+    }
+
+    /** A JSON array of faction ids (missing = empty). */
+    private static java.util.Set<String> ids(JSONObject j, String key) {
+        java.util.Set<String> out = new java.util.HashSet<String>();
+        org.json.JSONArray a = j.optJSONArray(key);
+        if (a != null) {
+            for (int k = 0; k < a.length(); k++) {
+                String id = a.optString(k, "").trim();
+                if (!id.isEmpty()) out.add(id);
+            }
+        }
+        return out;
     }
 }

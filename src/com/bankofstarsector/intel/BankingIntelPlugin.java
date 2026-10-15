@@ -366,6 +366,13 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             String.format("%.2f", InsuranceManager.creditFactor(data.getCreditScoreManager())),
             "" + ins.paidClaimsLast12Months(), String.format("%.2f", ins.claimsFactor()),
             String.format("%.2f", 1f + data.getInterestEngine().getWarSurcharge()));
+        float[] other = InsuranceManager.otherCover();
+        if (other[0] > 0f) {
+            info.addPara(Str.get("terminal.insurance.other"), 3f, hl, "" + (int) other[0], Misc.getDGSCredits(other[1]));
+        }
+        if (ins.getRecoveryDue() > 0f) {
+            info.addPara(Str.get("terminal.insurance.recoveryDue"), 3f, neg, Misc.getDGSCredits(ins.getRecoveryDue()));
+        }
 
         info.addSpacer(opad);
         heading(info, "terminal.insurance.policy", opad);

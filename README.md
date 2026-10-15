@@ -101,6 +101,8 @@ House Varenne's underwriters insure every ship in your fleet. **Standard** pays 
 - No claims in a new policy's first 30 days, nor for ships that joined the fleet less than 30 days before the loss.
 - Payouts are capped at half the insured value per month.
 - An unpaid premium suspends the cover; a second one cancels the policy.
+- **Other insurance**: a ship that also carries a Nexerelin insurance policy is covered for the excess only. The premium is charged on what the PBC adds over that policy, and a loss pays what the other insurer doesn't, so you are never paid twice for one hull.
+- **Recovered hulls**: if a ship the PBC paid for comes back to your fleet (from Ship Mastery System's graveyard, for example), House Varenne owns that hull: the payout is billed back at the next month end.
 
 </details>
 
@@ -140,9 +142,13 @@ Available once a loan has defaulted, or when your debt exceeds 3× your monthly 
 A full neutral faction with the **Aurum** star system (Bullion, Vault and Ledger Station), a powerful defensive navy, custom fleets (Security Details, Enforcement Fleets, Confederation Task Forces) and a **branch office** at every PBC market. Read its history, charter and relations with every faction in **[LORE.md](LORE.md)**.
 
 ### Mod integration
-- **Nexerelin**: live wars drive interest rates, foreclosure invasions, market transfers after auctions, sovereign defaults. In a Nexerelin random sector, Nexerelin places the PBC markets.
+- **Nexerelin**: live wars drive interest rates, foreclosure invasions, market transfers after auctions, sovereign defaults. In a Nexerelin random sector, Nexerelin places the PBC markets. Nexerelin's faction configs tell the Sovereign Desk which factions are pirates or hostile to everyone, and its per-ship insurance is coordinated with the PBC's fleet insurance (no double payouts).
 - **[NexusUI](https://github.com/TheAlanK/NexusUI)**: a banking dashboard (amounts due, autopay, loans, credit line, insurance, credit trend) with pay/autopay buttons; the data is also exposed to NexusUI's data bridge as `pbc_banking`.
 - **LunaLib**: in-game settings menu and version checker (you get an update notice when a new release is out).
+- **Console Commands**: `bos_status` prints your accounts; `bos_factions` lists every faction holding markets and whether the Sovereign Desk deals with it, and why.
+- **Faction mods**: modded factions with real territory (Interstellar Imperium, Diable Avionics, Aurora, Iron Shell, ScalarTech...) issue bonds, keep treasuries and bid at foreclosure auctions like the vanilla states. Factions that hold markets without being states (the Hiver Swarm, the Starlight Cabal, ArmaA's pirates) are left out automatically: their permanent wars no longer raise loan rates. Move any faction either way with `politicalFactions` / `nonPoliticalFactions` in `bos_settings.json`.
+- **Ship Mastery System**: hulls salvaged from its graveyard after the PBC paid for them are billed back (see Fleet insurance).
+- **Underworld**: the Starlight Cabal's tithe is a share of the credits you carry; deposits and investments at the PBC are out of its reach.
 
 ## FAQ
 
@@ -157,6 +163,12 @@ No. Like most mods that keep campaign data, removing it breaks the save.
 
 **Is it compatible with Nexerelin?**
 Yes, and it uses Nexerelin when it's there: wars, foreclosure invasions, auctions and sovereign defaults follow the live Nexerelin sector. Without Nexerelin everything works except foreclosure by force (colonies stay in receivership).
+
+**Loan rates are stuck at the maximum war surcharge in my modded game. Why?**
+Before 0.4.0, a faction at war with everyone (the Hiver Swarm, for one) counted one war with every other faction. Such factions are now left out of the war count and the Sovereign Desk. Type `bos_factions` in the console to see how each faction is treated, and adjust `politicalFactions` / `nonPoliticalFactions` in `bos_settings.json` if a mod faction is misjudged.
+
+**I use Nexerelin's insurance too. Am I paid twice?**
+No. The PBC's policy covers only the excess over Nexerelin's policy on the same ship, and charges its premium on that excess. With Nexerelin's default 80% cover, a ship insured there adds nothing to the PBC premium.
 
 **Can I farm the credit score by taking and repaying loans?**
 No. The score only rises with months paid on time; instant loans add hard inquiries and young accounts, which lower it.
@@ -187,7 +199,7 @@ English and Brazilian Portuguese. `language` = `auto` follows the system languag
 Saves from earlier versions load fine (every release is checked against the previous version's save format). Requires Starsector 0.98a-RC8. No required dependencies; Nexerelin, NexusUI and LunaLib are optional.
 
 ## For modders and contributors
-- **Building**: `build.ps1` (PowerShell) or `build.bat`. To compile you need the game's `starsector-core` jars plus `ExerelinCore.jar` and `NexusUI.jar`, because the compatibility bridges are compiled against them. At runtime those classes are only loaded when the matching mod is enabled.
+- **Building**: `build.ps1` (PowerShell) or `build.bat`. To compile you need the game's `starsector-core` jars plus the jars of Nexerelin, NexusUI, LunaLib and Console Commands, because the compatibility bridges are compiled against them; `deps.ps1` finds them under `mods/` whatever their folder names (mod managers use versioned folders). At runtime those classes are only loaded when the matching mod is enabled. The install step refuses to run if another folder already holds an enabled copy of the mod.
 - **Testing**: `test.ps1` builds the jar and runs a replay of Starsector's script sandbox rules over every referenced class, a link check against the game's jars on the game's JRE, a format-string safety check, a translation-table check, a save-compatibility check (every field the mod writes into saves is compared with `tests/save-fields.baseline`; see [docs/SAVE_COMPAT.md](docs/SAVE_COMPAT.md)), and a month-by-month simulation of the whole bank. `test.ps1 -Smoke` also launches the real game directly, waits for the main menu and scans `starsector.log` for errors from this mod.
 - See [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -196,6 +208,9 @@ Saves from earlier versions load fine (every release is checked against the prev
 ### 0.4.0-beta (in development)
 - **New:** real money flows: every investment return has a payer (the PBC, faction treasuries, commodity prices, companies' earnings, military spending). Faction treasuries borrow, pay interest and default for real; the Overview's Sovereign Desk shows them.
 - **New:** relationship banking: an internal PBC score (bureau score + up to 25 points for the relationship), relationship pricing (up to −10% on loan rates) and a small return bonus; paying on time improves your relation with the PBC, missed payments and defaults hurt it.
+- **Compatibility:** modded factions that hold markets without being states (pirate behaviour, or Nexerelin's pirate / hostile-to-all flags, like the Hiver Swarm) no longer count as major factions: they no longer pin loan rates at the war surcharge cap, issue bonds or bid at auctions. Overridable in `bos_settings.json`.
+- **Compatibility:** fleet insurance coordinates with Nexerelin's per-ship insurance (excess cover only, premium on the excess), and bills back payouts for hulls that come back to the fleet (Ship Mastery System's graveyard).
+- **New:** Console Commands `bos_status` and `bos_factions`.
 
 ### 0.3.2-beta
 - **Changed:** investment returns follow real long-run asset classes instead of 1–8% a month: savings 3%/yr, government bonds 4.5%, commodity futures 4%, venture fund 12%, military contracts 9%, each with realistic volatility. Wartime, sovereign-debt and shortage effects are realistic too. A new `investmentReturnMultiplier` setting lets you raise them.

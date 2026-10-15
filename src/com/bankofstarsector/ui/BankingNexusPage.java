@@ -37,7 +37,7 @@ public class BankingNexusPage implements NexusPage {
     private JLabel heldLabel;
     private JLabel trendLabel, changeLabel;
     private JLabel internalLabel, relationLabel;
-    private JLabel insPlanLabel, insPremiumLabel, insStatusLabel, insFleetLabel, insClaimsLabel;
+    private JLabel insPlanLabel, insPremiumLabel, insStatusLabel, insFleetLabel, insClaimsLabel, insOtherLabel;
     private JLabel lineBalanceLabel, lineLimitLabel, lineAvailableLabel, lineUtilLabel, lineMinLabel, lineStatementLabel, lineAutopayLabel;
     private JButton payStatementButton;
     private JLabel creditsLabel;
@@ -136,6 +136,7 @@ public class BankingNexusPage implements NexusPage {
         insStatusLabel = addLabelRow(insCard, Str.get("nexus.insStatus"), "--");
         insFleetLabel = addLabelRow(insCard, Str.get("nexus.insFleet"), "--");
         insClaimsLabel = addLabelRow(insCard, Str.get("nexus.insClaims"), "--");
+        insOtherLabel = addLabelRow(insCard, Str.get("nexus.insOther"), "--");
         mainPanel.add(insCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
@@ -218,7 +219,11 @@ public class BankingNexusPage implements NexusPage {
             set(insStatusLabel, status, s.insuranceLapsed ? NEGATIVE : s.insuranceWaitingDays > 0 ? GOLD : POSITIVE);
         }
         set(insFleetLabel, formatCredits(s.fleetValue), TEXT_PRIMARY);
-        set(insClaimsLabel, Str.f("nexus.insClaimsValue", s.insuranceClaims12, s.insurancePending), TEXT_PRIMARY);
+        String claims = Str.f("nexus.insClaimsValue", s.insuranceClaims12, s.insurancePending);
+        if (s.insuranceRecoveryDue > 0f) claims += " | " + Str.f("nexus.insRecoveryDue", formatCredits(s.insuranceRecoveryDue));
+        set(insClaimsLabel, claims, s.insuranceRecoveryDue > 0f ? NEGATIVE : TEXT_PRIMARY);
+        set(insOtherLabel, s.insuranceOtherShips > 0 ? Str.f("nexus.insOtherValue", s.insuranceOtherShips, formatCredits(s.insuranceOtherCover)) : "--",
+            s.insuranceOtherShips > 0 ? TEXT_PRIMARY : TEXT_SECONDARY);
 
         set(internalLabel, s.internalScore > 0 ? String.valueOf(s.internalScore) : "--",
             s.internalScore > 0 ? getScoreColor(s.internalScore) : TEXT_SECONDARY);

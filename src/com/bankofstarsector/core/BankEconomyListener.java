@@ -111,6 +111,13 @@ public class BankEconomyListener implements EconomyTickListener {
             available -= premium;
         }
 
+        // 3c. Hulls paid as lost that came back to the fleet: their payouts go back to the insurer
+        float recovery = data.getInsuranceManager().takeRecoveryDue();
+        if (recovery > 0f) {
+            getRecoveryNode(report).upkeep += recovery;
+            available -= recovery;
+        }
+
         // 4. Whatever is still unpaid is a missed payment
         lm.markMissedPayments();
         lm.reviewCreditLines(data.getCreditScoreManager());
@@ -133,10 +140,11 @@ public class BankEconomyListener implements EconomyTickListener {
 
         float relationDelta = data.getCreditScoreManager().relationChangeThisMonth();
         boolean relationMoved = Math.abs(relationDelta) >= 0.001f;
-        if (billed > 0f || garnish > 0f || seized > 0f || stillDue > 1f || relationMoved) {
+        if (billed > 0f || garnish > 0f || seized > 0f || stillDue > 1f || relationMoved || recovery > 0f) {
             String msg = com.bankofstarsector.core.Str.f("statement.paid", Misc.getDGSCredits(autopaid));
             if (seized > 0f) msg += com.bankofstarsector.core.Str.f("statement.seized", Misc.getDGSCredits(seized));
             if (garnish > 0f) msg += com.bankofstarsector.core.Str.f("statement.garnished", Misc.getDGSCredits(garnish));
+            if (recovery > 0f) msg += com.bankofstarsector.core.Str.f("statement.recovery", Misc.getDGSCredits(recovery));
             if (dueNextMonth > 1f) msg += com.bankofstarsector.core.Str.f("statement.dueNext", Misc.getDGSCredits(dueNextMonth));
             if (stillDue > 1f) msg += com.bankofstarsector.core.Str.f("statement.pastDue", Misc.getDGSCredits(stillDue));
             if (relationMoved) msg += com.bankofstarsector.core.Str.f("statement.relation", String.format("%+.1f", relationDelta * 100f));
@@ -175,6 +183,22 @@ public class BankEconomyListener implements EconomyTickListener {
             node.name = com.bankofstarsector.core.Str.get("report.insurance");
             node.icon = crest();
             node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.insurance.tooltip"));
+        }
+        return node;
+    }
+
+    private static FDNode getRecoveryNode(MonthlyReport report) {
+        FDNode fleetNode = report.getNode(MonthlyReport.FLEET);
+        if (fleetNode.name == null) {
+            fleetNode.name = "Fleet";
+            fleetNode.custom = MonthlyReport.FLEET;
+            fleetNode.tooltipCreator = report.getMonthlyReportTooltip();
+        }
+        FDNode node = report.getNode(fleetNode, "bos_insurance_recovery");
+        if (node.name == null) {
+            node.name = com.bankofstarsector.core.Str.get("report.recovery");
+            node.icon = crest();
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.recovery.tooltip"));
         }
         return node;
     }
