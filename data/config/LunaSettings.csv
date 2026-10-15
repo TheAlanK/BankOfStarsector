@@ -4,6 +4,7 @@ bos_language,Language / Idioma,Radio,auto,"auto,en,pt_BR","auto = follow the sys
 bos_interestHeader,Interest,Header,Interest rates,,,,,Interest
 bos_warSurchargePerWar,War surcharge per war,Double,0.05,,Loan rates rise by this fraction for every war between major factions.,0,0.2,Interest
 bos_warSurchargeMax,War surcharge cap,Double,0.25,,Maximum total war surcharge on loan rates.,0,1,Interest
+bos_warSurchargeReferenceStates,War surcharge: reference states,Int,6,,"Up to this many major factions, each war adds the full surcharge. With more (big faction mod lists), wars count by their share of all faction pairs.",2,40,Interest
 bos_overduePenaltyPerMonth,Penalty interest per month overdue,Double,0.5,,Overdue loans accrue base rate x (1 + this x months overdue).,0,3,Interest
 bos_marketDisruptionModifier,Market disruption weight,Double,0.1,,How strongly disrupted industries raise loan rates and drag investment returns.,0,1,Interest
 bos_builderHeader,Credit builder,Header,Credit-builder loan,,,,,Interest

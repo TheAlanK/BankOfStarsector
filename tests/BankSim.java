@@ -68,6 +68,7 @@ public class BankSim {
         scenarioRelationshipBanking();
         scenarioRelationshipFromBehaviour();
         scenarioModdedFactions();
+        scenarioWarSurchargeScales();
         scenarioOtherInsurance();
         scenarioRecoveredHull();
 
@@ -1067,6 +1068,41 @@ public class BankSim {
             !majors.contains("HIVER") && majors.size() == 3 && warsAfter == 0 && !deskAfter);
         check("[modded factions] its old sovereign debt is closed quietly, not announced as a default", debtAfter == 0f && !announced);
         check("[modded factions] bos_settings.json can keep any faction off the desk", perseanOff);
+    }
+
+    /** States holding a size 4 market each, and wars between the first ones listed in pairs. */
+    static float surchargeWith(String[] states, String[][] wars) {
+        reset(1_000_000f);
+        for (String s : states) colony(s + "_world", s, 4, 50_000f);
+        for (String[] w : wars) relations.put(key(w[0], w[1]), -0.8f);
+        advanceDays(1);
+        return BankData.get().getInterestEngine().getWarSurcharge();
+    }
+
+    /** Big faction lists: 15 wars among 13 states must not pin the surcharge at its cap; vanilla-sized sectors are unchanged. */
+    static void scenarioWarSurchargeScales() {
+        String[] vanilla = {"hegemony", "tritachyon", "persean", "sindrian_diktat", "luddic_church", "independent"};
+        String[][] three = {{"hegemony", "tritachyon"}, {"sindrian_diktat", "persean"}, {"luddic_church", "tritachyon"}};
+        String[][] five = {{"hegemony", "tritachyon"}, {"sindrian_diktat", "persean"}, {"luddic_church", "tritachyon"},
+            {"hegemony", "independent"}, {"persean", "luddic_church"}};
+        float vanilla3 = surchargeWith(vanilla, three);
+        float vanilla5 = surchargeWith(vanilla, five);
+        String[] modded = {"hegemony", "tritachyon", "persean", "sindrian_diktat", "luddic_church", "independent",
+            "interstellarimperium", "uaf", "ironshell", "scalartech", "diableavionics", "valkyrian", "MVS"};
+        String[][] fifteen = {{"hegemony", "interstellarimperium"}, {"hegemony", "uaf"}, {"hegemony", "valkyrian"}, {"hegemony", "persean"},
+            {"hegemony", "diableavionics"}, {"interstellarimperium", "luddic_church"}, {"interstellarimperium", "ironshell"},
+            {"interstellarimperium", "diableavionics"}, {"tritachyon", "luddic_church"}, {"luddic_church", "diableavionics"},
+            {"uaf", "sindrian_diktat"}, {"persean", "ironshell"}, {"ironshell", "diableavionics"}, {"MVS", "hegemony"}, {"scalartech", "valkyrian"}};
+        float modded15 = surchargeWith(modded, fifteen);
+        int states = BankData.get().getInterestEngine().getStateCount();
+        float small = surchargeWith(new String[]{"hegemony", "tritachyon", "persean"}, new String[][]{{"hegemony", "tritachyon"}});
+        System.out.printf("[war surcharge] 6 states: 3 wars %.1f%%, 5 wars %.1f%% | %d states, 15 wars: %.1f%% (was 25%% capped) | 3 states, 1 war: %.1f%%%n",
+            vanilla3 * 100, vanilla5 * 100, states, modded15 * 100, small * 100);
+        check("[war surcharge] vanilla-sized sectors keep 5% per war and the 25% cap",
+            Math.abs(vanilla3 - 0.15f) < 1e-4 && Math.abs(vanilla5 - 0.25f) < 1e-4);
+        check("[war surcharge] 15 wars among 13 states count by their share of the 78 pairs (14.4%)",
+            states == 13 && Math.abs(modded15 - 15 * 0.05f * 15f / 78f) < 1e-4);
+        check("[war surcharge] a small sector is not scaled up", Math.abs(small - 0.05f) < 1e-4);
     }
 
     static Map<String, Float> otherPolicies = new HashMap<String, Float>(), otherPaid = new HashMap<String, Float>();

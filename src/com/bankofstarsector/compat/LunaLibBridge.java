@@ -17,6 +17,7 @@ final class LunaLibBridge {
         if (lang != null && !lang.isEmpty()) BankSettings.LANGUAGE = lang;
         BankSettings.WAR_SURCHARGE_PER_WAR = f("bos_warSurchargePerWar", BankSettings.WAR_SURCHARGE_PER_WAR);
         BankSettings.WAR_SURCHARGE = f("bos_warSurchargeMax", BankSettings.WAR_SURCHARGE);
+        BankSettings.WAR_REFERENCE_STATES = Math.max(2, i("bos_warSurchargeReferenceStates", BankSettings.WAR_REFERENCE_STATES));
         BankSettings.OVERDUE_PENALTY_PER_MONTH = f("bos_overduePenaltyPerMonth", BankSettings.OVERDUE_PENALTY_PER_MONTH);
         BankSettings.MARKET_DISRUPTION_RATE_MODIFIER = f("bos_marketDisruptionModifier", BankSettings.MARKET_DISRUPTION_RATE_MODIFIER);
         BankSettings.OVERDUE_PHASE1_DAYS = i("bos_overduePhase1Days", BankSettings.OVERDUE_PHASE1_DAYS);

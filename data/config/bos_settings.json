@@ -5,7 +5,8 @@
 
 	# Interest
 	"warSurchargeMax":0.25,             # cap on the war surcharge applied to loan rates
-	"warSurchargePerWar":0.05,          # +5% per active war between major factions
+	"warSurchargePerWar":0.05,          # +5% per active war between major factions...
+	"warSurchargeReferenceStates":6,    # ...up to this many major factions; with more, wars count by their share of all pairs
 	"overduePenaltyPerMonth":0.5,       # overdue loans accrue +50% interest per month overdue
 	"marketDisruptionModifier":0.10,    # share of disrupted markets that drags investment returns
 

@@ -47,7 +47,7 @@ Five loan tiers, from an Emergency Loan (50k) to a Sovereign Loan (5M), repaid i
 <details><summary>Loan details: credit-builder loan, rates and the interest engine</summary>
 
 - **Credit-builder loan**: for captains with no credit score or a low one (under 500), including during bankruptcy recovery. You borrow 10k–50k, but the money stays at the bank while you pay the installments (12 months, 1%/month fixed); when the loan is paid off, the money is yours. Each month paid on time builds your credit file. It doesn't count toward your loan limit, and if it defaults the bank simply keeps the deposit (no Collection Fleet), but the charge-off still goes on your credit report.
-- **Interest engine**: each war between major factions adds +5% to loan rates, up to +25% (with Nexerelin this follows its live wars). Disrupted industries across the sector also make loans more expensive. Your credit bracket adjusts the rate (−15% / 0 / +20% / +50%).
+- **Interest engine**: each war between major factions adds +5% to loan rates, up to +25% (with Nexerelin this follows its live wars). In a Sector with more than six states (big faction mod lists), wars count by their share of all the pairs of states, so 15 wars among 13 states add about 14%. Disrupted industries across the sector also make loans more expensive. Your credit bracket adjusts the rate (−15% / 0 / +20% / +50%).
 - **Branch office**: apply for any amount with a slider, review the terms, then sign.
 
 </details>
@@ -146,7 +146,7 @@ A full neutral faction with the **Aurum** star system (Bullion, Vault and Ledger
 - **[NexusUI](https://github.com/TheAlanK/NexusUI)**: a banking dashboard (amounts due, autopay, loans, credit line, insurance, credit trend) with pay/autopay buttons; the data is also exposed to NexusUI's data bridge as `pbc_banking`.
 - **LunaLib**: in-game settings menu and version checker (you get an update notice when a new release is out).
 - **Console Commands**: `bos_status` prints your accounts; `bos_factions` lists every faction holding markets and whether the Sovereign Desk deals with it, and why.
-- **Faction mods**: modded factions with real territory (Interstellar Imperium, Diable Avionics, Aurora, Iron Shell, ScalarTech...) issue bonds, keep treasuries and bid at foreclosure auctions like the vanilla states. Factions that hold markets without being states (the Hiver Swarm, the Starlight Cabal, ArmaA's pirates) are left out automatically: their permanent wars no longer raise loan rates. Move any faction either way with `politicalFactions` / `nonPoliticalFactions` in `bos_settings.json`.
+- **Faction mods**: modded factions with real territory (Interstellar Imperium, Diable Avionics, Aurora, Iron Shell, ScalarTech...) issue bonds, keep treasuries and bid at foreclosure auctions like the vanilla states. Factions that hold markets without being states (the Hiver Swarm, the Starlight Cabal, ArmaA's pirates) are left out automatically: their permanent wars no longer count in the war surcharge, faction war costs or bond yields. Move any faction either way with `politicalFactions` / `nonPoliticalFactions` in `bos_settings.json`.
 - **Ship Mastery System**: hulls salvaged from its graveyard after the PBC paid for them are billed back (see Fleet insurance).
 - **Underworld**: the Starlight Cabal's tithe is a share of the credits you carry; deposits and investments at the PBC are out of its reach.
 
@@ -164,8 +164,8 @@ No. Like most mods that keep campaign data, removing it breaks the save.
 **Is it compatible with Nexerelin?**
 Yes, and it uses Nexerelin when it's there: wars, foreclosure invasions, auctions and sovereign defaults follow the live Nexerelin sector. Without Nexerelin everything works except foreclosure by force (colonies stay in receivership).
 
-**Loan rates are stuck at the maximum war surcharge in my modded game. Why?**
-Before 0.4.0, a faction at war with everyone (the Hiver Swarm, for one) counted one war with every other faction. Such factions are now left out of the war count and the Sovereign Desk. Type `bos_factions` in the console to see how each faction is treated, and adjust `politicalFactions` / `nonPoliticalFactions` in `bos_settings.json` if a mod faction is misjudged.
+**Were loan rates stuck at the maximum war surcharge in my modded game?**
+Probably, before 0.4.0. The surcharge adds 5% per war, up to 25%, so five wars reached the cap, and a new Nexerelin game with Imperium, Aurora, Iron Shell, Diable Avionics and friends starts with about 15 wars among 13 states; the Hiver Swarm, at war with everyone, added 13 more. Since 0.4.0 factions at war with everyone no longer count, and with more than six states wars count by their share of all the pairs (`warSurchargeReferenceStates`, also in LunaLib): those 15 wars add about 14%. Type `bos_status` or `bos_factions` in the console to see the wars and how each faction is treated, and adjust `politicalFactions` / `nonPoliticalFactions` in `bos_settings.json` if a mod faction is misjudged.
 
 **I use Nexerelin's insurance too. Am I paid twice?**
 No. The PBC's policy covers only the excess over Nexerelin's policy on the same ship, and charges its premium on that excess. With Nexerelin's default 80% cover, a ship insured there adds nothing to the PBC premium.
@@ -208,7 +208,8 @@ Saves from earlier versions load fine (every release is checked against the prev
 ### 0.4.0-beta (in development)
 - **New:** real money flows: every investment return has a payer (the PBC, faction treasuries, commodity prices, companies' earnings, military spending). Faction treasuries borrow, pay interest and default for real; the Overview's Sovereign Desk shows them.
 - **New:** relationship banking: an internal PBC score (bureau score + up to 25 points for the relationship), relationship pricing (up to −10% on loan rates) and a small return bonus; paying on time improves your relation with the PBC, missed payments and defaults hurt it.
-- **Compatibility:** modded factions that hold markets without being states (pirate behaviour, or Nexerelin's pirate / hostile-to-all flags, like the Hiver Swarm) no longer count as major factions: they no longer pin loan rates at the war surcharge cap, issue bonds or bid at auctions. Overridable in `bos_settings.json`.
+- **Compatibility:** modded factions that hold markets without being states (pirate behaviour, or Nexerelin's pirate / hostile-to-all flags, like the Hiver Swarm) no longer count as major factions: no wars counted against every state, no bonds, treasury or auction bids. Overridable in `bos_settings.json`.
+- **Compatibility:** with more than six states, the war surcharge counts wars by their share of all the pairs of states, so big faction lists no longer sit at the 25% cap (15 wars among 13 states: about 14%).
 - **Compatibility:** fleet insurance coordinates with Nexerelin's per-ship insurance (excess cover only, premium on the excess), and bills back payouts for hulls that come back to the fleet (Ship Mastery System's graveyard).
 - **New:** Console Commands `bos_status` and `bos_factions`.
 

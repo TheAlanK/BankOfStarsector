@@ -345,7 +345,7 @@
 	"terminal.overview.netCashFlow":"Net Cash Flow: %s/mo",
 
 	"terminal.sector.heading":"Sector Conditions",
-	"terminal.sector.wars":"Wars between major factions: %s  |  War surcharge on loans: +%s%%",
+	"terminal.sector.wars":"Wars between major factions: %s of %s pairs (%s states)  |  War surcharge on loans: +%s%%",
 	"terminal.sector.disruption":"Market disruption: %s%%  (loan rates +%s%%, investment returns -%s%%, commodity futures +%s%%)",
 	"terminal.sovereign.heading":"The Sovereign Desk",
 
@@ -603,7 +603,8 @@
 	"console.status.investments":"Investments: %s held, worth %s",
 	"console.status.insurance":"Insurance: %s  |  premium %s/mo on %s insured  |  insured elsewhere: %s ships (%s)  |  billed back: %s",
 	"console.status.noInsurance":"none",
-	"console.status.desk":"Sovereign Desk: %s factions  |  war surcharge %s  |  PBC reserves %s",
+	"console.status.desk":"Sovereign Desk: %s factions  |  %s wars among %s states  |  war surcharge %s  |  PBC reserves %s",
+	"nexus.warValue":"+%s%% (%s wars, %s states)",
 	"console.factions.title":"Factions holding markets, and how the Sovereign Desk treats them:",
 	"console.factions.political":"  %s (%s): %s markets, %s of size 4+  ->  on the desk%s",
 	"console.factions.treasury":"  |  treasury %s, owes %s, yield %s",

@@ -181,9 +181,10 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
         info.addSpacer(opad);
         heading(info, "terminal.sector.heading", opad);
+        int states = engine.getStateCount();
         info.addPara(Str.get("terminal.sector.wars"), opad,
             warSurcharge > 0 ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(),
-            "" + engine.getWarCount(), pct(warSurcharge, "%.0f"));
+            "" + engine.getWarCount(), "" + states * (states - 1) / 2, "" + states, pct(warSurcharge, "%.0f"));
         String d = pct(disruption, "%.1f");
         info.addPara(Str.get("terminal.sector.disruption"), opad,
             disruption > 0 ? Misc.getNegativeHighlightColor() : Misc.getHighlightColor(), d, d, d, d);

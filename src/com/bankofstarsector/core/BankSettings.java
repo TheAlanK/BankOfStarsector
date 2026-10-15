@@ -20,6 +20,7 @@ public class BankSettings {
     // Interest rate modifiers
     public static float WAR_SURCHARGE = 0.25f;
     public static float WAR_SURCHARGE_PER_WAR = 0.05f;
+    public static int WAR_REFERENCE_STATES = 6;           // more states than this: each war weighs reference pairs / state pairs
     public static float OVERDUE_PENALTY_PER_MONTH = 0.50f;
     public static float MARKET_DISRUPTION_RATE_MODIFIER = 0.10f;
 
@@ -154,6 +155,7 @@ public class BankSettings {
             LANGUAGE = j.optString("language", LANGUAGE);
             WAR_SURCHARGE = f(j, "warSurchargeMax", WAR_SURCHARGE);
             WAR_SURCHARGE_PER_WAR = f(j, "warSurchargePerWar", WAR_SURCHARGE_PER_WAR);
+            WAR_REFERENCE_STATES = Math.max(2, i(j, "warSurchargeReferenceStates", WAR_REFERENCE_STATES));
             OVERDUE_PENALTY_PER_MONTH = f(j, "overduePenaltyPerMonth", OVERDUE_PENALTY_PER_MONTH);
             MARKET_DISRUPTION_RATE_MODIFIER = f(j, "marketDisruptionModifier", MARKET_DISRUPTION_RATE_MODIFIER);
             CREDIT_SCORE_DEFAULT = i(j, "creditScoreDefault", CREDIT_SCORE_DEFAULT);

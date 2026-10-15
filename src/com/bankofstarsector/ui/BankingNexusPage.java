@@ -264,7 +264,8 @@ public class BankingNexusPage implements NexusPage {
             payStatementButton.setEnabled(s.lineStatementDue + s.lineMinimumDue > 1);
         }
         fillList(investmentsPanel, s.investments, Str.get("terminal.invest.none"));
-        set(warSurchargeLabel, String.format("+%.0f%%", s.warSurcharge * 100), s.warSurcharge > 0 ? NEGATIVE : TEXT_PRIMARY);
+        set(warSurchargeLabel, Str.f("nexus.warValue", String.format("%.0f", s.warSurcharge * 100), s.wars, s.states),
+            s.warSurcharge > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(disruptionLabel, String.format("%.1f%%", s.disruption * 100), s.disruption > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(sovereignLabel, formatCredits(s.sovereignDebt), TEXT_PRIMARY);
         set(reservesLabel, formatCredits(s.pbcReserves), TEXT_PRIMARY);

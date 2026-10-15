@@ -54,7 +54,8 @@ public class BosStatus implements BaseCommand {
             Misc.getDGSCredits(ins.getRecoveryDue()))).append('\n');
 
         sb.append(Str.f("console.status.desk", data.getSectorEconomy().getTreasuries().size(),
-            String.format("%.0f%%", data.getInterestEngine().getWarSurcharge() * 100f),
+            data.getInterestEngine().getWarCount(), data.getInterestEngine().getStateCount(),
+            String.format("%.1f%%", data.getInterestEngine().getWarSurcharge() * 100f),
             Misc.getDGSCredits(data.getSectorEconomy().getLedger().reserves)));
         Console.showMessage(sb.toString());
         return CommandResult.SUCCESS;

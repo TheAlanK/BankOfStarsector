@@ -27,6 +27,8 @@ public final class BankSnapshot {
     public final float netWorth, credits, debt, invested, held, late, dueNow, warSurcharge, disruption, sovereignDebt;
     public final boolean autopay, restricted;
     public final int score;
+    /** 0.4.0: wars among the major factions and how many there are (the surcharge scales with the share of pairs). */
+    public final int wars, states;
     /** Relationship banking (0.4.0): PBC relation -1..1, its level name, and the PBC's internal score. */
     public final float pbcRelation, rateFactor;
     public final String pbcRelationLevel;
@@ -124,6 +126,8 @@ public final class BankSnapshot {
         scoreText = data.getCreditScoreManager().getScoreText();
         bracket = data.getCreditScoreManager().getBracket();
         warSurcharge = engine.getWarSurcharge();
+        wars = engine.getWarCount();
+        states = engine.getStateCount();
         disruption = engine.getMarketDisruptionModifier();
         sovereignDebt = data.getAssetSeizureManager().getTotalSovereignDebt();
         bankruptcyState = data.getBankruptcyManager().getState().name();
@@ -266,6 +270,7 @@ public final class BankSnapshot {
             o.put("internalScore", internalScore > 0 ? (Object) Integer.valueOf(internalScore) : JSONObject.NULL);
             o.put("relationshipRateFactor", rateFactor);
             o.put("warSurcharge", warSurcharge);
+            o.put("wars", wars).put("majorFactions", states);
             o.put("marketDisruption", disruption);
             o.put("sovereignDebt", sovereignDebt);
             o.put("bankruptcy", bankruptcyState);

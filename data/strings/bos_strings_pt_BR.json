@@ -345,7 +345,7 @@
 	"terminal.overview.netCashFlow":"Fluxo de caixa líquido: %s/mês",
 
 	"terminal.sector.heading":"Situação do Setor",
-	"terminal.sector.wars":"Guerras entre facções principais: %s  |  Adicional de guerra nos empréstimos: +%s%%",
+	"terminal.sector.wars":"Guerras entre facções principais: %s de %s pares (%s Estados)  |  Adicional de guerra nos empréstimos: +%s%%",
 	"terminal.sector.disruption":"Interrupção de mercados: %s%%  (juros dos empréstimos +%s%%, rendimento dos investimentos -%s%%, futuros de commodities +%s%%)",
 	"terminal.sovereign.heading":"A Mesa Soberana",
 
@@ -609,7 +609,8 @@
 	"console.status.investments":"Aplicações: %s, valendo %s",
 	"console.status.insurance":"Seguro: %s  |  prêmio %s/mês sobre %s segurados  |  segurado em outro lugar: %s naves (%s)  |  a devolver: %s",
 	"console.status.noInsurance":"nenhum",
-	"console.status.desk":"Mesa Soberana: %s facções  |  sobretaxa de guerra %s  |  reservas do PBC %s",
+	"console.status.desk":"Mesa Soberana: %s facções  |  %s guerras entre %s Estados  |  adicional de guerra %s  |  reservas do PBC %s",
+	"nexus.warValue":"+%s%% (%s guerras, %s Estados)",
 	"console.factions.title":"Facções com mercados, e como a Mesa Soberana as trata:",
 	"console.factions.political":"  %s (%s): %s mercados, %s de tamanho 4+  ->  na mesa%s",
 	"console.factions.treasury":"  |  tesouro %s, deve %s, rendimento %s",

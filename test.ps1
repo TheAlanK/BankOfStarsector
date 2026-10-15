@@ -70,9 +70,11 @@ if ($Smoke) {
             $fs.Seek($start, 'Begin') | Out-Null
             $text = (New-Object IO.StreamReader($fs)).ReadToEnd()
         } finally { $fs.Close() }
-        # No main-menu marker exists in the log: loaded = our plugin ran and the log went quiet.
+        # The title screen builds the Codex after every mod has loaded: loaded = our plugin ran, the Codex was
+        # parsed and the log went quiet. A fatal startup error (any mod) stops the game at a dialog.
+        if ($text -match 'ERROR com\.fs\.starfarer\.combat\.CombatMain') { break }
         if ($text.Length -ne $lastLen) { $lastLen = $text.Length; $quietSince = Get-Date }
-        elseif ($text -match 'Bank of Starsector v' -and ((Get-Date) - $quietSince).TotalSeconds -ge 25) { break }
+        elseif ($text -match 'Bank of Starsector v' -and $text -match 'CodexTextEntryLoader' -and ((Get-Date) - $quietSince).TotalSeconds -ge 20) { break }
     }
     $killed = $false
     if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force; $killed = $true }
@@ -81,10 +83,17 @@ if ($Smoke) {
     $foreign = $text -split "`n" | Where-Object { $_ -match '^\d+ +\[[^\]]+\] ERROR' -and $_ -notmatch 'com\.bankofstarsector' }
     if ($foreign) { Write-Host 'Errors from OTHER mods/game (not counted against this mod):' -ForegroundColor Yellow; $foreign | Select-Object -First 5 | ForEach-Object { Write-Host ($_.Trim().Substring(0, [Math]::Min(200, $_.Trim().Length))) -ForegroundColor Yellow } }
     if (-not $killed -and $p.ExitCode -ne 0) { Write-Host "!!! game exited early (code $($p.ExitCode))" -ForegroundColor Red; $failed++ }
+    # A fatal startup error (any mod) shows a dialog and the log goes quiet, which looks like a loaded game.
+    $fatal = $text -split "`n" | Where-Object { $_ -match 'ERROR com\.fs\.starfarer\.combat\.CombatMain' } | Select-Object -First 1
     $errors = $text -split "`n" | Where-Object { $_ -match '(ERROR|Exception|Caused by)' -and $_ -match 'com\.bankofstarsector|BOS:|Bank of Starsector:' }
-    if ($errors) { $errors | ForEach-Object { Write-Host $_.Trim() -ForegroundColor Red }; $failed++ }
+    if ($fatal) {
+        Write-Host "!!! the game stopped at a fatal startup error, so it never reached the main menu:" -ForegroundColor Red
+        Write-Host ($fatal.Trim().Substring(0, [Math]::Min(300, $fatal.Trim().Length))) -ForegroundColor Red
+        $failed++
+    }
+    elseif ($errors) { $errors | ForEach-Object { Write-Host $_.Trim() -ForegroundColor Red }; $failed++ }
     elseif (-not ($text -match 'Bank of Starsector v')) { Write-Host '!!! mod plugin never loaded' -ForegroundColor Red; $failed++ }
-    else { Write-Host 'SMOKE OK: mod data and plugin loaded without errors' }
+    else { Write-Host 'SMOKE OK: reached the main menu; mod data and plugin loaded without errors' }
 }
 
 Write-Host ""

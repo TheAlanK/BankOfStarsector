@@ -21,10 +21,14 @@ Bank of Starsector
 - Compatibility: factions that hold markets without being states are no longer major factions: factions with
   pirate behaviour in their faction file, and those Nexerelin flags as pirates or hostile to everyone (the
   Hiver Swarm, the Starlight Cabal, ArmaA's pirates). A swarm at war with everyone used to add one war per
-  faction, pinning loan rates and insurance premiums at the war surcharge cap; it also issued bonds, ran up
-  sovereign debt and could bid at foreclosure auctions. Older saves close such a faction's sovereign book
+  faction (13 in a new game with a big mod list) to the war surcharge, every treasury's war costs and every
+  bond yield; it also issued bonds, ran up sovereign debt and could bid at foreclosure auctions. Older saves close such a faction's sovereign book
   quietly (no default). New settings politicalFactions / nonPoliticalFactions override the classification.
   On a new game the PBC is hostile to modded raider factions, like the vanilla pirates.
+- Compatibility: the war surcharge scales with the size of the Sector. Up to six states (vanilla) each war
+  still adds 5%; with more, wars count by their share of all the pairs of states. A new Nexerelin game with a
+  big faction list (13 states, 15 wars) gets about 14% instead of the 25% cap. New setting
+  warSurchargeReferenceStates (JSON and LunaLib). The terminal, NexusUI and bos_status show the wars and states.
 - Compatibility: fleet insurance has an "other insurance" clause. A ship also insured by Nexerelin's insurer
   is covered for the excess only: the premium is charged on what the PBC adds over that policy, and a loss
   pays what the other insurer does not. Shown in the terminal, the branch office and NexusUI.

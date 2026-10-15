@@ -24,7 +24,7 @@ public class InterestEngine implements Serializable {
     // Transient: not saved, recomputed after a load.
     private transient long sectorCacheTs;
     private transient boolean sectorCacheValid;
-    private transient int cachedWarCount;
+    private transient int cachedWarCount, cachedStateCount;
     private transient float cachedDisruption;
 
     /** Loan rate: base rate, raised by war, scaled by the credit bracket shown in the terminal. */
@@ -80,11 +80,33 @@ public class InterestEngine implements Serializable {
         sectorCacheValid = true;
     }
 
-    /** +5% per war between major political factions (dynamic with Nexerelin), capped. */
+    /**
+     * +5% per war between major political factions (dynamic with Nexerelin), capped. Wars count by their share
+     * of the state pairs: up to the reference number of states (vanilla's six) each war adds the full 5%; a
+     * bigger Sector scales it down, so 15 wars among 13 modded states weigh like 2.9 among six.
+     */
     public float getWarSurcharge() {
         int warCount = getWarCount();
         if (warCount <= 0) return 0f;
-        return Math.min(BankSettings.WAR_SURCHARGE, warCount * BankSettings.WAR_SURCHARGE_PER_WAR);
+        return Math.min(BankSettings.WAR_SURCHARGE, warCount * BankSettings.WAR_SURCHARGE_PER_WAR * getWarScale());
+    }
+
+    /** What one war weighs in the surcharge: 1 up to the reference number of states, then reference pairs / state pairs. */
+    public float getWarScale() {
+        refreshSectorCache();
+        return warScale(cachedStateCount, BankSettings.WAR_REFERENCE_STATES);
+    }
+
+    static float warScale(int states, int referenceStates) {
+        long pairs = (long) states * (states - 1) / 2;
+        long referencePairs = (long) referenceStates * (referenceStates - 1) / 2;
+        return pairs <= referencePairs || referencePairs <= 0 ? 1f : (float) referencePairs / pairs;
+    }
+
+    /** Major political factions counted in the war surcharge (cached per game day). */
+    public int getStateCount() {
+        refreshSectorCache();
+        return cachedStateCount;
     }
 
     /**
@@ -112,6 +134,7 @@ public class InterestEngine implements Serializable {
 
     private int countWars() {
         List<FactionAPI> majors = getMajorFactions();
+        cachedStateCount = majors.size();
         int wars = 0;
         for (int i = 0; i < majors.size(); i++) {
             for (int k = i + 1; k < majors.size(); k++) {
