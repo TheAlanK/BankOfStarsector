@@ -50,6 +50,8 @@ public class BankingNexusPage implements NexusPage {
     private JLabel bracketLabel;
     private JPanel loansPanel;
     private JPanel investmentsPanel;
+    private JPanel devContractsPanel, sectorDealsPanel;
+    private JLabel devOffersLabel;
     private JLabel warSurchargeLabel;
     private JLabel disruptionLabel;
     private JLabel sovereignLabel, reservesLabel, commodityLabel;
@@ -166,6 +168,19 @@ public class BankingNexusPage implements NexusPage {
         mainPanel.add(investCard);
         mainPanel.add(Box.createVerticalStrut(8));
 
+        JPanel devCard = createCard(Str.get("nexus.card.development"));
+        devOffersLabel = addLabelRow(devCard, Str.get("nexus.devOffers"), "0");
+        devContractsPanel = new JPanel();
+        devContractsPanel.setLayout(new BoxLayout(devContractsPanel, BoxLayout.Y_AXIS));
+        devContractsPanel.setBackground(CARD_BG);
+        devCard.add(devContractsPanel);
+        sectorDealsPanel = new JPanel();
+        sectorDealsPanel.setLayout(new BoxLayout(sectorDealsPanel, BoxLayout.Y_AXIS));
+        sectorDealsPanel.setBackground(CARD_BG);
+        devCard.add(sectorDealsPanel);
+        mainPanel.add(devCard);
+        mainPanel.add(Box.createVerticalStrut(8));
+
         JPanel conditionsCard = createCard(Str.get("nexus.card.sector"));
         warSurchargeLabel = addLabelRow(conditionsCard, Str.get("nexus.war"), "0%");
         disruptionLabel = addLabelRow(conditionsCard, Str.get("nexus.disruption"), "0%");
@@ -264,6 +279,10 @@ public class BankingNexusPage implements NexusPage {
             payStatementButton.setEnabled(s.lineStatementDue + s.lineMinimumDue > 1);
         }
         fillList(investmentsPanel, s.investments, Str.get("terminal.invest.none"));
+        set(devOffersLabel, s.devOffers + (s.devOwedToPlayer > 0f ? " | " + Str.f("nexus.devOwed", formatCredits(s.devOwedToPlayer)) : ""),
+            s.devOffers > 0 ? GOLD : TEXT_PRIMARY);
+        fillList(devContractsPanel, s.devContracts, Str.get("terminal.dev.noContracts"));
+        fillList(sectorDealsPanel, s.sectorDeals, Str.get("dev.log.none"));
         set(warSurchargeLabel, Str.f("nexus.warValue", String.format("%.0f", s.warSurcharge * 100), s.wars, s.states),
             s.warSurcharge > 0 ? NEGATIVE : TEXT_PRIMARY);
         set(disruptionLabel, String.format("%.1f%%", s.disruption * 100), s.disruption > 0 ? NEGATIVE : TEXT_PRIMARY);

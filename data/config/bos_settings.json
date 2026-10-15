@@ -116,6 +116,29 @@
 	"venturePortfolioSize":20,          # stakes in growing NPC markets
 	"economySmoothingMonths":12,        # how fast earnings and spending baselines adapt
 
+	# Development financing (factions finance each other's buildings; the PBC is escrow and enforcer)
+	"developmentEnabled":true,
+	"developmentContingency":0.15,      # principal = the building's cost x (1 + this)
+	"developmentSlackDays":60,          # construction deadline = build time + this
+	"developmentRate":0.01,             # monthly rate the player repays when financed by a faction
+	"developmentRepayMonths":24,
+	"developmentPenaltyRate":0.03,      # monthly, once a construction deadline is missed
+	"developmentDemandDays":60,         # days to repay after a missed deadline, before collection by force
+	"developmentOfferDays":30,          # an offer expires after this
+	"developmentOfferChance":0.35,      # chance each month that an eligible faction makes you an offer
+	"developmentMaxPlayerContracts":2,  # your open contracts as the recipient, offers included
+	"developmentNpcDealsPerMonth":1,    # deals proposed between NPC factions each month...
+	"developmentMaxNpcActive":4,        # ...while fewer than this are under way
+	"developmentSurplusMonths":3,       # an investor keeps this many months of income in its treasury after lending
+	"developmentPaybackMonths":36,      # a building at a size-5 market earns its cost back in this many months
+	"developmentHorizonMonths":60,      # how far ahead a recipient counts those earnings when deciding
+	"developmentMinimalForce":0.5,      # Collection Fleet size after a missed repayment (x the normal size)
+	"developmentRelationBuilt":0.03,    # relation changes between investor and recipient
+	"developmentRelationClosed":0.05,
+	"developmentRelationMissed":-0.08,
+	"developmentRelationCollection":-0.12,
+	# "developmentIndustries":["farming","mining",...],  # industries that can be financed (default: vanilla list)
+
 	# Modded factions. The Sovereign Desk (bonds, treasuries, the war surcharge, foreclosure bids) deals with
 	# political factions only. Factions with pirate behaviour in their faction file, and those Nexerelin flags
 	# as pirates or hostile to everyone (the Hiver Swarm, the Starlight Cabal...), are left out automatically.

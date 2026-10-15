@@ -48,7 +48,8 @@ The **Aurum Relay**, **Nav Buoy** and **Sensor Array** form the most closely wat
 
 The Confederation is led by a **High Director**, elected for life by the **Board of Houses**. The Board seats the heirs of the three founding houses alongside the senior officers of the old Fiscal Office. Below the Board:
 
-- **The Clearing Hall** settles trade between factions that will not speak to each other. A Hegemony freighter can sell to a Tri-Tachyon buyer because the payment passes through Bullion.
+- **The Clearing Hall** settles trade between factions that will not speak to each other. A Hegemony freighter can sell to a Tri-Tachyon buyer because the payment passes through Bullion. It also holds development money in escrow: when one government pays for a refinery or a port on another's world, the funds and the deadline sit in Bullion's register, and the Hall collects for the investor when the builder fails to deliver. Its register of development deals is public, and read closely in every capital.
+- **The Sovereign Desk** lends to governments, prices their bonds and watches their treasuries month by month.
 - **The Directorate of Branches** runs the Confederation's branch offices across the Sector. Each is led by a **Branch Director**. Branch offices are on neutral ground by treaty, and most governments honour that even in wartime.
 - **The Office of Standing** keeps the credit file of every captain, colony and government the Confederation deals with (see below).
 - **The Sovereign Desk** underwrites government bonds and trades them.

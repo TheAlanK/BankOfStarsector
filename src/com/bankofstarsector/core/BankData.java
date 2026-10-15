@@ -23,6 +23,7 @@ public class BankData implements Serializable {
     private com.bankofstarsector.collection.ForeclosureManager foreclosureManager; // 0.3.0
     private InsuranceManager insuranceManager; // 0.3.0
     private com.bankofstarsector.economy.SectorEconomy sectorEconomy; // 0.4.0
+    private com.bankofstarsector.economy.DevelopmentManager developmentManager; // 0.4.0 section C
     private List<TransactionRecord> transactionHistory;
 
     /** Account id counter; persisted so ids stay unique across save/load. */
@@ -65,6 +66,7 @@ public class BankData implements Serializable {
         if (foreclosureManager == null) foreclosureManager = new com.bankofstarsector.collection.ForeclosureManager();
         if (insuranceManager == null) insuranceManager = new InsuranceManager();
         if (sectorEconomy == null) sectorEconomy = new com.bankofstarsector.economy.SectorEconomy();
+        if (developmentManager == null) developmentManager = new com.bankofstarsector.economy.DevelopmentManager();
         if (transactionHistory == null) transactionHistory = new ArrayList<TransactionRecord>();
         if (nextAccountNumber <= 0) {
             // 0.1.x saves used a static counter that reset on every load; resume past the highest id.
@@ -102,6 +104,11 @@ public class BankData implements Serializable {
     public com.bankofstarsector.economy.SectorEconomy getSectorEconomy() {
         if (sectorEconomy == null) sectorEconomy = new com.bankofstarsector.economy.SectorEconomy();
         return sectorEconomy;
+    }
+
+    public com.bankofstarsector.economy.DevelopmentManager getDevelopmentManager() {
+        if (developmentManager == null) developmentManager = new com.bankofstarsector.economy.DevelopmentManager();
+        return developmentManager;
     }
 
     public InsuranceManager getInsuranceManager() {

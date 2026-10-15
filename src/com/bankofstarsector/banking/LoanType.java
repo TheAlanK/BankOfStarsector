@@ -20,7 +20,13 @@ public enum LoanType {
         "Draw and repay freely up to your limit. Pay each statement in full and you pay no interest."),
     /** Since 0.3.0. Secured by a colony: amount from its appraisal (BankSettings.SECURED_LTV). */
     SECURED("Colony-Secured Loan", 3000000f, 0.03f, 24, 450,
-        "Pledge one of your colonies for a larger, cheaper loan. If it defaults, the colony's income goes to the bank, and it can be foreclosed and auctioned.");
+        "Pledge one of your colonies for a larger, cheaper loan. If it defaults, the colony's income goes to the bank, and it can be foreclosed and auctioned."),
+    /**
+     * Since 0.4.0. A faction finances a building at one of the player's colonies (economy/DevelopmentManager);
+     * never offered at the counter. Rate and term come from BankSettings.DEV_*; repayments go to the investor.
+     */
+    DEVELOPMENT("Development Financing", 0f, 0.01f, 24, 0,
+        "A faction pays for a building at one of your colonies. Nothing is due while it is built; then you repay the faction at a low rate, through the Confederation.");
 
     public final String displayName;
     public final float maxAmount;
@@ -57,19 +63,27 @@ public enum LoanType {
         return this == SECURED;
     }
 
+    /** Financed by another faction for a building (development contract): only created by accepting an offer. */
+    public boolean isDevelopment() {
+        return this == DEVELOPMENT;
+    }
+
     public int getTermMonths() {
         if (isRevolving()) return 0;
+        if (isDevelopment()) return com.bankofstarsector.core.BankSettings.DEV_REPAY_MONTHS;
         return isBuilder() ? com.bankofstarsector.core.BankSettings.BUILDER_TERM_MONTHS : termMonths;
     }
 
     /** Monthly base rate before credit-score and war adjustments. */
     public float getBaseRate() {
         if (isRevolving()) return com.bankofstarsector.core.BankSettings.LINE_RATE;
+        if (isDevelopment()) return com.bankofstarsector.core.BankSettings.DEV_RATE;
         if (isSecured()) return baseMonthlyRate * (1f - com.bankofstarsector.core.BankSettings.SECURED_RATE_DISCOUNT);
         return baseMonthlyRate;
     }
 
     public float getMaxAmountForScore(int creditScore) {
+        if (isDevelopment()) return 0f; // never sold at the counter
         if (isBuilder()) return com.bankofstarsector.core.BankSettings.BUILDER_MAX_AMOUNT;
         if (creditScore < minCreditScore) return 0f;
         float scoreRatio = Math.min(1f, (creditScore - minCreditScore) / 200f);

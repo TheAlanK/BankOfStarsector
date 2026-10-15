@@ -108,15 +108,23 @@ public class CollectionManager implements Serializable {
         log.info("BOS: Collection phase " + phase + " for " + loan.accountId);
     }
 
-    private void dispatchCollectionFleet(BankAccount loan) {
-        ensure();
+    /** Size of the Collection Fleet sent for a loan, after this many fleets were already defeated. */
+    public static int fleetPointsFor(BankAccount loan, int defeats) {
         int fp = (int) (loan.remainingBalance / BankSettings.COLLECTION_FLEET_FP_PER_DEBT);
         fp = Math.max(BankSettings.COLLECTION_FLEET_MIN_FP, Math.min(BankSettings.COLLECTION_FLEET_MAX_FP, fp));
-        Integer defeats = fleetsDefeated.get(loan.accountId);
-        if (defeats != null && defeats > 0) {
+        // Development financing whose building went up: the investor only wants its installments back.
+        if (loan.minimalForce) fp = Math.max(BankSettings.COLLECTION_FLEET_MIN_FP / 2, (int) (fp * BankSettings.DEV_MINIMAL_FORCE));
+        if (defeats > 0) {
             fp = (int) (fp * Math.pow(BankSettings.COLLECTION_FLEET_ESCALATION, defeats));
             fp = Math.min(fp, BankSettings.COLLECTION_FLEET_MAX_FP * 2);
         }
+        return fp;
+    }
+
+    private void dispatchCollectionFleet(BankAccount loan) {
+        ensure();
+        Integer defeats = fleetsDefeated.get(loan.accountId);
+        int fp = fleetPointsFor(loan, defeats == null ? 0 : defeats);
 
         // Persistent script: survives save/load together with the fleet it tracks.
         CollectionFleetScript script = new CollectionFleetScript(loan.accountId, fp);

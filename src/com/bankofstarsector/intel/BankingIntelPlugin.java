@@ -32,6 +32,12 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     public static final String TAB_CREDIT = "tab_credit";
     public static final String TAB_HISTORY = "tab_history";
     public static final String TAB_INSURANCE = "tab_insurance";
+    public static final String TAB_DEVELOPMENT = "tab_development";
+
+    /** Development tab UI state (not saved): the rate the player offers, and the last action's result key. */
+    private transient Integer devRateTier;
+    private transient String devResult;
+    private transient boolean devResultOk;
 
     private static String pct(float fraction, String fmt) {
         return String.format(fmt, fraction * 100);
@@ -84,6 +90,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
             case TAB_CREDIT:       renderCreditScore(outer, width, opad); break;
             case TAB_HISTORY:      renderHistory(outer, width, opad); break;
             case TAB_INSURANCE:    renderInsurance(outer, width, opad); break;
+            case TAB_DEVELOPMENT:  renderDevelopment(outer, width, opad); break;
         }
 
         panel.addUIElement(outer);
@@ -92,7 +99,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     private void addTabBar(TooltipMakerAPI info, float width, float opad) {
         info.addSectionHeading(Str.get("terminal.title"), GOLD, DARK_NAVY, Alignment.MID, opad);
 
-        String[] tabIds = {TAB_OVERVIEW, TAB_LOANS, TAB_INVESTMENTS, TAB_INSURANCE, TAB_CREDIT, TAB_HISTORY};
+        String[] tabIds = {TAB_OVERVIEW, TAB_LOANS, TAB_INVESTMENTS, TAB_INSURANCE, TAB_DEVELOPMENT, TAB_CREDIT, TAB_HISTORY};
         for (String tabId : tabIds) {
             Color btnColor = tabId.equals(currentTab) ? GOLD : Misc.getBasePlayerColor();
             info.addButton(Str.get("terminal." + tabId), tabId, btnColor, DARK_NAVY,
@@ -248,6 +255,13 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
                         Misc.getDGSCredits(loan.heldFunds));
                 }
                 if (loan.loanType.isSecured()) renderCollateral(info, data, loan);
+                if (loan.developmentContractId != null) {
+                    com.bankofstarsector.economy.DevelopmentContract dc = data.getDevelopmentManager().find(loan.developmentContractId);
+                    if (dc != null) {
+                        info.addPara(Str.get("terminal.loans.development"), 3f, Misc.getHighlightColor(), dc.investorName(),
+                            dc.industryName, dc.marketName, dc.state.getDisplayName());
+                    }
+                }
 
                 if (loan.amountPastDue > 1f) {
                     info.addPara(Str.get("terminal.loans.due"), 3f,
@@ -291,7 +305,7 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         offers.add(LoanType.BUILDER);
         if (!bankruptcyLock) {
             for (LoanType type : LoanType.values()) {
-                if (!type.isBuilder() && !type.isRevolving() && !type.isSecured()) offers.add(type);
+                if (!type.isBuilder() && !type.isRevolving() && !type.isSecured() && !type.isDevelopment()) offers.add(type);
             }
         }
         for (LoanType type : offers) {
@@ -929,6 +943,107 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         }
     }
 
+    // ========== DEVELOPMENT FINANCING (0.4.0 section C) ==========
+
+    /** Index into BankSettings.DEV_INVESTOR_RATES of the rate the player offers (the middle one by default). */
+    private int devTier() {
+        int n = BankSettings.DEV_INVESTOR_RATES.length;
+        int t = devRateTier == null ? n / 2 : devRateTier;
+        return Math.max(0, Math.min(n - 1, t));
+    }
+
+    private float devRate() {
+        return BankSettings.DEV_INVESTOR_RATES[devTier()];
+    }
+
+    /** Offers to the player, contracts on either side, projects the player can finance, and the Sector's deals. */
+    private void renderDevelopment(TooltipMakerAPI info, float width, float opad) {
+        BankData data = BankData.get();
+        com.bankofstarsector.economy.DevelopmentManager dm = data.getDevelopmentManager();
+        Color hl = Misc.getHighlightColor(), gray = Misc.getGrayColor(), neg = Misc.getNegativeHighlightColor();
+        heading(info, "terminal.dev.heading", opad);
+        info.addPara("%s", opad, gray, Str.get("terminal.dev.intro"));
+        if (devResult != null) {
+            info.addPara("%s", opad, devResultOk ? Misc.getPositiveHighlightColor() : neg, Str.get(devResult));
+        }
+
+        info.addSpacer(opad);
+        heading(info, "terminal.dev.offers", opad);
+        List<com.bankofstarsector.economy.DevelopmentContract> offers = dm.offersToPlayer();
+        if (offers.isEmpty()) info.addPara("%s", opad, gray, Str.get("terminal.dev.noOffers"));
+        for (com.bankofstarsector.economy.DevelopmentContract c : offers) {
+            info.addPara(Str.get("dev.intel.offer"), opad, hl, c.investorName(), Misc.getDGSCredits(c.principal),
+                c.industryName, c.marketName, Misc.getDGSCredits(c.buildCost));
+            DevelopmentIntel.addTerms(info, c, 3f);
+            info.addButton(Str.get("dev.intel.accept"), "dev_accept_" + c.id, Misc.getBasePlayerColor(), DARK_NAVY,
+                Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+            info.addButton(Str.get("dev.intel.decline"), "dev_decline_" + c.id, Misc.getBasePlayerColor(), DARK_NAVY,
+                Alignment.MID, CutStyle.NONE, 200, 24f, 3f);
+        }
+
+        info.addSpacer(opad);
+        heading(info, "terminal.dev.contracts", opad);
+        List<com.bankofstarsector.economy.DevelopmentContract> mine = dm.playerContracts();
+        if (mine.isEmpty()) info.addPara("%s", opad, gray, Str.get("terminal.dev.noContracts"));
+        for (com.bankofstarsector.economy.DevelopmentContract c : mine) {
+            boolean trouble = c.state == com.bankofstarsector.economy.ContractState.DEMAND
+                || c.state == com.bankofstarsector.economy.ContractState.COLLECTION;
+            if (c.recipientIsPlayer()) {
+                BankAccount loan = data.getLoanManager().findLoan(c.loanAccountId);
+                info.addPara(Str.get("terminal.dev.asRecipient"), opad, trouble ? neg : hl, c.investorName(), c.industryName,
+                    c.marketName, c.state.getDisplayName(), Misc.getDGSCredits(loan != null ? loan.remainingBalance : 0f));
+                if (c.state == com.bankofstarsector.economy.ContractState.BUILDING) {
+                    info.addPara(Str.get("terminal.dev.daysLeft"), 3f, hl, "" + Math.max(0, com.bankofstarsector.economy.DevelopmentContract.daysUntil(c.deadlineTs)));
+                } else if (c.state == com.bankofstarsector.economy.ContractState.DEMAND) {
+                    info.addPara(Str.get("terminal.dev.demandLeft"), 3f, neg, "" + Math.max(0, com.bankofstarsector.economy.DevelopmentContract.daysUntil(c.demandDeadlineTs)));
+                }
+            } else {
+                info.addPara(Str.get("terminal.dev.asInvestor"), opad, trouble ? neg : hl, c.recipientName(), c.industryName,
+                    c.marketName, c.state.getDisplayName(), Misc.getDGSCredits(c.owed), Misc.getDGSCredits(c.repaid));
+            }
+        }
+
+        info.addSpacer(opad);
+        heading(info, "terminal.dev.finance", opad);
+        info.addPara("%s", opad, gray, Str.get("terminal.dev.financeIntro"));
+        for (int i = 0; i < BankSettings.DEV_INVESTOR_RATES.length; i++) {
+            info.addButton(Str.f("terminal.dev.rate", DevelopmentIntel.pct(BankSettings.DEV_INVESTOR_RATES[i])), "dev_rate_" + i,
+                i == devTier() ? GOLD : Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 160, 22f, 3f);
+        }
+        List<com.bankofstarsector.economy.DevelopmentManager.Project> projects = dm.projectsForPlayer(8);
+        if (projects.isEmpty()) info.addPara("%s", opad, gray, Str.get("terminal.dev.noProjects"));
+        for (com.bankofstarsector.economy.DevelopmentManager.Project p : projects) {
+            com.fs.starfarer.api.campaign.FactionAPI f = p.market.getFaction();
+            info.addPara(Str.get("terminal.dev.project"), opad, hl, f != null ? f.getDisplayName() : "?", p.market.getName(),
+                "" + p.market.getSize(), p.name, Misc.getDGSCredits(p.principal()), "" + (int) p.buildDays, Misc.getDGSCredits(p.gain));
+            info.addButton(Str.f("terminal.dev.offerButton", DevelopmentIntel.pct(devRate())), "dev_fin_" + p.market.getId() + "|" + p.industryId,
+                Misc.getBasePlayerColor(), DARK_NAVY, Alignment.MID, CutStyle.NONE, 240, 22f, 3f);
+        }
+
+        info.addSpacer(opad);
+        heading(info, "terminal.dev.sector", opad);
+        List<com.bankofstarsector.economy.DevelopmentContract> deals = dm.sectorDeals();
+        if (deals.isEmpty()) info.addPara("%s", opad, gray, Str.get("dev.log.none"));
+        for (int i = 0; i < deals.size() && i < 8; i++) {
+            com.bankofstarsector.economy.DevelopmentContract c = deals.get(i);
+            info.addPara(Str.get("dev.log.line"), 3f, hl, c.investorName(), c.recipientName(), c.industryName, c.marketName,
+                Misc.getDGSCredits(c.principal), c.state.getDisplayName());
+        }
+    }
+
+    /** "dev_fin_MARKET|INDUSTRY" -> {market, industry}, else null. */
+    private static String[] devFinanceButton(Object buttonId) {
+        if (!(buttonId instanceof String) || !((String) buttonId).startsWith("dev_fin_")) return null;
+        String rest = ((String) buttonId).substring("dev_fin_".length());
+        int bar = rest.lastIndexOf('|');
+        return bar > 0 ? new String[]{rest.substring(0, bar), rest.substring(bar + 1)} : null;
+    }
+
+    private static String devAcceptButton(Object buttonId) {
+        if (!(buttonId instanceof String) || !((String) buttonId).startsWith("dev_accept_")) return null;
+        return ((String) buttonId).substring("dev_accept_".length());
+    }
+
     // ========== BUTTON HANDLING ==========
 
     @Override
@@ -942,6 +1057,29 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
         }
 
         BankData data = BankData.get();
+
+        if (id.startsWith("dev_")) {
+            com.bankofstarsector.economy.DevelopmentManager dm = data.getDevelopmentManager();
+            String[] fin = devFinanceButton(id);
+            String accept = devAcceptButton(id);
+            if (accept != null) {
+                String why = dm.acceptOffer(accept);
+                devResult = why != null ? why : "terminal.dev.accepted";
+                devResultOk = why == null;
+            } else if (id.startsWith("dev_decline_")) {
+                dm.declineOffer(id.substring("dev_decline_".length()));
+                devResult = "terminal.dev.declined";
+                devResultOk = true;
+            } else if (id.startsWith("dev_rate_")) {
+                devRateTier = Integer.parseInt(id.substring("dev_rate_".length()));
+            } else if (fin != null) {
+                String why = dm.offerToFinance(fin[0], fin[1], devRate());
+                devResult = why != null ? why : "terminal.dev.financed";
+                devResultOk = why == null;
+            }
+            ui.updateUIForItem(this);
+            return;
+        }
 
         if (id.startsWith("loan_paymin_")) {
             String accountId = id.substring("loan_paymin_".length());
@@ -1092,12 +1230,38 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     @Override
     public boolean doesButtonHaveConfirmDialog(Object buttonId) {
         return "bankruptcy_file".equals(buttonId) || loanButtonType(buttonId) != null
+            || devAcceptButton(buttonId) != null || devFinanceButton(buttonId) != null
             || securedButtonMarket(buttonId) != null || insuranceButtonPlan(buttonId) != null || "ins_cancel".equals(buttonId)
             || lockedInvestButtonType(buttonId) != null || super.doesButtonHaveConfirmDialog(buttonId);
     }
 
     @Override
     public void createConfirmationPrompt(Object buttonId, TooltipMakerAPI prompt) {
+        String devOffer = devAcceptButton(buttonId);
+        if (devOffer != null) {
+            com.bankofstarsector.economy.DevelopmentContract c = BankData.get().getDevelopmentManager().find(devOffer);
+            if (c == null) return;
+            prompt.addPara(Str.get("dev.confirm.title"), Misc.getHighlightColor(), 0f);
+            prompt.addPara(Str.get("dev.intel.offer"), 10f, Misc.getHighlightColor(), c.investorName(), Misc.getDGSCredits(c.principal),
+                c.industryName, c.marketName, Misc.getDGSCredits(c.buildCost));
+            DevelopmentIntel.addTerms(prompt, c, 10f);
+            return;
+        }
+        String[] fin = devFinanceButton(buttonId);
+        if (fin != null) {
+            com.bankofstarsector.economy.DevelopmentManager.Project p = BankData.get().getDevelopmentManager().project(fin[0], fin[1]);
+            if (p == null) {
+                prompt.addPara("%s", 0f, Misc.getNegativeHighlightColor(), Str.get("dev.reason.gone"));
+                return;
+            }
+            com.fs.starfarer.api.campaign.FactionAPI f = p.market.getFaction();
+            prompt.addPara(Str.get("dev.confirm.financeTitle"), Misc.getHighlightColor(), 0f);
+            prompt.addPara(Str.get("dev.confirm.finance"), 10f, Misc.getHighlightColor(), Misc.getDGSCredits(p.principal()),
+                f != null ? f.getDisplayName() : "?", p.name, p.market.getName(), DevelopmentIntel.pct(devRate()),
+                "" + BankSettings.DEV_REPAY_MONTHS, "" + (int) (p.buildDays + BankSettings.DEV_SLACK_DAYS));
+            prompt.addPara(Str.get("dev.confirm.financeRisk"), 10f, Misc.getGrayColor());
+            return;
+        }
         LoanType loanType = loanButtonType(buttonId);
         if (loanType != null) {
             // Same amount and rate the button handler will use when confirmed.
@@ -1154,7 +1318,8 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
 
     @Override
     public String getConfirmText(Object buttonId) {
-        if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null) return Str.get("confirm.sign");
+        if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null || devAcceptButton(buttonId) != null) return Str.get("confirm.sign");
+        if (devFinanceButton(buttonId) != null) return Str.get("dev.confirm.financeButton");
         if (insuranceButtonPlan(buttonId) != null) return Str.get("confirm.insure");
         if ("ins_cancel".equals(buttonId)) return Str.get("confirm.insurance.cancelButton");
         if (lockedInvestButtonType(buttonId) != null) return Str.get("confirm.invest");
@@ -1164,7 +1329,8 @@ public class BankingIntelPlugin extends BaseIntelPlugin {
     @Override
     public String getCancelText(Object buttonId) {
         if (loanButtonType(buttonId) != null || securedButtonMarket(buttonId) != null || insuranceButtonPlan(buttonId) != null
-                || "ins_cancel".equals(buttonId) || lockedInvestButtonType(buttonId) != null) return Str.get("confirm.cancel");
+                || "ins_cancel".equals(buttonId) || lockedInvestButtonType(buttonId) != null
+                || devAcceptButton(buttonId) != null || devFinanceButton(buttonId) != null) return Str.get("confirm.cancel");
         return super.getCancelText(buttonId);
     }
 

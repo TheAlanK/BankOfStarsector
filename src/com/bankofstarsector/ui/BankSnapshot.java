@@ -87,6 +87,12 @@ public final class BankSnapshot {
     /** 0.4.0: the Sovereign Desk: {faction, treasury, debt, yield, income, wars}; the PBC's reserves; markets. */
     public final List<String[]> treasuries;
     public final float pbcReserves, commodityIndexChange, sectorMilitarySpending;
+    /** 0.4.0 section C: the player's development contracts (as lines), offers waiting, and the Sector's recent deals. */
+    public final List<Line> devContracts, sectorDeals;
+    public final int devOffers;
+    public final float devOwedToPlayer;
+    /** Same, for the JSON: {role, party, building, market, state, amount} and {investor, recipient, building, market, principal, state}. */
+    private final List<String[]> devContractRows, sectorDealRows;
 
     /** One row in a list: label, value, and whether it should be shown as a problem. */
     public static final class Line {
@@ -227,6 +233,38 @@ public final class BankSnapshot {
                 String.valueOf(t.yield), String.valueOf(t.income), String.valueOf(t.wars)});
         }
         treasuries = Collections.unmodifiableList(tr);
+
+        com.bankofstarsector.economy.DevelopmentManager dm = data.getDevelopmentManager();
+        List<Line> dl = new ArrayList<Line>();
+        List<String[]> drows = new ArrayList<String[]>();
+        for (com.bankofstarsector.economy.DevelopmentContract c : dm.playerContracts()) {
+            boolean recipient = c.recipientIsPlayer();
+            BankAccount loan = recipient ? lm.findLoan(c.loanAccountId) : null;
+            float amount = recipient ? (loan != null ? loan.remainingBalance : 0f) : c.owed;
+            String party = recipient ? c.investorName() : c.recipientName();
+            boolean trouble = c.state == com.bankofstarsector.economy.ContractState.DEMAND
+                || c.state == com.bankofstarsector.economy.ContractState.COLLECTION;
+            dl.add(new Line(c.industryName + " @ " + c.marketName,
+                com.bankofstarsector.core.Str.f(recipient ? "nexus.devRecipient" : "nexus.devInvestor", party,
+                    c.state.getDisplayName(), LoanManager.formatCredits(amount)), trouble));
+            drows.add(new String[]{recipient ? "recipient" : "investor", party, c.industryName, c.marketName, c.state.name(), String.valueOf(amount)});
+        }
+        devContracts = Collections.unmodifiableList(dl);
+        devContractRows = drows;
+        devOffers = dm.offersToPlayer().size();
+        devOwedToPlayer = dm.owedToPlayer();
+        List<Line> sl = new ArrayList<Line>();
+        List<String[]> srows = new ArrayList<String[]>();
+        List<com.bankofstarsector.economy.DevelopmentContract> deals = dm.sectorDeals();
+        for (int i = 0; i < deals.size() && i < 8; i++) {
+            com.bankofstarsector.economy.DevelopmentContract c = deals.get(i);
+            sl.add(new Line(c.investorName() + " -> " + c.recipientName(), c.industryName + " @ " + c.marketName + " | "
+                + LoanManager.formatCredits(c.principal) + " | " + c.state.getDisplayName(),
+                c.state == com.bankofstarsector.economy.ContractState.DEFAULTED || c.state == com.bankofstarsector.economy.ContractState.DEMAND));
+            srows.add(new String[]{c.investorId, c.recipientId, c.industryName, c.marketName, String.valueOf(c.principal), c.state.name()});
+        }
+        sectorDeals = Collections.unmodifiableList(sl);
+        sectorDealRows = srows;
     }
 
     /** Game thread only. */
@@ -333,6 +371,20 @@ public final class BankSnapshot {
             }
             eco.put("treasuries", ts);
             o.put("economy", eco);
+            JSONObject dev = new JSONObject().put("offersWaiting", devOffers).put("owedToYou", devOwedToPlayer);
+            JSONArray dcs = new JSONArray();
+            for (String[] r : devContractRows) {
+                dcs.put(new JSONObject().put("role", r[0]).put("party", r[1]).put("building", r[2]).put("market", r[3])
+                    .put("state", r[4]).put("balance", Float.parseFloat(r[5])));
+            }
+            dev.put("contracts", dcs);
+            JSONArray sds = new JSONArray();
+            for (String[] r : sectorDealRows) {
+                sds.put(new JSONObject().put("investor", r[0]).put("recipient", r[1]).put("building", r[2]).put("market", r[3])
+                    .put("principal", Float.parseFloat(r[4])).put("state", r[5]));
+            }
+            dev.put("sectorDeals", sds);
+            o.put("development", dev);
             return o.toString();
         } catch (Exception e) {
             return "{}";

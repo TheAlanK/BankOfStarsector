@@ -124,7 +124,9 @@ public class BOSCollection extends BaseCommandPlugin {
 
         if ("refuse".equals(action)) {
             text.addPara(Str.get("dialog.collection.refused"), bad);
-            Global.getSector().getPlayerFaction().adjustRelationship("pbc", BankSettings.COLLECTION_REFUSAL_REP_PENALTY);
+            // Minimal force (a built development project behind on repayments): milder consequences.
+            float penalty = BankSettings.COLLECTION_REFUSAL_REP_PENALTY * (loan != null && loan.minimalForce ? 0.5f : 1f);
+            Global.getSector().getPlayerFaction().adjustRelationship("pbc", penalty);
             text.addPara(Str.get("dialog.collection.repLoss"), bad);
             new MakeOtherFleetHostile().execute(ruleId, dialog, Misc.tokenize("true"), memoryMap);
             new MakeOtherFleetAggressive().execute(ruleId, dialog, Misc.tokenize("true"), memoryMap);

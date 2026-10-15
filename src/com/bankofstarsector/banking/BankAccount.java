@@ -51,6 +51,12 @@ public class BankAccount implements Serializable {
     /** Appraisal when the loan was signed. */
     public float collateralAppraisal;
 
+    // Development financing (0.4.0)
+    /** The development contract this loan repays (null for other loans and in older saves). */
+    public String developmentContractId;
+    /** A missed repayment of a built project: collected by a smaller fleet with milder demands. */
+    public boolean minimalForce;
+
     // Investments (0.4.0): where the money comes from
     /** Government bonds: the issuing faction, or null for the diversified sovereign bond fund. */
     public String bondFactionId;

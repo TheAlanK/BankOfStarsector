@@ -145,6 +145,31 @@ public class BankSettings {
     public static float MANAGED_FEE = 0.01f;               // per year on venture and military funds, to the PBC
     public static int VENTURE_PORTFOLIO_SIZE = 20;         // stakes in growing NPC markets
     public static float ECONOMY_EMA_MONTHS = 12f;          // smoothing of earnings and spending baselines
+    // Development financing contracts (0.4.0 section C): factions finance each other's buildings
+    public static boolean DEV_ENABLED = true;
+    public static float DEV_CONTINGENCY = 0.15f;           // principal = build cost x (1 + this)
+    public static int DEV_SLACK_DAYS = 60;                 // construction deadline = build time + this
+    public static float DEV_RATE = 0.01f;                  // monthly repayment rate offered to the player
+    public static int DEV_REPAY_MONTHS = 24;
+    public static float DEV_PENALTY_RATE = 0.03f;          // monthly, after a missed construction deadline
+    public static int DEV_DEMAND_DAYS = 60;                // to repay after a missed deadline, before collection
+    public static int DEV_OFFER_DAYS = 30;                 // an offer to the player expires after this
+    public static float DEV_OFFER_CHANCE = 0.35f;          // chance per month that an eligible investor makes the player an offer
+    public static int DEV_MAX_PLAYER_CONTRACTS = 2;        // open contracts with the player as recipient (offers included)
+    public static int DEV_NPC_DEALS_PER_MONTH = 1;         // NPC-to-NPC deals proposed each month...
+    public static int DEV_MAX_NPC_ACTIVE = 4;              // ...while fewer than this are building or repaying
+    public static float DEV_SURPLUS_MONTHS = 3f;           // an investor keeps this many months of income after lending
+    public static float DEV_PAYBACK_MONTHS = 36f;          // a building at a size-5 market earns its cost back in this many months
+    public static float DEV_HORIZON_MONTHS = 60f;          // how far ahead a recipient counts those earnings
+    public static float DEV_MINIMAL_FORCE = 0.5f;          // Collection Fleet size after a missed repayment (x normal)
+    public static float DEV_REL_BUILT = 0.03f;             // relation changes between investor and recipient
+    public static float DEV_REL_CLOSED = 0.05f;
+    public static float DEV_REL_MISSED = -0.08f;
+    public static float DEV_REL_COLLECTION = -0.12f;
+    public static float[] DEV_INVESTOR_RATES = {0.005f, 0.01f, 0.015f}; // rates the player can offer as an investor
+    public static java.util.List<String> DEV_INDUSTRIES = new java.util.ArrayList<String>(java.util.Arrays.asList(
+        "farming", "aquaculture", "mining", "refining", "lightindustry", "heavyindustry", "fuelprod", "commerce",
+        "patrolhq", "waystation", "grounddefenses"));
     // Modded factions (economy/PoliticalFactions): force a faction onto the Sovereign Desk, or keep it off
     public static java.util.Set<String> POLITICAL_FACTIONS = new java.util.HashSet<String>();
     public static java.util.Set<String> NON_POLITICAL_FACTIONS = new java.util.HashSet<String>();
@@ -248,6 +273,28 @@ public class BankSettings {
             MANAGED_FEE = f(j, "managedFundFee", MANAGED_FEE);
             VENTURE_PORTFOLIO_SIZE = i(j, "venturePortfolioSize", VENTURE_PORTFOLIO_SIZE);
             ECONOMY_EMA_MONTHS = Math.max(1f, f(j, "economySmoothingMonths", ECONOMY_EMA_MONTHS));
+            DEV_ENABLED = j.optBoolean("developmentEnabled", DEV_ENABLED);
+            DEV_CONTINGENCY = f(j, "developmentContingency", DEV_CONTINGENCY);
+            DEV_SLACK_DAYS = i(j, "developmentSlackDays", DEV_SLACK_DAYS);
+            DEV_RATE = f(j, "developmentRate", DEV_RATE);
+            DEV_REPAY_MONTHS = Math.max(1, i(j, "developmentRepayMonths", DEV_REPAY_MONTHS));
+            DEV_PENALTY_RATE = f(j, "developmentPenaltyRate", DEV_PENALTY_RATE);
+            DEV_DEMAND_DAYS = i(j, "developmentDemandDays", DEV_DEMAND_DAYS);
+            DEV_OFFER_DAYS = i(j, "developmentOfferDays", DEV_OFFER_DAYS);
+            DEV_OFFER_CHANCE = f(j, "developmentOfferChance", DEV_OFFER_CHANCE);
+            DEV_MAX_PLAYER_CONTRACTS = i(j, "developmentMaxPlayerContracts", DEV_MAX_PLAYER_CONTRACTS);
+            DEV_NPC_DEALS_PER_MONTH = i(j, "developmentNpcDealsPerMonth", DEV_NPC_DEALS_PER_MONTH);
+            DEV_MAX_NPC_ACTIVE = i(j, "developmentMaxNpcActive", DEV_MAX_NPC_ACTIVE);
+            DEV_SURPLUS_MONTHS = f(j, "developmentSurplusMonths", DEV_SURPLUS_MONTHS);
+            DEV_PAYBACK_MONTHS = Math.max(1f, f(j, "developmentPaybackMonths", DEV_PAYBACK_MONTHS));
+            DEV_HORIZON_MONTHS = f(j, "developmentHorizonMonths", DEV_HORIZON_MONTHS);
+            DEV_MINIMAL_FORCE = f(j, "developmentMinimalForce", DEV_MINIMAL_FORCE);
+            DEV_REL_BUILT = f(j, "developmentRelationBuilt", DEV_REL_BUILT);
+            DEV_REL_CLOSED = f(j, "developmentRelationClosed", DEV_REL_CLOSED);
+            DEV_REL_MISSED = f(j, "developmentRelationMissed", DEV_REL_MISSED);
+            DEV_REL_COLLECTION = f(j, "developmentRelationCollection", DEV_REL_COLLECTION);
+            java.util.Set<String> industries = ids(j, "developmentIndustries");
+            if (!industries.isEmpty()) DEV_INDUSTRIES = new java.util.ArrayList<String>(industries);
             POLITICAL_FACTIONS = ids(j, "politicalFactions");
             NON_POLITICAL_FACTIONS = ids(j, "nonPoliticalFactions");
             log.info("Bank of Starsector: Settings loaded from " + SETTINGS_FILE);

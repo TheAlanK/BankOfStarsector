@@ -53,6 +53,10 @@ public class BosStatus implements BaseCommand {
             Misc.getDGSCredits(exposure), (int) other[0], Misc.getDGSCredits(other[1]),
             Misc.getDGSCredits(ins.getRecoveryDue()))).append('\n');
 
+        com.bankofstarsector.economy.DevelopmentManager dm = data.getDevelopmentManager();
+        sb.append(Str.f("console.status.development", dm.offersToPlayer().size(), dm.playerContracts().size(),
+            dm.sectorDeals().size(), Misc.getDGSCredits(dm.owedToPlayer()))).append('\n');
+
         sb.append(Str.f("console.status.desk", data.getSectorEconomy().getTreasuries().size(),
             data.getInterestEngine().getWarCount(), data.getInterestEngine().getStateCount(),
             String.format("%.1f%%", data.getInterestEngine().getWarSurcharge() * 100f),

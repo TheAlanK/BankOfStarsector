@@ -123,6 +123,13 @@ Savings accounts, government bonds, commodity futures, venture funds and militar
 
 </details>
 
+### Development financing
+Factions pay for each other's buildings, and the Confederation's Clearing Hall holds the money and enforces the terms.
+- **Offers to you**: a faction with money to spare that is Favorable to you may offer to pay for a building at one of your colonies (a mine, a farm, a refinery, a patrol HQ...). Accept, and the money is yours; build it before the deadline, then repay at a low rate (1% a month over 24 months), with nothing due while it goes up. Miss the deadline and the whole balance is due at a penalty rate; ignore that, and a Collection Fleet comes at full force. Fall behind after it is built, and a smaller one comes.
+- **You as investor**: finance a project at a Favorable faction's market from the terminal's Development tab or a branch office, at the rate you choose. They accept if it's worth it to them (bigger markets, lower rates, better relations), really build it and repay you monthly. If they miss the deadline, the Clearing Hall takes what it can from their treasury.
+- **The Sector**: factions finance each other too, and the buildings really go up. The Clearing Hall's register lists the deals.
+- Relations follow every contract: up when built and repaid, down when deadlines are missed.
+
 ### Debt collection fleets
 Debt collection escalates by how many days a payment is overdue:
 
@@ -212,6 +219,7 @@ Saves from earlier versions load fine (every release is checked against the prev
 - **Compatibility:** with more than six states, the war surcharge counts wars by their share of all the pairs of states, so big faction lists no longer sit at the 25% cap (15 wars among 13 states: about 14%).
 - **Compatibility:** fleet insurance coordinates with Nexerelin's per-ship insurance (excess cover only, premium on the excess), and bills back payouts for hulls that come back to the fleet (Ship Mastery System's graveyard).
 - **New:** Console Commands `bos_status` and `bos_factions`.
+- **New:** development financing: factions finance each other's buildings through the Clearing Hall. Favorable factions offer to pay for buildings at your colonies (repaid at a low rate once built; missed deadlines go to demand and collection); you can finance projects at their markets; NPC factions sign deals among themselves and really build. Terminal Development tab, branch office, intel, NexusUI card.
 
 ### 0.3.2-beta
 - **Changed:** investment returns follow real long-run asset classes instead of 1–8% a month: savings 3%/yr, government bonds 4.5%, commodity futures 4%, venture fund 12%, military contracts 9%, each with realistic volatility. Wartime, sovereign-debt and shortage effects are realistic too. A new `investmentReturnMultiplier` setting lets you raise them.

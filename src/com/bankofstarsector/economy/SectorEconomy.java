@@ -302,6 +302,14 @@ public class SectorEconomy implements Serializable {
         ventureEma = ema(previousVentureEma, income);
     }
 
+    /** A building financed between factions went up (section C): the venture fund takes a stake in that market. */
+    public void addVentureStake(MarketAPI m) {
+        ensure();
+        if (m == null || m.getSize() < 3 || m.getSize() > 5 || venturePortfolio.containsKey(m.getId())) return;
+        if (venturePortfolio.size() >= BankSettings.VENTURE_PORTFOLIO_SIZE) return;
+        venturePortfolio.put(m.getId(), m.getFactionId());
+    }
+
     // ------------------------------------------------------------------ yields and expected returns
 
     /** Current annual yield of a faction's bonds, or of the diversified fund. */

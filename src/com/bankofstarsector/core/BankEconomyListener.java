@@ -127,6 +127,9 @@ public class BankEconomyListener implements EconomyTickListener {
         // 5. Sovereign debt market, investments, credit score, bankruptcy
         // Faction treasuries, sovereign debt, prices, portfolios: the sources investments are paid from.
         data.getSectorEconomy().monthlyUpdate(data);
+        // Development financing: NPC recipients repay (what they owe the player arrives through the report), new offers and deals.
+        float devIncome = data.getDevelopmentManager().monthlyUpdate(data);
+        if (devIncome > 0f) getDevelopmentNode(report).income += devIncome;
         data.getInvestmentManager().advanceMonth(engine);
         data.getSectorEconomy().endMonth();
         boolean allCurrent = stillDue <= 1f;
@@ -183,6 +186,22 @@ public class BankEconomyListener implements EconomyTickListener {
             node.name = com.bankofstarsector.core.Str.get("report.insurance");
             node.icon = crest();
             node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.insurance.tooltip"));
+        }
+        return node;
+    }
+
+    private static FDNode getDevelopmentNode(MonthlyReport report) {
+        FDNode fleetNode = report.getNode(MonthlyReport.FLEET);
+        if (fleetNode.name == null) {
+            fleetNode.name = "Fleet";
+            fleetNode.custom = MonthlyReport.FLEET;
+            fleetNode.tooltipCreator = report.getMonthlyReportTooltip();
+        }
+        FDNode node = report.getNode(fleetNode, "bos_development");
+        if (node.name == null) {
+            node.name = com.bankofstarsector.core.Str.get("report.development");
+            node.icon = crest();
+            node.tooltipCreator = tooltip(com.bankofstarsector.core.Str.get("report.development.tooltip"));
         }
         return node;
     }

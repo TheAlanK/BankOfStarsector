@@ -71,6 +71,12 @@ public class BankSim {
         scenarioWarSurchargeScales();
         scenarioOtherInsurance();
         scenarioRecoveredHull();
+        scenarioDevelopmentBuiltAndRepaid();
+        scenarioDevelopmentDemandPaid();
+        scenarioDevelopmentCollectionFullForce();
+        scenarioDevelopmentMinimalForce();
+        scenarioDevelopmentNpcDeals();
+        scenarioDevelopmentPlayerInvests();
 
         System.out.println(failures == 0 ? "\nALL SCENARIOS PASSED" : "\nFAILURES: " + failures);
         System.exit(failures == 0 ? 0 : 1);
@@ -756,7 +762,7 @@ public class BankSim {
         for (InvestmentType t : InvestmentType.values()) best = Math.max(best, data.getInterestEngine().expectedAnnualReturn(t));
         float cheapestLoan = Float.MAX_VALUE;
         for (LoanType t : LoanType.values()) {
-            if (t.isBuilder()) continue;
+            if (t.isBuilder() || t.isDevelopment()) continue; // not cash the player can borrow at the counter
             float monthly = data.getInterestEngine().calculateEffectiveLoanRate(t, 850);
             cheapestLoan = Math.min(cheapestLoan, (float) (Math.pow(1 + monthly, 12) - 1));
         }
@@ -1194,6 +1200,235 @@ public class BankSim {
         check("[recovered hull] the payout is charged at month end with the premium", Math.abs(charged - (payout + premium)) < 1f && ins.getRecoveryDue() == 0f);
     }
 
+    // ------------------------------------------------------------------ development financing (0.4.0 section C)
+
+    /** A calm sector, a size-6 player colony with room for any building, and the Hegemony Favorable to the player. */
+    static BankData developmentSector() {
+        reset(10_000_000f);
+        economySector();
+        colony("home", "player", 6, 50_000f);
+        relations.put(key("hegemony", "player"), 0.3f);
+        BankData data = BankData.get();
+        data.getDevelopmentManager().setRandom(new Random(7));
+        months(1); // treasuries
+        return data;
+    }
+
+    /** The Hegemony offers to finance a building at the player's colony; the player accepts. */
+    static com.bankofstarsector.economy.DevelopmentContract acceptedOffer(BankData data) {
+        BankSettings.DEV_OFFER_CHANCE = 1f;
+        months(1);
+        BankSettings.DEV_OFFER_CHANCE = 0f;
+        List<com.bankofstarsector.economy.DevelopmentContract> offers = data.getDevelopmentManager().offersToPlayer();
+        if (offers.isEmpty()) return null;
+        com.bankofstarsector.economy.DevelopmentContract c = offers.get(0);
+        String why = data.getDevelopmentManager().acceptOffer(c.id);
+        return why == null ? c : null;
+    }
+
+    static float treasury(BankData data, String fid) {
+        com.bankofstarsector.economy.FactionTreasury t = data.getSectorEconomy().getTreasury(fid);
+        return t == null ? 0f : t.balance;
+    }
+
+    /** Built on time and repaid at the low rate: the investor gets its money back with interest, relations improve. */
+    static void scenarioDevelopmentBuiltAndRepaid() {
+        BankData data = developmentSector();
+        float relation0 = relation("hegemony", "player");
+        float credits0 = credits.get();
+        float heg0 = treasury(data, "hegemony");
+        BankSettings.DEV_OFFER_CHANCE = 1f;
+        months(1);
+        BankSettings.DEV_OFFER_CHANCE = 0f;
+        List<com.bankofstarsector.economy.DevelopmentContract> offers = data.getDevelopmentManager().offersToPlayer();
+        com.bankofstarsector.economy.DevelopmentContract c = offers.isEmpty() ? null : offers.get(0);
+        boolean offered = c != null && "hegemony".equals(c.investorId) && "home".equals(c.marketId);
+        float hegBefore = treasury(data, "hegemony");
+        float before = credits.get();
+        String why = c == null ? "none" : data.getDevelopmentManager().acceptOffer(c.id);
+        float paidOut = credits.get() - before;
+        float hegPaid = hegBefore - treasury(data, "hegemony");
+        BankAccount loan = c == null ? null : data.getLoanManager().findLoan(c.loanAccountId);
+        months(1);
+        boolean nothingBilled = loan != null && loan.amountPastDue == 0f && Math.abs(loan.remainingBalance - c.principal) < 1f;
+        colonies.get("home").dev.put(c.industryId, new float[]{0f, 0f}); // the player builds it
+        advanceDays(1);
+        com.bankofstarsector.economy.ContractState afterBuild = c.state;
+        float relationBuilt = relation("hegemony", "player");
+        months(26);
+        System.out.printf("[development] offer from %s: %s at %s for %.0f (accept: %s) | paid out %.0f, from the treasury %.0f | billed while building: %s | %s after building | after 26 months: %s, repaid %.0f | relation %.2f -> %.2f -> %.2f%n",
+            c == null ? "-" : c.investorId, c == null ? "-" : c.industryId, c == null ? "-" : c.marketId, c == null ? 0f : c.principal, why,
+            paidOut, hegPaid, !nothingBilled, afterBuild, c == null ? "-" : c.state, c == null ? 0f : c.repaid, relation0, relationBuilt, relation("hegemony", "player"));
+        check("[development] a Favorable faction with a surplus offers to finance a building at the player's colony", offered);
+        check("[development] accepting pays the principal out of the investor's treasury", why == null && Math.abs(paidOut - c.principal) < 1f
+            && Math.abs(hegPaid - c.principal) < 1f && loan != null && loan.loanType == LoanType.DEVELOPMENT);
+        check("[development] nothing is billed while the building goes up", nothingBilled);
+        check("[development] built: repayments start, relations improve", afterBuild == com.bankofstarsector.economy.ContractState.REPAYING
+            && Math.abs(relationBuilt - relation0 - BankSettings.DEV_REL_BUILT) < 1e-4);
+        check("[development] repaid at the low rate: closed, the investor got principal + interest, relations improve again",
+            c.state == com.bankofstarsector.economy.ContractState.CLOSED && c.repaid > c.principal * 1.1f && c.repaid < c.principal * 1.2f
+            && relation("hegemony", "player") > relationBuilt + BankSettings.DEV_REL_CLOSED - 1e-4);
+    }
+
+    /** Deadline missed, then the demand paid: penalty rate, relations down, closed. */
+    static void scenarioDevelopmentDemandPaid() {
+        BankData data = developmentSector();
+        com.bankofstarsector.economy.DevelopmentContract c = acceptedOffer(data);
+        float relation0 = relation("hegemony", "player");
+        advanceDays((int) c.deadlineDays + 2); // never built
+        BankAccount loan = data.getLoanManager().findLoan(c.loanAccountId);
+        com.bankofstarsector.economy.ContractState missed = c.state;
+        float rate = loan.monthlyRate;
+        float relationMissed = relation("hegemony", "player");
+        boolean paid = data.getLoanManager().payOff(loan.accountId);
+        System.out.printf("[development demand] deadline %.0f days: %s, rate %.1f%%/mo, relation %.2f -> %.2f | paid off: %s -> %s (%s)%n",
+            c.deadlineDays, missed, rate * 100, relation0, relationMissed, paid, c.state, c.outcome);
+        check("[development demand] a missed deadline becomes a demand at the penalty rate, and relations drop",
+            missed == com.bankofstarsector.economy.ContractState.DEMAND && Math.abs(rate - BankSettings.DEV_PENALTY_RATE) < 1e-6
+            && Math.abs(relationMissed - relation0 - BankSettings.DEV_REL_MISSED) < 1e-4);
+        check("[development demand] paying the demand closes the contract", paid && c.state == com.bankofstarsector.economy.ContractState.CLOSED);
+    }
+
+    /** Demand unpaid: full force (default, Collection Fleet at full size, relations down again). */
+    static void scenarioDevelopmentCollectionFullForce() {
+        BankData data = developmentSector();
+        com.bankofstarsector.economy.DevelopmentContract c = acceptedOffer(data);
+        credits.set(0f);
+        data.setAutopayEnabled(false);
+        advanceDays((int) c.deadlineDays + 2);
+        float relationMissed = relation("hegemony", "player");
+        advanceDays(BankSettings.DEV_DEMAND_DAYS + 3);
+        BankAccount loan = data.getLoanManager().findLoan(c.loanAccountId);
+        System.out.printf("[development collection] demand unpaid: %s, loan %s, fleet %s, minimal force %s, relation %.2f -> %.2f%n",
+            c.state, loan.status, data.getCollectionManager().hasActiveCollection(loan.accountId), loan.minimalForce,
+            relationMissed, relation("hegemony", "player"));
+        check("[development collection] an unpaid demand goes to collection by full force",
+            c.state == com.bankofstarsector.economy.ContractState.COLLECTION && loan.status == LoanStatus.DEFAULTED
+            && data.getCollectionManager().hasActiveCollection(loan.accountId) && !loan.minimalForce);
+        check("[development collection] relations drop again", relation("hegemony", "player") < relationMissed - 0.1f);
+    }
+
+    /** Built, then repayments missed: collection by minimal force (a smaller fleet). */
+    static void scenarioDevelopmentMinimalForce() {
+        BankData data = developmentSector();
+        com.bankofstarsector.economy.DevelopmentContract c = acceptedOffer(data);
+        colonies.get("home").dev.put(c.industryId, new float[]{0f, 0f});
+        advanceDays(1);
+        months(1);
+        credits.set(0f);
+        data.setAutopayEnabled(false);
+        months(5);
+        BankAccount loan = data.getLoanManager().findLoan(c.loanAccountId);
+        int minimal = com.bankofstarsector.collection.CollectionManager.fleetPointsFor(loan, 0);
+        loan.minimalForce = false;
+        int full = com.bankofstarsector.collection.CollectionManager.fleetPointsFor(loan, 0);
+        loan.minimalForce = true;
+        System.out.printf("[development minimal force] built, repayments missed: %s, %d days overdue, fleet %s, %d FP (full force %d)%n",
+            loan.status, loan.daysOverdue, data.getCollectionManager().hasActiveCollection(loan.accountId), minimal, full);
+        check("[development minimal force] missed repayments of a built project bring a smaller Collection Fleet",
+            data.getCollectionManager().hasActiveCollection(loan.accountId) && minimal < full);
+    }
+
+    /** NPC to NPC: a deal between Favorable factions builds for real, gets repaid; the cap holds; absent factions never take part. */
+    static void scenarioDevelopmentNpcDeals() {
+        reset(1_000_000f);
+        economySector();
+        relations.put(key("hegemony", "tritachyon"), 0.3f);
+        relations.put(key("hegemony", "uaf"), 0.5f);     // a modded faction with no markets in this sector
+        relations.put(key("tritachyon", "uaf"), 0.5f);
+        BankData data = BankData.get();
+        com.bankofstarsector.economy.DevelopmentManager dm = data.getDevelopmentManager();
+        dm.setRandom(new Random(3));
+        months(1);
+        BankSettings.DEV_NPC_DEALS_PER_MONTH = 1;
+        months(1);
+        BankSettings.DEV_NPC_DEALS_PER_MONTH = 0;
+        List<com.bankofstarsector.economy.DevelopmentContract> deals = dm.sectorDeals();
+        com.bankofstarsector.economy.DevelopmentContract d = deals.isEmpty() ? null : deals.get(0);
+        Colony market = d == null ? null : colonies.get(d.marketId);
+        boolean building = market != null && market.dev.containsKey(d.industryId) && market.dev.get(d.industryId)[0] > 0f;
+        advanceDays(31);
+        boolean built = market != null && market.dev.get(d.industryId)[0] == 0f && d.state == com.bankofstarsector.economy.ContractState.REPAYING;
+        months(26);
+        System.out.printf("[development npc] deal: %s finances %s's %s at %s for %.0f | building: %s, built: %s | after 26 months: %s, repaid %.0f%n",
+            d == null ? "-" : d.investorId, d == null ? "-" : d.recipientId, d == null ? "-" : d.industryId, d == null ? "-" : d.marketId,
+            d == null ? 0f : d.principal, building, built, d == null ? "-" : d.state, d == null ? 0f : d.repaid);
+        check("[development npc] Favorable factions sign a deal and the recipient really builds",
+            d != null && building && built && ("hegemony".equals(d.investorId) || "tritachyon".equals(d.investorId)));
+        check("[development npc] the recipient repays the investor from its treasury", d != null
+            && d.state == com.bankofstarsector.economy.ContractState.CLOSED && d.repaid > d.principal);
+
+        // The cap: at most DEV_MAX_NPC_ACTIVE under way, however many are proposed.
+        BankSettings.DEV_NPC_DEALS_PER_MONTH = 3;
+        BankSettings.DEV_MAX_NPC_ACTIVE = 2;
+        int maxActive = 0;
+        for (int i = 0; i < 8; i++) {
+            months(1);
+            int active = dm.count(com.bankofstarsector.economy.ContractState.BUILDING) + dm.count(com.bankofstarsector.economy.ContractState.REPAYING)
+                + dm.count(com.bankofstarsector.economy.ContractState.DEMAND);
+            maxActive = Math.max(maxActive, active);
+        }
+        BankSettings.DEV_NPC_DEALS_PER_MONTH = 0;
+        boolean uafIn = false;
+        for (com.bankofstarsector.economy.DevelopmentContract x : dm.getContracts()) uafIn |= "uaf".equals(x.investorId) || "uaf".equals(x.recipientId);
+        System.out.printf("[development npc] 3 proposals a month, cap 2: at most %d under way, %d deals in all | a faction without markets took part: %s%n",
+            maxActive, dm.sectorDeals().size(), uafIn);
+        check("[development npc] never more deals under way than the cap", maxActive <= 2 && maxActive > 0);
+        check("[development npc] factions take part only when they exist (hold markets)", !uafIn);
+    }
+
+    /** The player as investor: a profitable project is accepted and repaid; a bad one declined; a missed deadline recovered. */
+    static void scenarioDevelopmentPlayerInvests() {
+        reset(5_000_000f);
+        economySector();
+        colony("heg_big", "hegemony", 6, 120_000f);
+        colony("heg_small", "hegemony", 3, 20_000f);
+        relations.put(key("hegemony", "player"), 0.3f);
+        BankData data = BankData.get();
+        com.bankofstarsector.economy.DevelopmentManager dm = data.getDevelopmentManager();
+        months(1);
+        String small = dm.offerToFinance("heg_small", "mining", 0.01f);
+        float before = credits.get();
+        String big = dm.offerToFinance("heg_big", "mining", 0.01f);
+        float paid = before - credits.get();
+        com.bankofstarsector.economy.DevelopmentContract c = null;
+        for (com.bankofstarsector.economy.DevelopmentContract x : dm.playerContracts()) if ("heg_big".equals(x.marketId)) c = x;
+        boolean building = colonies.get("heg_big").dev.containsKey("mining");
+        advanceDays(31);
+        com.bankofstarsector.economy.ContractState built = c == null ? null : c.state;
+        float beforeMonths = credits.get();
+        months(2);
+        float received = c == null ? 0f : c.repaid;
+        System.out.printf("[development investor] size 3 project: %s | size 6 at 1%%/mo: %s, paid %.0f, building %s, then %s, repaid %.0f in 2 months (credits %+.0f)%n",
+            small, big == null ? "accepted" : big, paid, building, built, received, credits.get() - beforeMonths);
+        check("[development investor] a bad deal (a small market) is declined", "dev.reason.declined".equals(small));
+        check("[development investor] a profitable one is accepted: the player pays and the faction builds",
+            big == null && c != null && Math.abs(paid - c.principal) < 1f && building && built == com.bankofstarsector.economy.ContractState.REPAYING);
+        check("[development investor] the faction repays the player at month end", received > 0f && Math.abs((credits.get() - beforeMonths) - received) < 1f);
+
+        // A second project; the market changes hands before it is built: demand, then recovery from the treasury.
+        String second = dm.offerToFinance("heg0", "mining", 0.005f);
+        com.bankofstarsector.economy.DevelopmentContract d = null;
+        for (com.bankofstarsector.economy.DevelopmentContract x : dm.playerContracts()) if ("heg0".equals(x.marketId)) d = x;
+        float relation0 = relation("hegemony", "player");
+        colonies.get("heg0").factionId = "persean";
+        advanceDays(1);
+        com.bankofstarsector.economy.ContractState lost = d == null ? null : d.state;
+        advanceDays(BankSettings.DEV_DEMAND_DAYS - 2);
+        com.bankofstarsector.economy.FactionTreasury t = data.getSectorEconomy().getTreasury("hegemony");
+        t.balance = 50_000f; // a short treasury: only part can be recovered
+        float beforeRecovery = credits.get();
+        advanceDays(3);
+        float recovered = credits.get() - beforeRecovery;
+        System.out.printf("[development investor] second project: %s | market lost: %s | recovered %.0f of %.0f -> %s, relation %.2f -> %.2f%n",
+            second == null ? "accepted" : second, lost, recovered, d == null ? 0f : d.principal, d == null ? "-" : d.state,
+            relation0, relation("hegemony", "player"));
+        check("[development investor] a market lost before completion is a missed deadline", lost == com.bankofstarsector.economy.ContractState.DEMAND);
+        check("[development investor] the Clearing Hall recovers what the treasury holds, the rest defaults, relations drop",
+            Math.abs(recovered - 50_000f) < 1f && d.state == com.bankofstarsector.economy.ContractState.DEFAULTED
+            && relation("hegemony", "player") < relation0 - 0.15f);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     static void reset(float startCredits) {
@@ -1203,6 +1438,9 @@ public class BankSim {
         relations.clear();
         fleetMembers.clear();
         pirateLike.clear();
+        BankSettings.DEV_OFFER_CHANCE = 0f;          // development scenarios turn offers and deals on themselves
+        BankSettings.DEV_NPC_DEALS_PER_MONTH = 0;
+        BankSettings.DEV_MAX_NPC_ACTIVE = 4;
         com.bankofstarsector.compat.OtherInsurance.source = null;
         BankSettings.POLITICAL_FACTIONS.clear();
         BankSettings.NON_POLITICAL_FACTIONS.clear();
@@ -1218,6 +1456,7 @@ public class BankSim {
         daily.advance(0f); // initialise day stamp
         for (int i = 0; i < days; i++) {
             now += DAY;
+            advanceConstruction();
             daily.advance(0f);
         }
     }
@@ -1252,7 +1491,48 @@ public class BankSim {
         boolean inEconomy = true;
         final Set<String> conditions = new LinkedHashSet<String>();
         final List<float[]> industries = new ArrayList<float[]>(); // {buildCost, improved 0/1}
+        /** Buildings added for development contracts: id -> {building 0/1, days left}. */
+        final Map<String, float[]> dev = new LinkedHashMap<String, float[]>();
+        final Set<String> unavailable = new HashSet<String>();
+        /** Construction doesn't progress (a disrupted market). */
+        boolean stalled;
         com.fs.starfarer.api.campaign.econ.MarketAPI proxy;
+    }
+
+    static final Set<String> STRUCTURES = new HashSet<String>(Arrays.asList("patrolhq", "waystation", "grounddefenses"));
+    static float devCost(String id) { return STRUCTURES.contains(id) ? 100_000f : 200_000f; }
+    static float devTime(String id) { return STRUCTURES.contains(id) ? 20f : 30f; }
+
+    /** A building of a colony's development list, as the game's Industry. */
+    static Object devIndustry(final Colony c, final String id) {
+        return Proxy.newProxyInstance(BankSim.class.getClassLoader(),
+            new Class<?>[]{com.fs.starfarer.api.campaign.econ.Industry.class}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method m, Object[] a) {
+                    String n = m.getName();
+                    float[] e = c.dev.get(id);
+                    if (n.equals("getId") || n.equals("getCurrentName")) return id;
+                    if (n.equals("getBuildCost")) return devCost(id);
+                    if (n.equals("getBuildTime")) return devTime(id);
+                    if (n.equals("isAvailableToBuild")) return !c.unavailable.contains(id);
+                    if (n.equals("isIndustry")) return !STRUCTURES.contains(id);
+                    if (n.equals("isStructure")) return STRUCTURES.contains(id);
+                    if (n.equals("isBuilding")) return e != null && e[0] > 0f;
+                    if (n.equals("isFunctional")) return e != null && e[0] == 0f;
+                    if (n.equals("startBuilding")) { c.dev.put(id, new float[]{1f, devTime(id)}); return null; }
+                    if (n.equals("hashCode")) return id.hashCode();
+                    if (n.equals("equals")) return proxy == a[0];
+                    if (n.equals("toString")) return "industry:" + id;
+                    return defaultFor(m.getReturnType());
+                }
+            });
+    }
+
+    /** One day of construction everywhere (the game advances industries with the economy). */
+    static void advanceConstruction() {
+        for (Colony c : colonies.values()) {
+            if (c.stalled) continue;
+            for (float[] e : c.dev.values()) if (e[0] > 0f && --e[1] <= 0f) e[0] = 0f;
+        }
     }
 
     static Colony colony(String id, String factionId, int size, float netIncome) {
@@ -1289,6 +1569,11 @@ public class BankSim {
                         for (float[] ind : c.industries) out.add(industry(ind[0], ind[1] > 0f));
                         return out;
                     }
+                    if (n.equals("getConstructionQueue")) return new com.fs.starfarer.api.impl.campaign.econ.impl.ConstructionQueue();
+                    if (n.equals("hasIndustry")) return c.dev.containsKey((String) a[0]);
+                    if (n.equals("instantiateIndustry")) return devIndustry(c, (String) a[0]);
+                    if (n.equals("addIndustry") && a.length == 1) { c.dev.put((String) a[0], new float[]{0f, 0f}); return null; }
+                    if (n.equals("getIndustry")) return c.dev.containsKey((String) a[0]) ? devIndustry(c, (String) a[0]) : null;
                     if (n.equals("hashCode")) return System.identityHashCode(proxy);
                     if (n.equals("equals")) return proxy == a[0];
                     if (n.equals("toString")) return "market:" + c.id;
@@ -1599,6 +1884,11 @@ public class BankSim {
                     return out;
                 }
                 if (n.equals("addMessage")) { messages.add(String.valueOf(a[0])); return null; }
+                if (n.equals("getMod") && m.getReturnType() == com.fs.starfarer.api.combat.StatBonus.class) {
+                    com.fs.starfarer.api.combat.StatBonus b = new com.fs.starfarer.api.combat.StatBonus(); // e.g. a market's industry slots
+                    b.modifyFlat("sim", 4f);
+                    return b;
+                }
                 if (n.equals("toString")) return "stub:" + type.getSimpleName();
                 if (n.equals("hashCode")) return System.identityHashCode(proxy);
                 if (n.equals("equals")) return proxy == a[0];

@@ -40,5 +40,6 @@ public class BankCampaignScript implements EveryFrameScript {
         data.getAssetSeizureManager().advanceDay(data);
         data.getForeclosureManager().advanceDay(data);
         data.getInsuranceManager().advanceDay(data);
+        data.getDevelopmentManager().advanceDay(data);
     }
 }

@@ -133,6 +133,7 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         }
         if (data.getBankruptcyManager().canInvest()) options.addOption(Str.get("branch.optInvest"), PREFIX + "invest");
         options.addOption(Str.get("branch.optInsurance"), PREFIX + "ins");
+        if (BankSettings.DEV_ENABLED) options.addOption(Str.get("branch.optDevelopment"), PREFIX + "dev");
         options.addOption(Str.get("branch.optTerminal"), OPT_TERMINAL);
         options.addOption(Str.get("branch.optLeave"), OPT_BACK);
         options.setShortcut(OPT_BACK, org.lwjgl.input.Keyboard.KEY_ESCAPE, false, false, false, true);
@@ -169,6 +170,12 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         else if ("inv".equals(screen)) showInvestAmount(InvestmentType.valueOf(p[1]), issuerArg(p, 2));
         else if ("iquote".equals(screen)) showInvestQuote(InvestmentType.valueOf(p[1]), selectedAmount(), issuerArg(p, 2));
         else if ("buy".equals(screen)) buy(InvestmentType.valueOf(p[1]), Float.parseFloat(p[2]), issuerArg(p, 3));
+        else if ("dev".equals(screen)) showDevelopment();
+        else if ("doffer".equals(screen)) showDevOffer(p[1]);
+        else if ("daccept".equals(screen)) acceptDevOffer(p[1]);
+        else if ("ddecline".equals(screen)) declineDevOffer(p[1]);
+        else if ("dproj".equals(screen)) showDevProject(p[1], p[2]);
+        else if ("dfin".equals(screen)) financeDevProject(p[1], p[2], Integer.parseInt(p[3]));
         else showSummary(); // "back"
     }
 
@@ -316,6 +323,99 @@ public class BOSBranch extends BaseCommandPlugin implements CoreInteractionListe
         dialog.getTextPanel().addPara(Str.get(type.isBuilder() ? "branch.loan.signedHeld" : "branch.loan.signed"),
             Misc.getHighlightColor(), Misc.getDGSCredits(amount));
         showSummary();
+    }
+
+    // ------------------------------------------------------------------ development financing (0.4.0)
+
+    private void showDevelopment() {
+        com.bankofstarsector.economy.DevelopmentManager dm = BankData.get().getDevelopmentManager();
+        TextPanelAPI text = dialog.getTextPanel();
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        text.addPara(Str.get("branch.dev.intro"));
+        for (com.bankofstarsector.economy.DevelopmentContract c : dm.playerContracts()) {
+            if (c.recipientIsPlayer()) {
+                text.addPara(Str.get("branch.dev.mineRecipient"), Misc.getHighlightColor(), c.industryName, c.marketName,
+                    c.investorName(), c.state.getDisplayName());
+            } else {
+                text.addPara(Str.get("branch.dev.mineInvestor"), Misc.getHighlightColor(), c.industryName, c.marketName,
+                    c.recipientName(), c.state.getDisplayName(), Misc.getDGSCredits(c.owed));
+            }
+        }
+        for (com.bankofstarsector.economy.DevelopmentContract c : dm.offersToPlayer()) {
+            options.addOption(Str.f("branch.dev.optOffer", c.investorName(), c.industryName, c.marketName), PREFIX + "doffer:" + c.id);
+        }
+        List<com.bankofstarsector.economy.DevelopmentManager.Project> projects = dm.projectsForPlayer(6);
+        if (projects.isEmpty()) text.addPara(Str.get("branch.dev.noProjects"));
+        else text.addPara(Str.get("branch.dev.projects"));
+        for (com.bankofstarsector.economy.DevelopmentManager.Project p : projects) {
+            com.fs.starfarer.api.campaign.FactionAPI f = p.market.getFaction();
+            options.addOption(Str.f("branch.dev.optProject", p.name, p.market.getName(), f != null ? f.getDisplayName() : "?",
+                Misc.getDGSCredits(p.principal())), PREFIX + "dproj:" + p.market.getId() + ":" + p.industryId);
+        }
+        addBack("back");
+    }
+
+    private void showDevOffer(String contractId) {
+        com.bankofstarsector.economy.DevelopmentContract c = BankData.get().getDevelopmentManager().find(contractId);
+        TextPanelAPI text = dialog.getTextPanel();
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        if (c == null || c.state != com.bankofstarsector.economy.ContractState.OFFERED) {
+            text.addPara(Str.get("dev.reason.gone"));
+        } else {
+            text.addPara(Str.get("dev.intel.offer"), Misc.getHighlightColor(), c.investorName(), Misc.getDGSCredits(c.principal),
+                c.industryName, c.marketName, Misc.getDGSCredits(c.buildCost));
+            text.addPara(Str.get("dev.terms.build"), Misc.getHighlightColor(), c.industryName, c.marketName, "" + (int) c.deadlineDays);
+            text.addPara(Str.get("dev.terms.repay"), Misc.getHighlightColor(), Quote.percentText(c.rate), "" + c.repayMonths);
+            text.addPara(Str.get("dev.terms.missed"), Misc.getNegativeHighlightColor(), Quote.percentText(c.penaltyRate), "" + BankSettings.DEV_DEMAND_DAYS);
+            text.addPara(Str.get("dev.terms.late"));
+            options.addOption(Str.get("dev.intel.accept"), PREFIX + "daccept:" + c.id);
+            options.addOption(Str.get("dev.intel.decline"), PREFIX + "ddecline:" + c.id);
+        }
+        addBack("dev");
+    }
+
+    private void acceptDevOffer(String contractId) {
+        String why = BankData.get().getDevelopmentManager().acceptOffer(contractId);
+        dialog.getTextPanel().addPara(Str.get(why != null ? why : "branch.dev.accepted"),
+            why != null ? Misc.getNegativeHighlightColor() : Misc.getPositiveHighlightColor());
+        showDevelopment();
+    }
+
+    private void declineDevOffer(String contractId) {
+        BankData.get().getDevelopmentManager().declineOffer(contractId);
+        dialog.getTextPanel().addPara(Str.get("terminal.dev.declined"));
+        showDevelopment();
+    }
+
+    private void showDevProject(String marketId, String industryId) {
+        com.bankofstarsector.economy.DevelopmentManager.Project p = BankData.get().getDevelopmentManager().project(marketId, industryId);
+        TextPanelAPI text = dialog.getTextPanel();
+        OptionPanelAPI options = dialog.getOptionPanel();
+        options.clearOptions();
+        if (p == null) {
+            text.addPara(Str.get("dev.reason.gone"));
+        } else {
+            com.fs.starfarer.api.campaign.FactionAPI f = p.market.getFaction();
+            text.addPara(Str.get("branch.dev.project"), Misc.getHighlightColor(), f != null ? f.getDisplayName() : "?", p.name,
+                p.market.getName(), "" + p.market.getSize(), Misc.getDGSCredits(p.principal()), "" + (int) (p.buildDays + BankSettings.DEV_SLACK_DAYS),
+                "" + BankSettings.DEV_REPAY_MONTHS);
+            text.addPara(Str.get("dev.confirm.financeRisk"));
+            for (int i = 0; i < BankSettings.DEV_INVESTOR_RATES.length; i++) {
+                options.addOption(Str.f("branch.dev.optRate", Quote.percentText(BankSettings.DEV_INVESTOR_RATES[i])),
+                    PREFIX + "dfin:" + marketId + ":" + industryId + ":" + i);
+            }
+        }
+        addBack("dev");
+    }
+
+    private void financeDevProject(String marketId, String industryId, int tier) {
+        float rate = BankSettings.DEV_INVESTOR_RATES[Math.max(0, Math.min(BankSettings.DEV_INVESTOR_RATES.length - 1, tier))];
+        String why = BankData.get().getDevelopmentManager().offerToFinance(marketId, industryId, rate);
+        dialog.getTextPanel().addPara(Str.get(why != null ? why : "terminal.dev.financed"),
+            why != null ? Misc.getNegativeHighlightColor() : Misc.getPositiveHighlightColor());
+        showDevelopment();
     }
 
     // ------------------------------------------------------------------ fleet insurance

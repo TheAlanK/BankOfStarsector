@@ -34,6 +34,16 @@ Bank of Starsector
   pays what the other insurer does not. Shown in the terminal, the branch office and NexusUI.
 - Compatibility: a hull the PBC paid for that comes back to the fleet (Ship Mastery System's graveyard, or any
   mod that returns lost ships) has its payout billed back at the next month end.
+- New: development financing. Factions finance each other's buildings, and the Confederation's Clearing Hall
+  holds the money in escrow and enforces the terms. A faction with a surplus that is Favorable to you may offer
+  to pay for a building at one of your colonies: accept, build it before the deadline, then repay at 1% a month
+  over 24 months (nothing due while it goes up). A missed deadline makes the whole balance due at 3% a month
+  within 60 days; an unpaid demand is collected by full force, a late repayment after it is built by a smaller
+  fleet. You can finance projects at Favorable factions' markets at 0.5, 1 or 1.5% a month; they accept when
+  it's worth it to them, really build, and repay you monthly, and the Clearing Hall recovers what it can if they
+  miss the deadline. NPC factions sign deals among themselves (one a month, four at most under way) and the
+  buildings really go up. Relations follow every contract. Terminal Development tab, branch office "Development
+  finance", offer and register intel, a NexusUI card and JSON, and 20 development* settings.
 - New: Console Commands bos_status (your accounts) and bos_factions (how the Sovereign Desk treats every
   faction that holds markets, and why).
 - Fix: uses Nexerelin 0.12.2's non-deprecated corvus-mode check. build.bat now runs build.ps1, which finds the

@@ -24,6 +24,7 @@ const com.bankofstarsector.banking.LoanStatus SEIZED
 const com.bankofstarsector.banking.LoanType BUILDER
 const com.bankofstarsector.banking.LoanType CORPORATE
 const com.bankofstarsector.banking.LoanType CREDIT_LINE
+const com.bankofstarsector.banking.LoanType DEVELOPMENT
 const com.bankofstarsector.banking.LoanType EMERGENCY
 const com.bankofstarsector.banking.LoanType MEGACORP
 const com.bankofstarsector.banking.LoanType SECURED
@@ -33,6 +34,15 @@ const com.bankofstarsector.collection.BankruptcyManager$BankruptcyState ACTIVE
 const com.bankofstarsector.collection.BankruptcyManager$BankruptcyState FILED
 const com.bankofstarsector.collection.BankruptcyManager$BankruptcyState NONE
 const com.bankofstarsector.collection.BankruptcyManager$BankruptcyState RECOVERY
+const com.bankofstarsector.economy.ContractState BUILDING
+const com.bankofstarsector.economy.ContractState CLOSED
+const com.bankofstarsector.economy.ContractState COLLECTION
+const com.bankofstarsector.economy.ContractState DECLINED
+const com.bankofstarsector.economy.ContractState DEFAULTED
+const com.bankofstarsector.economy.ContractState DEMAND
+const com.bankofstarsector.economy.ContractState EXPIRED
+const com.bankofstarsector.economy.ContractState OFFERED
+const com.bankofstarsector.economy.ContractState REPAYING
 field com.bankofstarsector.banking.BankAccount accountId java.lang.String
 field com.bankofstarsector.banking.BankAccount accumulatedReturns float
 field com.bankofstarsector.banking.BankAccount amountPastDue float
@@ -48,6 +58,7 @@ field com.bankofstarsector.banking.BankAccount creditLimit float
 field com.bankofstarsector.banking.BankAccount currentBill float
 field com.bankofstarsector.banking.BankAccount currentValue float
 field com.bankofstarsector.banking.BankAccount daysOverdue int
+field com.bankofstarsector.banking.BankAccount developmentContractId java.lang.String
 field com.bankofstarsector.banking.BankAccount heldFunds float
 field com.bankofstarsector.banking.BankAccount investedAmount float
 field com.bankofstarsector.banking.BankAccount investmentType com.bankofstarsector.banking.InvestmentType
@@ -58,6 +69,7 @@ field com.bankofstarsector.banking.BankAccount lastSourceArg java.lang.String
 field com.bankofstarsector.banking.BankAccount lastSourceKey java.lang.String
 field com.bankofstarsector.banking.BankAccount loanType com.bankofstarsector.banking.LoanType
 field com.bankofstarsector.banking.BankAccount lockMonthsRemaining int
+field com.bankofstarsector.banking.BankAccount minimalForce boolean
 field com.bankofstarsector.banking.BankAccount missedPayments int
 field com.bankofstarsector.banking.BankAccount monthlyRate float
 field com.bankofstarsector.banking.BankAccount monthsElapsed int
@@ -185,6 +197,7 @@ field com.bankofstarsector.core.BankData autopayEnabled boolean
 field com.bankofstarsector.core.BankData bankruptcyManager com.bankofstarsector.collection.BankruptcyManager
 field com.bankofstarsector.core.BankData collectionManager com.bankofstarsector.collection.CollectionManager
 field com.bankofstarsector.core.BankData creditScoreManager com.bankofstarsector.banking.CreditScoreManager
+field com.bankofstarsector.core.BankData developmentManager com.bankofstarsector.economy.DevelopmentManager
 field com.bankofstarsector.core.BankData foreclosureManager com.bankofstarsector.collection.ForeclosureManager
 field com.bankofstarsector.core.BankData insuranceManager com.bankofstarsector.banking.InsuranceManager
 field com.bankofstarsector.core.BankData interestEngine com.bankofstarsector.banking.InterestEngine
@@ -198,6 +211,33 @@ field com.bankofstarsector.core.BankData$TransactionRecord amount float
 field com.bankofstarsector.core.BankData$TransactionRecord description java.lang.String
 field com.bankofstarsector.core.BankData$TransactionRecord timestamp long
 field com.bankofstarsector.core.BankData$TransactionRecord type java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract acceptedTs long
+field com.bankofstarsector.economy.DevelopmentContract buildCost float
+field com.bankofstarsector.economy.DevelopmentContract builtTs long
+field com.bankofstarsector.economy.DevelopmentContract closedTs long
+field com.bankofstarsector.economy.DevelopmentContract deadlineDays float
+field com.bankofstarsector.economy.DevelopmentContract deadlineTs long
+field com.bankofstarsector.economy.DevelopmentContract demandDeadlineTs long
+field com.bankofstarsector.economy.DevelopmentContract id java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract industryId java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract industryName java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract investorId java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract loanAccountId java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract marketId java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract marketName java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract monthsRepaid int
+field com.bankofstarsector.economy.DevelopmentContract offeredTs long
+field com.bankofstarsector.economy.DevelopmentContract outcome java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract owed float
+field com.bankofstarsector.economy.DevelopmentContract penaltyRate float
+field com.bankofstarsector.economy.DevelopmentContract principal float
+field com.bankofstarsector.economy.DevelopmentContract rate float
+field com.bankofstarsector.economy.DevelopmentContract recipientId java.lang.String
+field com.bankofstarsector.economy.DevelopmentContract repaid float
+field com.bankofstarsector.economy.DevelopmentContract repayMonths int
+field com.bankofstarsector.economy.DevelopmentContract state com.bankofstarsector.economy.ContractState
+field com.bankofstarsector.economy.DevelopmentManager contracts java.util.List<com.bankofstarsector.economy.DevelopmentContract>
+field com.bankofstarsector.economy.DevelopmentManager nextId int
 field com.bankofstarsector.economy.FactionTreasury balance float
 field com.bankofstarsector.economy.FactionTreasury borrowed float
 field com.bankofstarsector.economy.FactionTreasury couponsPaid float

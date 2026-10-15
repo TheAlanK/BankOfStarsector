@@ -51,8 +51,11 @@ public class LoanManager implements Serializable {
     /** Open loans that count toward the score bracket's loan limit (credit-builder loans do not). */
     public int getLimitedLoanCount() {
         int n = 0;
-        for (BankAccount loan : getActiveLoans()) if (!loan.loanType.isBuilder() && !loan.loanType.isRevolving()) n++;
-        // Colony-secured loans count: each is still a loan the player must service.
+        for (BankAccount loan : getActiveLoans()) {
+            if (!loan.loanType.isBuilder() && !loan.loanType.isRevolving() && !loan.loanType.isDevelopment()) n++;
+        }
+        // Colony-secured loans count: each is still a loan the player must service. Development financing comes
+        // from another faction, so it doesn't use up the bank's own limit.
         return n;
     }
 
@@ -134,6 +137,23 @@ public class LoanManager implements Serializable {
     }
 
     /**
+     * Development financing (0.4.0): a faction pays for a building at one of the player's colonies. The money
+     * goes to the player now; nothing is billed while the building goes up (DevelopmentManager.billingMode).
+     */
+    public BankAccount takeDevelopmentLoan(String contractId, String investorName, float amount, float rate, int months) {
+        long timestamp = Global.getSector().getClock().getTimestamp();
+        BankAccount loan = BankAccount.createLoan(LoanType.DEVELOPMENT, amount, rate, timestamp);
+        loan.termMonths = Math.max(1, months);
+        loan.developmentContractId = contractId;
+        getLoans().add(loan);
+        BankData.get().getCreditScoreManager().onLoanOpened(loan);
+        Global.getSector().getPlayerFleet().getCargo().getCredits().add(amount);
+        BankData.get().addTransaction("LOAN", amount,
+            com.bankofstarsector.core.Str.f("txd.development", investorName, formatCredits(amount)));
+        return loan;
+    }
+
+    /**
      * Pays toward a loan from the player's credits. Past-due installments are
      * settled first; clearing them cures an overdue or defaulted loan.
      */
@@ -154,6 +174,8 @@ public class LoanManager implements Serializable {
     public void applyPayment(BankAccount loan, float amount, String txType) {
         BankData data = BankData.get();
         boolean wasLate = loan.status != LoanStatus.ACTIVE;
+        // Development financing: the Confederation passes every payment on to the investor.
+        if (loan.developmentContractId != null) data.getDevelopmentManager().onLoanPayment(loan, Math.min(amount, loan.remainingBalance));
 
         loan.remainingBalance -= amount;
         loan.amountPastDue = Math.max(0f, loan.amountPastDue - amount);
@@ -181,9 +203,11 @@ public class LoanManager implements Serializable {
                 // Closed by enforcement, not by the borrower: no payoff credit.
                 loan.status = LoanStatus.SEIZED;
                 if (loan.loanType.isSecured()) data.getForeclosureManager().onLoanClosed(loan);
+                if (loan.developmentContractId != null) data.getDevelopmentManager().onLoanClosed(loan, false);
                 data.addTransaction("SEIZED", -amount, com.bankofstarsector.core.Str.f("txd.seized", loan.loanType.getDisplayName()));
             } else {
                 loan.status = LoanStatus.PAID_OFF;
+                if (loan.developmentContractId != null) data.getDevelopmentManager().onLoanClosed(loan, true);
                 data.getCreditScoreManager().onLoanPayoff();
                 data.addTransaction("PAYOFF", -amount, com.bankofstarsector.core.Str.f("txd.payoff", loan.loanType.getDisplayName()));
                 releaseHeldFunds(loan);
@@ -226,6 +250,15 @@ public class LoanManager implements Serializable {
         float billed = 0f;
         for (BankAccount loan : getActiveLoans()) {
             if (Global.getSector().getClock().getElapsedDaysSince(loan.createdTimestamp) < GRACE_DAYS) continue;
+            if (loan.developmentContractId != null) {
+                // Development financing: nothing while the building goes up; penalty interest only while a demand runs.
+                int mode = BankData.get().getDevelopmentManager().billingMode(loan);
+                if (mode == com.bankofstarsector.economy.DevelopmentManager.BILL_NOTHING) continue;
+                if (mode == com.bankofstarsector.economy.DevelopmentManager.BILL_INTEREST) {
+                    loan.remainingBalance += loan.remainingBalance * loan.monthlyRate;
+                    continue;
+                }
+            }
 
             if (loan.status != LoanStatus.ACTIVE) {
                 loan.monthlyRate = engine.calculateOverdueRate(loan.baseMonthlyRate, Math.max(1, loan.daysOverdue / 30));
@@ -236,7 +269,8 @@ public class LoanManager implements Serializable {
             }
             float interest = loan.remainingBalance * loan.monthlyRate;
             loan.remainingBalance += interest;
-            BankData.get().getSectorEconomy().recordLoanInterest(interest);
+            // Development financing earns its investor, not the Confederation.
+            if (loan.developmentContractId == null) BankData.get().getSectorEconomy().recordLoanInterest(interest);
 
             float installment;
             if (loan.monthsElapsed + 1 >= loan.termMonths) {

@@ -19,6 +19,10 @@ public class StringsCheck {
     /** Keys the code builds at runtime (prefix + enum/constant name). */
     static final String[] DYNAMIC = {
         "terminal.tab_overview", "terminal.tab_loans", "terminal.tab_investments", "terminal.tab_credit", "terminal.tab_history",
+        "terminal.tab_insurance", "terminal.tab_development",
+        "dev.state.OFFERED", "dev.state.DECLINED", "dev.state.EXPIRED", "dev.state.BUILDING", "dev.state.REPAYING",
+        "dev.state.DEMAND", "dev.state.COLLECTION", "dev.state.CLOSED", "dev.state.DEFAULTED",
+        "loan.DEVELOPMENT.name", "loan.DEVELOPMENT.desc", "tx.DEVELOPMENT",
         "bankruptcy.state.NONE", "bankruptcy.state.FILED", "bankruptcy.state.ACTIVE", "bankruptcy.state.RECOVERY",
         "notice.phase1.title", "notice.phase2.title", "notice.phase3.title", "notice.phase4.title",
         "tx.LOAN", "tx.PAYMENT", "tx.AUTOPAY", "tx.PAYOFF", "tx.CURED", "tx.MISSED", "tx.DEFAULT", "tx.GARNISH",
